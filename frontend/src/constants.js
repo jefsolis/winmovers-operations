@@ -1,32 +1,38 @@
-export const JOB_STATUSES = [
-  { value: 'SURVEY',     label: 'Survey',     bg: '#e2e8f0', color: '#475569' },
-  { value: 'QUOTATION',  label: 'Quotation',  bg: '#dbeafe', color: '#1e40af' },
-  { value: 'BOOKING',    label: 'Booking',    bg: '#ede9fe', color: '#6d28d9' },
-  { value: 'PRE_MOVE',   label: 'Pre-Move',   bg: '#fef3c7', color: '#92400e' },
-  { value: 'IN_TRANSIT', label: 'In Transit', bg: '#fef9c3', color: '#854d0e' },
-  { value: 'DELIVERED',  label: 'Delivered',  bg: '#dcfce7', color: '#166534' },
-  { value: 'CLOSED',     label: 'Closed',     bg: '#d1fae5', color: '#065f46' },
-  { value: 'CANCELLED',  label: 'Cancelled',  bg: '#fee2e2', color: '#991b1b' }
+// Colour/style metadata — labels come from i18n via t()
+const STATUS_META = [
+  { value: 'SURVEY',     bg: '#e2e8f0', color: '#475569' },
+  { value: 'QUOTATION',  bg: '#dbeafe', color: '#1e40af' },
+  { value: 'BOOKING',    bg: '#ede9fe', color: '#6d28d9' },
+  { value: 'PRE_MOVE',   bg: '#fef3c7', color: '#92400e' },
+  { value: 'IN_TRANSIT', bg: '#fef9c3', color: '#854d0e' },
+  { value: 'DELIVERED',  bg: '#dcfce7', color: '#166534' },
+  { value: 'CLOSED',     bg: '#d1fae5', color: '#065f46' },
+  { value: 'CANCELLED',  bg: '#fee2e2', color: '#991b1b' },
 ]
 
-export const JOB_TYPES = [
-  { value: 'INTERNATIONAL', label: "Int'l" },
-  { value: 'DOMESTIC',      label: 'Domestic' }
-]
+const TYPE_VALUES  = ['INTERNATIONAL', 'DOMESTIC']
+const MODE_VALUES  = ['ROAD', 'SEA', 'AIR', 'COMBINED']
 
-export const SHIPMENT_MODES = [
-  { value: 'ROAD',     label: 'Road' },
-  { value: 'SEA',      label: 'Sea' },
-  { value: 'AIR',      label: 'Air' },
-  { value: 'COMBINED', label: 'Combined' }
-]
-
-export function statusMeta(value) {
-  return JOB_STATUSES.find(s => s.value === value) || { label: value, bg: '#e2e8f0', color: '#475569' }
+// Pass the t() function from useLanguage() to get translated labels
+export function getJobStatuses(t) {
+  return STATUS_META.map(s => ({ ...s, label: t(`statuses.${s.value}`) }))
 }
 
-export function typeMeta(value) {
-  return JOB_TYPES.find(t => t.value === value) || { label: value }
+export function getJobTypes(t) {
+  return TYPE_VALUES.map(v => ({ value: v, label: t(`types.${v}`) }))
+}
+
+export function getShipmentModes(t) {
+  return MODE_VALUES.map(v => ({ value: v, label: t(`modes.${v}`) }))
+}
+
+export function statusMeta(value, t) {
+  const meta = STATUS_META.find(s => s.value === value) || { value, bg: '#e2e8f0', color: '#475569' }
+  return { ...meta, label: t ? t(`statuses.${value}`) : value }
+}
+
+export function typeMeta(value, t) {
+  return { value, label: t ? t(`types.${value}`) : value }
 }
 
 export function formatDate(dateStr) {

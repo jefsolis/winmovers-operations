@@ -58,7 +58,7 @@ export default function Dashboard() {
             ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('dashboard.noJobs')}</p>
             : <div className="status-list">
                 {jobsByStatus.map(({ status, count }) => {
-                  const m = statusMeta(status)
+                  const m = statusMeta(status, t)
                   return (
                     <div key={status} className="status-row">
                       <span className="badge" style={{ background: m.bg, color: m.color }}>{m.label}</span>

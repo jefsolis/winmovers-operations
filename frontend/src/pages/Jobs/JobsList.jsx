@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api'
-import { statusMeta, typeMeta, formatDate, JOB_STATUSES, JOB_TYPES } from '../../constants'
+import { statusMeta, typeMeta, formatDate, getJobStatuses, getJobTypes } from '../../constants'
 import { useLanguage } from '../../i18n'
 
 export default function JobsList() {
   const { t } = useLanguage()
+  const JOB_STATUSES = getJobStatuses(t)
+  const JOB_TYPES = getJobTypes(t)
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -89,8 +91,8 @@ export default function JobsList() {
                   </thead>
                   <tbody>
                     {jobs.map(job => {
-                      const sm = statusMeta(job.status)
-                      const tm = typeMeta(job.type)
+                      const sm = statusMeta(job.status, t)
+                      const tm = typeMeta(job.type, t)
                       return (
                         <tr key={job.id}>
                           <td><Link to={`/jobs/${job.id}/edit`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.jobNumber}</Link></td>

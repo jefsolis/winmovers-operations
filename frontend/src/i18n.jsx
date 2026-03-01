@@ -2,6 +2,13 @@ import { createContext, useContext, useState } from 'react'
 
 const translations = {
   en: {
+    statuses: {
+      SURVEY: 'Survey', QUOTATION: 'Quotation', BOOKING: 'Booking',
+      PRE_MOVE: 'Pre-Move', IN_TRANSIT: 'In Transit', DELIVERED: 'Delivered',
+      CLOSED: 'Closed', CANCELLED: 'Cancelled',
+    },
+    types: { INTERNATIONAL: "Int'l", DOMESTIC: 'Domestic' },
+    modes: { ROAD: 'Road', SEA: 'Sea', AIR: 'Air', COMBINED: 'Combined' },
     common: {
       save: 'Save Changes', cancel: 'Cancel', search: 'Search', loading: 'Loading…',
       edit: 'Edit', delete: 'Delete', back: 'Back', new: 'New',
@@ -72,6 +79,13 @@ const translations = {
     },
   },
   es: {
+    statuses: {
+      SURVEY: 'Inspección', QUOTATION: 'Cotización', BOOKING: 'Reserva',
+      PRE_MOVE: 'Pre-Mudanza', IN_TRANSIT: 'En Tránsito', DELIVERED: 'Entregado',
+      CLOSED: 'Cerrado', CANCELLED: 'Cancelado',
+    },
+    types: { INTERNATIONAL: 'Internacional', DOMESTIC: 'Doméstico' },
+    modes: { ROAD: 'Carretera', SEA: 'Marítimo', AIR: 'Aéreo', COMBINED: 'Combinado' },
     common: {
       save: 'Guardar Cambios', cancel: 'Cancelar', search: 'Buscar', loading: 'Cargando…',
       edit: 'Editar', delete: 'Eliminar', back: 'Volver', new: 'Nuevo',

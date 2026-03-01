@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
-import { JOB_STATUSES, JOB_TYPES, SHIPMENT_MODES } from '../../constants'
+import { getJobStatuses, getJobTypes, getShipmentModes } from '../../constants'
 import { useLanguage } from '../../i18n'
 
 const EMPTY = {
@@ -22,6 +22,9 @@ export default function JobForm() {
   const navigate = useNavigate()
   const isEdit = Boolean(id)
   const { t } = useLanguage()
+  const JOB_STATUSES = getJobStatuses(t)
+  const JOB_TYPES = getJobTypes(t)
+  const SHIPMENT_MODES = getShipmentModes(t)
 
   const [form, setForm] = useState(EMPTY)
   const [clients, setClients] = useState([])
