@@ -21,6 +21,7 @@ COPY backend/ .
 COPY --from=frontend-builder /app/frontend/dist ./frontend
 
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=backend-builder /app/backend ./
 ENV PORT=8080
