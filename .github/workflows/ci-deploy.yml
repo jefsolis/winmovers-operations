@@ -33,18 +33,6 @@ jobs:
           push: true
           tags: ${{ secrets.ACR_NAME }}.azurecr.io/winmovers-ops:latest
 
-      - name: Ensure Application Insights + set App Setting
-        uses: azure/cli@v1
-        with:
-          azcliversion: 'latest'
-          inlineScript: |
-            az login --service-principal -u ${{ secrets.AZURE_APP_ID }} -p ${{ secrets.AZURE_PASSWORD }} --tenant ${{ secrets.AZURE_TENANT }}
-            # Create or ensure Application Insights component exists (idempotent)
-            az monitor app-insights component create --app winmovers-ops-ai --location centralus --resource-group winmovers-rg --application-type web || true
-            INSTRUMENTATION_KEY=$(az monitor app-insights component show -g winmovers-rg -n winmovers-ops-ai --query instrumentationKey -o tsv)
-            CONNECTION_STRING=$(az monitor app-insights component show -g winmovers-rg -n winmovers-ops-ai --query connectionString -o tsv)
-            az webapp config appsettings set --resource-group winmovers-rg --name winmovers-ops-2026 --settings APPINSIGHTS_INSTRUMENTATIONKEY=$INSTRUMENTATION_KEY APPLICATIONINSIGHTS_CONNECTION_STRING=$CONNECTION_STRING
-
       - name: Azure CLI - update Web App container
         uses: azure/cli@v1
         with:
