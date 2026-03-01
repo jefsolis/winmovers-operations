@@ -25,5 +25,7 @@ WORKDIR /app
 COPY --from=backend-builder /app/backend ./
 ENV PORT=8080
 EXPOSE 8080
-# Run prisma db push on startup to create/sync tables, then start the server
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node index.js"]
+# Run prisma db push on startup to create/sync tables, then start the server.
+# timeout 60 prevents a hung DB connection from blocking startup past 60s.
+# ; (not &&) ensures node always starts even if db push fails.
+CMD ["sh", "-c", "timeout 60 npx prisma db push --accept-data-loss; node index.js"]
