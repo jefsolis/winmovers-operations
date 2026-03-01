@@ -20,14 +20,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Azure CLI login and ACR login
-        uses: azure/cli@v1
+      - name: Azure login (service principal)
+        uses: azure/login@v1
         with:
-          azcliversion: 'latest'
-          inlineScript: |
-            az login --service-principal -u ${{ secrets.AZURE_APP_ID }} -p ${{ secrets.AZURE_PASSWORD }} --tenant ${{ secrets.AZURE_TENANT }}
-            az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-            az acr login --name ${{ secrets.ACR_NAME }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR (Docker)
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.ACR_NAME }}.azurecr.io
+          username: ${{ secrets.AZURE_APP_ID }}
+          password: ${{ secrets.AZURE_PASSWORD }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
@@ -53,7 +57,6 @@ jobs:
           azcliversion: 'latest'
           inlineScript: |
             az login --service-principal -u ${{ secrets.AZURE_APP_ID }} -p ${{ secrets.AZURE_PASSWORD }} --tenant ${{ secrets.AZURE_TENANT }}
-            az acr login --name ${{ secrets.ACR_NAME }}
             az webapp config container set --resource-group winmovers-rg --name winmovers-ops-2026 --container-image-name ${{ secrets.ACR_NAME }}.azurecr.io/winmovers-ops:latest
             az webapp restart --resource-group winmovers-rg --name winmovers-ops-2026
 
