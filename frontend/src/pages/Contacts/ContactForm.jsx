@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
+import { useLanguage } from '../../i18n'
 
 const EMPTY = { firstName: '', lastName: '', email: '', phone: '', clientId: '' }
 
@@ -8,6 +9,7 @@ export default function ContactForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
+  const { t } = useLanguage()
 
   const [form, setForm] = useState(EMPTY)
   const [clients, setClients] = useState([])
@@ -53,16 +55,16 @@ export default function ContactForm() {
     finally { setSaving(false) }
   }
 
-  if (loading) return <div className="loading"><div className="spinner" /> Loading...</div>
+  if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
 
   return (
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">{isEdit ? 'Edit Contact' : 'New Contact'}</div>
-          <div className="page-subtitle">Shipper or point-of-contact record</div>
+          <div className="page-title">{isEdit ? t('contacts.editContact') : t('contacts.newContactTitle')}</div>
+          <div className="page-subtitle">{t('contacts.backSubtitle')}</div>
         </div>
-        <Link to="/contacts" className="btn btn-ghost">← Back to Contacts</Link>
+        <Link to="/contacts" className="btn btn-ghost">{t('contacts.backToContacts')}</Link>
       </div>
 
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
@@ -71,34 +73,34 @@ export default function ContactForm() {
         <form onSubmit={handleSubmit}>
 
           <div className="form-section">
-            <div className="form-section-title">Personal Details</div>
+            <div className="form-section-title">{t('contacts.personalDetails')}</div>
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">First Name *</label>
-                <input {...field('firstName')} required placeholder="John" />
+                <label className="form-label">{t('contacts.firstName')} *</label>
+                <input {...field('firstName')} required placeholder={t('contacts.firstNamePlaceholder')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Last Name *</label>
-                <input {...field('lastName')} required placeholder="Smith" />
+                <label className="form-label">{t('contacts.lastName')} *</label>
+                <input {...field('lastName')} required placeholder={t('contacts.lastNamePlaceholder')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Email</label>
-                <input {...field('email')} type="email" placeholder="john.smith@email.com" />
+                <label className="form-label">{t('common.email')}</label>
+                <input {...field('email')} type="email" placeholder={t('contacts.emailPlaceholder')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Phone</label>
-                <input {...field('phone')} placeholder="+1 555 000 0000" />
+                <label className="form-label">{t('common.phone')}</label>
+                <input {...field('phone')} placeholder={t('contacts.phonePlaceholder')} />
               </div>
             </div>
           </div>
 
           <div className="form-section">
-            <div className="form-section-title">Association</div>
+            <div className="form-section-title">{t('contacts.association')}</div>
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">Corporate Client</label>
+                <label className="form-label">{t('contacts.corporateClient')}</label>
                 <select className="form-control" value={form.clientId} onChange={e => setForm(prev => ({ ...prev, clientId: e.target.value }))}>
-                  <option value="">— Independent / No Client —</option>
+                  <option value="">{t('contacts.independentClient')}</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
@@ -106,9 +108,9 @@ export default function ContactForm() {
           </div>
 
           <div className="form-actions">
-            <Link to="/contacts" className="btn btn-ghost">Cancel</Link>
+            <Link to="/contacts" className="btn btn-ghost">{t('common.cancel')}</Link>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Contact'}
+              {saving ? t('common.saving') : isEdit ? t('common.save') : t('contacts.createContact')}
             </button>
           </div>
         </form>

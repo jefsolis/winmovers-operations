@@ -1,5 +1,6 @@
 import './index.css'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { LanguageProvider } from './i18n'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import JobsList from './pages/Jobs/JobsList'
@@ -11,6 +12,7 @@ import ContactForm from './pages/Contacts/ContactForm'
 
 export default function App() {
   return (
+    <LanguageProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
@@ -28,5 +30,6 @@ export default function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </LanguageProvider>
   )
 }

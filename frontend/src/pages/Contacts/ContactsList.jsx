@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api'
+import { useLanguage } from '../../i18n'
 
 export default function ContactsList() {
+  const { t } = useLanguage()
   const [contacts, setContacts] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -25,7 +27,7 @@ export default function ContactsList() {
 
   const handleDelete = async contact => {
     const name = `${contact.firstName} ${contact.lastName}`
-    if (!window.confirm(`Delete contact "${name}"? This cannot be undone.`)) return
+    if (!window.confirm(t('contacts.deleteConfirm', { name }))) return
     try {
       await api.delete(`/contacts/${contact.id}`)
       setContacts(prev => prev.filter(c => c.id !== contact.id))
@@ -36,10 +38,10 @@ export default function ContactsList() {
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">Contacts</div>
-          <div className="page-subtitle">Manage shipper and point-of-contact records</div>
+          <div className="page-title">{t('contacts.title')}</div>
+          <div className="page-subtitle">{t('contacts.subtitle')}</div>
         </div>
-        <Link to="/contacts/new" className="btn btn-primary">+ New Contact</Link>
+        <Link to="/contacts/new" className="btn btn-primary">{t('contacts.newContact')}</Link>
       </div>
 
       <div className="card">
@@ -47,32 +49,32 @@ export default function ContactsList() {
           <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8 }}>
             <input
               className="search-input"
-              placeholder="Search name, email…"
+              placeholder={t('contacts.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-            <button type="submit" className="btn btn-ghost">Search</button>
+            <button type="submit" className="btn btn-ghost">{t('common.search')}</button>
           </form>
         </div>
 
         {loading ? (
-          <div className="loading"><div className="spinner" /> Loading…</div>
+          <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
         ) : contacts.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">👤</div>
-            <div className="empty-state-title">No contacts yet</div>
-            <Link to="/contacts/new" className="btn btn-primary" style={{ marginTop: 12 }}>Add First Contact</Link>
+            <div className="empty-state-title">{t('contacts.empty')}</div>
+            <Link to="/contacts/new" className="btn btn-primary" style={{ marginTop: 12 }}>{t('contacts.newContact')}</Link>
           </div>
         ) : (
           <div className="table-wrapper">
             <table>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Client</th>
-                  <th>Actions</th>
+                  <th>{t('common.name')}</th>
+                  <th>{t('common.email')}</th>
+                  <th>{t('common.phone')}</th>
+                  <th>{t('contacts.clientName')}</th>
+                  <th>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -83,8 +85,8 @@ export default function ContactsList() {
                     <td>{c.phone || '—'}</td>
                     <td>{c.client?.name || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                     <td>
-                      <Link to={`/contacts/${c.id}/edit`} className="btn btn-ghost btn-sm">Edit</Link>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c)}>Delete</button>
+                      <Link to={`/contacts/${c.id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c)}>{t('common.delete')}</button>
                     </td>
                   </tr>
                 ))}

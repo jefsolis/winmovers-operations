@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
+import { useLanguage } from '../../i18n'
 
 const EMPTY = { name: '', accountNum: '', email: '', phone: '', address: '', country: '', notes: '' }
 
@@ -8,6 +9,7 @@ export default function ClientForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
+  const { t } = useLanguage()
 
   const [form, setForm] = useState(EMPTY)
   const [loading, setLoading] = useState(isEdit)
@@ -46,16 +48,16 @@ export default function ClientForm() {
     finally { setSaving(false) }
   }
 
-  if (loading) return <div className="loading"><div className="spinner" /> Loading...</div>
+  if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
 
   return (
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">{isEdit ? 'Edit Client' : 'New Client'}</div>
-          <div className="page-subtitle">Corporate account details</div>
+          <div className="page-title">{isEdit ? t('clients.editClient') : t('clients.newClientTitle')}</div>
+          <div className="page-subtitle">{t('clients.backSubtitle')}</div>
         </div>
-        <Link to="/clients" className="btn btn-ghost">← Back to Clients</Link>
+        <Link to="/clients" className="btn btn-ghost">{t('clients.backToClients')}</Link>
       </div>
 
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
@@ -64,52 +66,52 @@ export default function ClientForm() {
         <form onSubmit={handleSubmit}>
 
           <div className="form-section">
-            <div className="form-section-title">Company Details</div>
+            <div className="form-section-title">{t('clients.companyDetails')}</div>
             <div className="form-grid">
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label">Company Name *</label>
-                <input {...field('name')} required placeholder="e.g. Acme Corporation" />
+                <label className="form-label">{t('clients.companyName')} *</label>
+                <input {...field('name')} required placeholder={t('clients.namePlaceholder')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Account Number</label>
-                <input {...field('accountNum')} placeholder="e.g. ACC-0001" />
+                <label className="form-label">{t('clients.accountNum')}</label>
+                <input {...field('accountNum')} placeholder={t('clients.accountNumPlaceholder')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Country</label>
-                <input {...field('country')} placeholder="e.g. United States" />
+                <label className="form-label">{t('common.country')}</label>
+                <input {...field('country')} placeholder={t('clients.countryPlaceholder')} />
               </div>
             </div>
           </div>
 
           <div className="form-section">
-            <div className="form-section-title">Contact Information</div>
+            <div className="form-section-title">{t('clients.contactInfo')}</div>
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">Email</label>
+                <label className="form-label">{t('common.email')}</label>
                 <input {...field('email')} type="email" placeholder="info@company.com" />
               </div>
               <div className="form-group">
-                <label className="form-label">Phone</label>
+                <label className="form-label">{t('common.phone')}</label>
                 <input {...field('phone')} placeholder="+1 555 000 0000" />
               </div>
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label">Address</label>
-                <input {...field('address')} placeholder="Street, City, State, ZIP" />
+                <label className="form-label">{t('common.address')}</label>
+                <input {...field('address')} placeholder={t('clients.addressPlaceholder')} />
               </div>
             </div>
           </div>
 
           <div className="form-section">
-            <div className="form-section-title">Notes</div>
+            <div className="form-section-title">{t('common.notes')}</div>
             <div className="form-group">
-              <textarea className="form-control" {...field('notes')} placeholder="Internal notes about this client…" />
+              <textarea className="form-control" {...field('notes')} placeholder={t('clients.notesPlaceholder')} />
             </div>
           </div>
 
           <div className="form-actions">
-            <Link to="/clients" className="btn btn-ghost">Cancel</Link>
+            <Link to="/clients" className="btn btn-ghost">{t('common.cancel')}</Link>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Client'}
+              {saving ? t('common.saving') : isEdit ? t('common.save') : t('clients.createClient')}
             </button>
           </div>
         </form>

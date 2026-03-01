@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { JOB_STATUSES, JOB_TYPES, SHIPMENT_MODES } from '../../constants'
+import { useLanguage } from '../../i18n'
 
 const EMPTY = {
   type: 'INTERNATIONAL', status: 'SURVEY',
@@ -20,6 +21,7 @@ export default function JobForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
+  const { t } = useLanguage()
 
   const [form, setForm] = useState(EMPTY)
   const [clients, setClients] = useState([])
@@ -86,7 +88,7 @@ export default function JobForm() {
     finally { setSaving(false) }
   }
 
-  if (loading) return <div className="loading"><div className="spinner" /> Loading...</div>
+  if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
 
   const jobNumber = isEdit && form._jobNumber ? form._jobNumber : (isEdit ? '…' : 'Auto-assigned')
 
@@ -94,10 +96,10 @@ export default function JobForm() {
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">{isEdit ? 'Edit Job' : 'New Job'}</div>
-          <div className="page-subtitle">{isEdit ? `Job #${id.slice(-6)}` : 'Job number will be auto-assigned'}</div>
+          <div className="page-title">{isEdit ? t('jobs.editJob') : t('jobs.newJobTitle')}</div>
+          <div className="page-subtitle">{isEdit ? `Job #${id.slice(-6)}` : t('jobs.autoAssigned')}</div>
         </div>
-        <Link to="/jobs" className="btn btn-ghost">← Back to Jobs</Link>
+        <Link to="/jobs" className="btn btn-ghost">{t('jobs.backToJobs')}</Link>
       </div>
 
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
@@ -107,24 +109,24 @@ export default function JobForm() {
 
           {/* Basic Info */}
           <div className="form-section">
-            <div className="form-section-title">Basic Information</div>
+          <div className="form-section-title">{t('jobs.basicInfo')}</div>
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">Type *</label>
+                <label className="form-label">{t('jobs.jobType')} *</label>
                 <select className="form-control" value={form.type} onChange={e => set('type', e.target.value)} required>
                   {JOB_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Status</label>
+                <label className="form-label">{t('jobs.jobStatus')}</label>
                 <select className="form-control" value={form.status} onChange={e => set('status', e.target.value)}>
                   {JOB_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Shipment Mode</label>
+                <label className="form-label">{t('jobs.shipmentMode')}</label>
                 <select className="form-control" value={form.shipmentMode} onChange={e => set('shipmentMode', e.target.value)}>
-                  <option value="">— Select —</option>
+                  <option value="">{t('common.select')}</option>
                   {SHIPMENT_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
@@ -133,19 +135,19 @@ export default function JobForm() {
 
           {/* Parties */}
           <div className="form-section">
-            <div className="form-section-title">Parties</div>
+          <div className="form-section-title">{t('jobs.parties')}</div>
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">Corporate Client</label>
+                <label className="form-label">{t('jobs.corporateClient')}</label>
                 <select className="form-control" value={form.clientId} onChange={e => set('clientId', e.target.value)}>
-                  <option value="">— None —</option>
+                  <option value="">{t('common.none')}</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Shipper (Contact)</label>
+                <label className="form-label">{t('jobs.shipperContact')}</label>
                 <select className="form-control" value={form.contactId} onChange={e => set('contactId', e.target.value)}>
-                  <option value="">— None —</option>
+                  <option value="">{t('common.none')}</option>
                   {contacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
                 </select>
               </div>
@@ -154,23 +156,23 @@ export default function JobForm() {
 
           {/* Route */}
           <div className="form-section">
-            <div className="form-section-title">Route</div>
+          <div className="form-section-title">{t('jobs.route_section')}</div>
             <div className="form-grid cols-3">
               <div className="form-group">
-                <label className="form-label">Origin City</label>
-                <input {...field('originCity')} placeholder="e.g. New York" />
+                <label className="form-label">{t('jobs.originCity')}</label>
+                <input {...field('originCity')} placeholder={t('jobs.originPlaceholder')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Origin Country</label>
+                <label className="form-label">{t('jobs.originCountry')}</label>
                 <input {...field('originCountry')} placeholder="e.g. USA" />
               </div>
               <div className="form-group" style={{ visibility: 'hidden' }} />
               <div className="form-group">
-                <label className="form-label">Destination City</label>
-                <input {...field('destCity')} placeholder="e.g. London" />
+                <label className="form-label">{t('jobs.destCity')}</label>
+                <input {...field('destCity')} placeholder={t('jobs.destPlaceholder')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Destination Country</label>
+                <label className="form-label">{t('jobs.destCountry')}</label>
                 <input {...field('destCountry')} placeholder="e.g. UK" />
               </div>
             </div>
@@ -178,22 +180,22 @@ export default function JobForm() {
 
           {/* Dates */}
           <div className="form-section">
-            <div className="form-section-title">Dates</div>
+          <div className="form-section-title">{t('jobs.dates')}</div>
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">Survey Date</label>
+                <label className="form-label">{t('jobs.surveyDate')}</label>
                 <input {...field('surveyDate', 'date')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Pack Date</label>
+                <label className="form-label">{t('jobs.packDate')}</label>
                 <input {...field('packDate', 'date')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Move / Load Date</label>
+                <label className="form-label">{t('jobs.moveDate_label')}</label>
                 <input {...field('moveDate', 'date')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Delivery Date</label>
+                <label className="form-label">{t('jobs.deliveryDate')}</label>
                 <input {...field('deliveryDate', 'date')} />
               </div>
             </div>
@@ -201,14 +203,14 @@ export default function JobForm() {
 
           {/* Cargo */}
           <div className="form-section">
-            <div className="form-section-title">Cargo</div>
+          <div className="form-section-title">{t('jobs.cargo')}</div>
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">Volume (CBM)</label>
+                <label className="form-label">{t('jobs.volumeCbm')}</label>
                 <input {...field('volumeCbm', 'number')} placeholder="0.00" step="0.01" min="0" />
               </div>
               <div className="form-group">
-                <label className="form-label">Weight (KG)</label>
+                <label className="form-label">{t('jobs.weightKg')}</label>
                 <input {...field('weightKg', 'number')} placeholder="0.00" step="0.01" min="0" />
               </div>
             </div>
@@ -216,16 +218,16 @@ export default function JobForm() {
 
           {/* Notes */}
           <div className="form-section">
-            <div className="form-section-title">Notes</div>
+          <div className="form-section-title">{t('common.notes')}</div>
             <div className="form-group">
-              <textarea className="form-control" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any additional notes…" />
+              <textarea className="form-control" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder={t('common.notes') + '…'} />
             </div>
           </div>
 
           <div className="form-actions">
-            <Link to="/jobs" className="btn btn-ghost">Cancel</Link>
+            <Link to="/jobs" className="btn btn-ghost">{t('common.cancel')}</Link>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Job'}
+              {saving ? t('common.saving') : isEdit ? t('common.save') : t('jobs.createJob')}
             </button>
           </div>
         </form>

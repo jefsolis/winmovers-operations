@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api'
+import { useLanguage } from '../../i18n'
 
 export default function ClientsList() {
+  const { t } = useLanguage()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -24,7 +26,7 @@ export default function ClientsList() {
   }
 
   const handleDelete = async client => {
-    if (!window.confirm(`Delete client "${client.name}"? This cannot be undone.`)) return
+    if (!window.confirm(t('clients.deleteConfirm', { name: client.name }))) return
     try {
       await api.delete(`/clients/${client.id}`)
       setClients(prev => prev.filter(c => c.id !== client.id))
@@ -35,10 +37,10 @@ export default function ClientsList() {
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">Clients</div>
-          <div className="page-subtitle">Manage corporate accounts</div>
+          <div className="page-title">{t('clients.title')}</div>
+          <div className="page-subtitle">{t('clients.subtitle')}</div>
         </div>
-        <Link to="/clients/new" className="btn btn-primary">+ New Client</Link>
+        <Link to="/clients/new" className="btn btn-primary">{t('clients.newClient')}</Link>
       </div>
 
       <div className="card">
@@ -46,7 +48,7 @@ export default function ClientsList() {
           <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8 }}>
             <input
               className="search-input"
-              placeholder="Search name, email, country…"
+              placeholder={t('clients.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -55,24 +57,24 @@ export default function ClientsList() {
         </div>
 
         {loading ? (
-          <div className="loading"><div className="spinner" /> Loading…</div>
+          <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
         ) : clients.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">🏢</div>
-            <div className="empty-state-title">No clients yet</div>
-            <Link to="/clients/new" className="btn btn-primary" style={{ marginTop: 12 }}>Add First Client</Link>
+            <div className="empty-state-title">{t('clients.empty')}</div>
+            <Link to="/clients/new" className="btn btn-primary" style={{ marginTop: 12 }}>{t('clients.newClient')}</Link>
           </div>
         ) : (
           <div className="table-wrapper">
             <table>
               <thead>
                 <tr>
-                  <th>Company Name</th>
-                  <th>Account #</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Country</th>
-                  <th>Actions</th>
+                  <th>{t('clients.companyName')}</th>
+                  <th>{t('clients.accountNum')}</th>
+                  <th>{t('common.email')}</th>
+                  <th>{t('common.phone')}</th>
+                  <th>{t('common.country')}</th>
+                  <th>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -84,8 +86,8 @@ export default function ClientsList() {
                     <td>{c.phone || '—'}</td>
                     <td>{c.country || '—'}</td>
                     <td>
-                      <Link to={`/clients/${c.id}/edit`} className="btn btn-ghost btn-sm">Edit</Link>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c)}>Delete</button>
+                      <Link to={`/clients/${c.id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c)}>{t('common.delete')}</button>
                     </td>
                   </tr>
                 ))}

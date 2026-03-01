@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { statusMeta, formatDate } from '../constants'
+import { useLanguage } from '../i18n'
 
 export default function Dashboard() {
+  const { t } = useLanguage()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -15,7 +17,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="loading"><div className="spinner" /> Loading...</div>
+  if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
   if (error)   return <div className="alert alert-error">{error}</div>
 
   const { totalJobs, activeJobs, totalClients, totalContacts, jobsByStatus, jobsByType, recentJobs } = data
@@ -24,36 +26,36 @@ export default function Dashboard() {
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">Dashboard</div>
-          <div className="page-subtitle">Operations overview</div>
+          <div className="page-title">{t('dashboard.title')}</div>
+          <div className="page-subtitle">{t('dashboard.subtitle')}</div>
         </div>
         <Link to="/jobs/new" className="btn btn-primary">+ New Job</Link>
       </div>
 
       <div className="kpi-grid">
         <div className="kpi-card">
-          <div className="kpi-label">Total Jobs</div>
+          <div className="kpi-label">{t('dashboard.totalJobs')}</div>
           <div className="kpi-value">{totalJobs}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">Active Jobs</div>
+          <div className="kpi-label">{t('dashboard.activeJobs')}</div>
           <div className="kpi-value" style={{ color: '#2563eb' }}>{activeJobs}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">Clients</div>
+          <div className="kpi-label">{t('dashboard.totalClients')}</div>
           <div className="kpi-value">{totalClients}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">Contacts</div>
+          <div className="kpi-label">{t('dashboard.totalContacts')}</div>
           <div className="kpi-value">{totalContacts}</div>
         </div>
       </div>
 
       <div className="dashboard-grid">
         <div className="card card-body">
-          <div className="section-label">Jobs by Status</div>
+          <div className="section-label">{t('dashboard.byStatus')}</div>
           {jobsByStatus.length === 0
-            ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No jobs yet.</p>
+            ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('dashboard.noJobs')}</p>
             : <div className="status-list">
                 {jobsByStatus.map(({ status, count }) => {
                   const m = statusMeta(status)
@@ -69,9 +71,9 @@ export default function Dashboard() {
         </div>
 
         <div className="card card-body">
-          <div className="section-label">Jobs by Type</div>
+          <div className="section-label">{t('dashboard.byType')}</div>
           {jobsByType.length === 0
-            ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No jobs yet.</p>
+            ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('dashboard.noJobs')}</p>
             : <div className="status-list">
                 {jobsByType.map(({ type, count }) => (
                   <div key={type} className="status-row">
@@ -87,12 +89,12 @@ export default function Dashboard() {
       {recentJobs.length > 0 && (
         <div className="card" style={{ marginTop: 20 }}>
           <div className="card-body" style={{ paddingBottom: 0 }}>
-            <div className="section-label">Recent Jobs</div>
+            <div className="section-label">{t('dashboard.recentJobs')}</div>
           </div>
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Job #</th><th>Shipper</th><th>Route</th><th>Status</th><th>Move Date</th></tr>
+                <tr><th>{t('dashboard.jobNumber')}</th><th>{t('dashboard.shipper')}</th><th>{t('dashboard.route')}</th><th>{t('jobs.status')}</th><th>{t('dashboard.moveDate')}</th></tr>
               </thead>
               <tbody>
                 {recentJobs.map(job => {
