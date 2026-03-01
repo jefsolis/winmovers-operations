@@ -1,14 +1,31 @@
+require('dotenv').config()
 const express = require('express')
+const cors = require('cors')
 const path = require('path')
 const fs = require('fs')
 
 const app = express()
 const port = process.env.PORT || 3000
 
-app.use('/api', express.json())
+app.use(cors())
+app.use(express.json())
 
+// API routes
+app.use('/api/dashboard', require('./routes/dashboard'))
+app.use('/api/clients',   require('./routes/clients'))
+app.use('/api/contacts',  require('./routes/contacts'))
+app.use('/api/jobs',      require('./routes/jobs'))
+
+// Legacy health check
 app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from WinMovers API' })
+})
+
+// Global error handler
+app.use((err, req, res, _next) => {
+  console.error(err)
+  const status = err.code === 'P2025' ? 404 : 500
+  res.status(status).json({ error: err.message || 'Internal server error' })
 })
 
 // Resolve static frontend path for both deployed package layout and local dev layout.

@@ -13,7 +13,9 @@ RUN node node_modules/vite/bin/vite.js build
 FROM node:20-alpine AS backend-builder
 WORKDIR /app/backend
 COPY backend/package*.json ./
+COPY backend/prisma ./prisma/
 RUN npm ci --production
+RUN npx prisma generate
 COPY backend/ .
 # copy built frontend into backend/frontend so the server can serve static files
 COPY --from=frontend-builder /app/frontend/dist ./frontend
@@ -23,4 +25,5 @@ WORKDIR /app
 COPY --from=backend-builder /app/backend ./
 ENV PORT=8080
 EXPOSE 8080
-CMD ["node", "index.js"]
+# Run prisma db push on startup to create/sync tables, then start the server
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node index.js"]

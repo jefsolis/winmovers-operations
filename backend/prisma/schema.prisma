@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id         String    @id @default(cuid())
+  name       String
+  accountNum String?   @unique
+  email      String?
+  phone      String?
+  address    String?
+  country    String?
+  notes      String?
+  contacts   Contact[]
+  jobs       Job[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
+  jobs      Job[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Job {
+  id            String    @id @default(cuid())
+  jobNumber     String    @unique
+  type          String
+  status        String    @default("SURVEY")
+  clientId      String?
+  client        Client?   @relation(fields: [clientId], references: [id])
+  contactId     String?
+  contact       Contact?  @relation(fields: [contactId], references: [id])
+  originCity    String?
+  originCountry String?
+  destCity      String?
+  destCountry   String?
+  surveyDate    DateTime?
+  packDate      DateTime?
+  moveDate      DateTime?
+  deliveryDate  DateTime?
+  volumeCbm     Float?
+  weightKg      Float?
+  shipmentMode  String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
