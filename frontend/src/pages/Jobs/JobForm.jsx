@@ -154,6 +154,7 @@ export default function JobForm() {
           return
         }
       }
+      const quoteToLink = fromQuoteId || linkedQuoteId
       const payload = {
         ...form,
         clientId:  form.clientId  || null,
@@ -168,15 +169,13 @@ export default function JobForm() {
         surveyDate:   form.surveyDate   || null,
         packDate:     form.packDate     || null,
         moveDate:     form.moveDate     || null,
-        deliveryDate: form.deliveryDate || null
+        deliveryDate: form.deliveryDate || null,
+        quoteId: !isEdit ? (quoteToLink || null) : undefined,
       }
       if (isEdit) {
         await api.put(`/jobs/${id}`, payload)
       } else {
-        const created = await api.post('/jobs', payload)
-        // Link the originating quote to this job
-        const quoteToLink = fromQuoteId || linkedQuoteId
-        if (quoteToLink) await api.put(`/quotes/${quoteToLink}`, { jobId: created.id })
+        await api.post('/jobs', payload)
       }
       navigate('/jobs')
     } catch (e) { setError(e.message) }

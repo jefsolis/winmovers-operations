@@ -52,7 +52,11 @@ router.get('/:id', async (req, res, next) => {
   try {
     const job = await getPrisma().job.findUnique({
       where: { id: req.params.id },
-      include: { contact: true, client: true, originAgent: true, destAgent: true, customsAgent: true }
+      include: {
+        contact: true, client: true,
+        originAgent: true, destAgent: true, customsAgent: true,
+        quote: { select: { id: true, quoteNumber: true } },
+      }
     })
     if (!job) return res.status(404).json({ error: 'Not found' })
     res.json(job)
@@ -67,7 +71,7 @@ router.post('/', async (req, res, next) => {
       originAgentId, destAgentId, customsAgentId,
       originCity, originCountry, destCity, destCountry,
       callDate, surveyDate, packDate, moveDate, deliveryDate,
-      volumeCbm, weightKg, shipmentMode, notes
+      volumeCbm, weightKg, shipmentMode, notes, quoteId
     } = req.body
     if (!type) return res.status(400).json({ error: 'type is required' })
     const jobNumber = await generateJobNumber()
@@ -89,7 +93,8 @@ router.post('/', async (req, res, next) => {
         deliveryDate: toDate(deliveryDate),
         volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
         weightKg: weightKg ? parseFloat(weightKg) : null,
-        shipmentMode, notes
+        shipmentMode, notes,
+        quoteId: quoteId || null,
       }
     })
     res.status(201).json(job)
@@ -104,7 +109,7 @@ router.put('/:id', async (req, res, next) => {
       originAgentId, destAgentId, customsAgentId,
       originCity, originCountry, destCity, destCountry,
       callDate, surveyDate, packDate, moveDate, deliveryDate,
-      volumeCbm, weightKg, shipmentMode, notes
+      volumeCbm, weightKg, shipmentMode, notes, quoteId
     } = req.body
 
     // Validate CLOSED status: all required document categories must be attached
@@ -136,7 +141,8 @@ router.put('/:id', async (req, res, next) => {
         deliveryDate: toDate(deliveryDate),
         volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
         weightKg: weightKg ? parseFloat(weightKg) : null,
-        shipmentMode, notes
+        shipmentMode, notes,
+        quoteId: quoteId !== undefined ? (quoteId || null) : undefined,
       }
     })
     res.json(job)

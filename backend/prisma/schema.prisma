@@ -85,8 +85,9 @@ model Job {
   weightKg      Float?
   shipmentMode  String?
   notes         String?
+  quoteId       String?   @unique
+  quote         Quote?    @relation(fields: [quoteId], references: [id])
   files         JobFile[]
-  quotes        Quote[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -141,8 +142,7 @@ model Quote {
   currency    String    @default("USD")
   validUntil  DateTime?
   notes       String?
-  jobId       String?
-  job         Job?      @relation(fields: [jobId], references: [id])
+  job         Job?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }

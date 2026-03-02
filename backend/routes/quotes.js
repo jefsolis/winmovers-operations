@@ -78,7 +78,7 @@ router.post('/', async (req, res, next) => {
 // PUT update
 router.put('/:id', async (req, res, next) => {
   try {
-    const { status, totalAmount, currency, validUntil, notes, jobId } = req.body
+    const { status, totalAmount, currency, validUntil, notes } = req.body
     const quote = await getPrisma().quote.update({
       where: { id: req.params.id },
       data: {
@@ -87,7 +87,6 @@ router.put('/:id', async (req, res, next) => {
         currency: currency || undefined,
         validUntil: validUntil !== undefined ? toDate(validUntil) : undefined,
         notes: notes !== undefined ? notes : undefined,
-        jobId: jobId !== undefined ? jobId : undefined,
       },
     })
     res.json(quote)
