@@ -19,6 +19,7 @@ export default function QuotesList() {
     const params = new URLSearchParams()
     if (statusFilter) params.set('status', statusFilter)
     api.get(`/quotes?${params}`).then(data => {
+      if (!Array.isArray(data)) { setQuotes([]); setLoading(false); return }
       const filtered = search
         ? data.filter(q =>
             q.quoteNumber.toLowerCase().includes(search.toLowerCase()) ||

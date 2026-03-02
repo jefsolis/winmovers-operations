@@ -20,7 +20,7 @@ export default function VisitsList() {
     const params = new URLSearchParams()
     if (search)       params.set('search', search)
     if (statusFilter) params.set('status', statusFilter)
-    api.get(`/visits?${params}`).then(setVisits).catch(() => {}).finally(() => setLoading(false))
+    api.get(`/visits?${params}`).then(d => setVisits(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false))
   }
 
   useEffect(() => { load() }, [statusFilter]) // eslint-disable-line
