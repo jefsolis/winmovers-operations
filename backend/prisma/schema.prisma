@@ -136,7 +136,7 @@ model Quote {
   id          String    @id @default(cuid())
   quoteNumber String    @unique
   visitId     String
-  visit       Visit     @relation(fields: [visitId], references: [id])
+  visit       Visit     @relation(fields: [visitId], references: [id], onDelete: Cascade)
   status      String    @default("DRAFT")
   totalAmount Float?
   currency    String    @default("USD")
