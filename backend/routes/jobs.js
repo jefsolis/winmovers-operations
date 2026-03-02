@@ -1,6 +1,12 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
 
+const REQUIRED_FILE_CATEGORIES = [
+  'SURVEY_REPORT', 'QUOTATION', 'INSURANCE_INVENTORY', 'SIGNED_QUOTATION',
+  'WORK_ORDER', 'PRE_ADVICE', 'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT',
+  'INSURANCE_CERTIFICATE', 'SIGNED_PACKING_LIST', 'INVOICE', 'DELIVERY_CONFIRMATION'
+]
+
 async function generateJobNumber() {
   const year = new Date().getFullYear()
   const count = await getPrisma().job.count()
@@ -35,7 +41,7 @@ router.get('/', async (req, res, next) => {
     const jobs = await getPrisma().job.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: { contact: { select: { id: true, firstName: true, lastName: true } }, client: { select: { id: true, name: true } } }
+      include: { contact: { select: { id: true, firstName: true, lastName: true } }, client: { select: { id: true, name: true } }, originAgent: { select: { id: true, name: true } }, destAgent: { select: { id: true, name: true } }, customsAgent: { select: { id: true, name: true } } }
     })
     res.json(jobs)
   } catch (err) { next(err) }
@@ -46,7 +52,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const job = await getPrisma().job.findUnique({
       where: { id: req.params.id },
-      include: { contact: true, client: true }
+      include: { contact: true, client: true, originAgent: true, destAgent: true, customsAgent: true }
     })
     if (!job) return res.status(404).json({ error: 'Not found' })
     res.json(job)
@@ -58,8 +64,9 @@ router.post('/', async (req, res, next) => {
   try {
     const {
       type, status, clientId, contactId,
+      originAgentId, destAgentId, customsAgentId,
       originCity, originCountry, destCity, destCountry,
-      surveyDate, packDate, moveDate, deliveryDate,
+      callDate, surveyDate, packDate, moveDate, deliveryDate,
       volumeCbm, weightKg, shipmentMode, notes
     } = req.body
     if (!type) return res.status(400).json({ error: 'type is required' })
@@ -71,7 +78,11 @@ router.post('/', async (req, res, next) => {
         status: status || 'SURVEY',
         clientId: clientId || null,
         contactId: contactId || null,
+        originAgentId: originAgentId || null,
+        destAgentId: destAgentId || null,
+        customsAgentId: customsAgentId || null,
         originCity, originCountry, destCity, destCountry,
+        callDate: toDate(callDate),
         surveyDate: toDate(surveyDate),
         packDate: toDate(packDate),
         moveDate: toDate(moveDate),
@@ -90,17 +101,35 @@ router.put('/:id', async (req, res, next) => {
   try {
     const {
       type, status, clientId, contactId,
+      originAgentId, destAgentId, customsAgentId,
       originCity, originCountry, destCity, destCountry,
-      surveyDate, packDate, moveDate, deliveryDate,
+      callDate, surveyDate, packDate, moveDate, deliveryDate,
       volumeCbm, weightKg, shipmentMode, notes
     } = req.body
+
+    // Validate CLOSED status: all required document categories must be attached
+    if (status === 'CLOSED') {
+      const files = await getPrisma().jobFile.findMany({ where: { jobId: req.params.id } })
+      const attached = new Set(files.map(f => f.category))
+      const missing = REQUIRED_FILE_CATEGORIES.filter(c => !attached.has(c))
+      if (missing.length > 0) {
+        return res.status(422).json({
+          error: 'MISSING_REQUIRED_FILES',
+          missing
+        })
+      }
+    }
     const job = await getPrisma().job.update({
       where: { id: req.params.id },
       data: {
         type, status,
         clientId: clientId || null,
         contactId: contactId || null,
+        originAgentId: originAgentId || null,
+        destAgentId: destAgentId || null,
+        customsAgentId: customsAgentId || null,
         originCity, originCountry, destCity, destCountry,
+        callDate: toDate(callDate),
         surveyDate: toDate(surveyDate),
         packDate: toDate(packDate),
         moveDate: toDate(moveDate),

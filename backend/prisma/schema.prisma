@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["linux-musl-openssl-3.0.x"]
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -10,7 +10,10 @@ datasource db {
 
 model Client {
   id         String    @id @default(cuid())
+  clientType String    @default("CORPORATE")
   name       String
+  firstName  String?
+  lastName   String?
   accountNum String?   @unique
   email      String?
   phone      String?
@@ -36,6 +39,22 @@ model Contact {
   updatedAt DateTime @updatedAt
 }
 
+model Agent {
+  id        String   @id @default(cuid())
+  name      String
+  agentType String
+  country   String?
+  city      String?
+  email     String?
+  phone     String?
+  notes     String?
+  originJobs      Job[]    @relation("OriginAgent")
+  destJobs        Job[]    @relation("DestAgent")
+  customsJobs     Job[]    @relation("CustomsAgent")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Job {
   id            String    @id @default(cuid())
   jobNumber     String    @unique
@@ -45,10 +64,17 @@ model Job {
   client        Client?   @relation(fields: [clientId], references: [id])
   contactId     String?
   contact       Contact?  @relation(fields: [contactId], references: [id])
+  originAgentId  String?
+  originAgent    Agent?    @relation("OriginAgent", fields: [originAgentId], references: [id])
+  destAgentId    String?
+  destAgent      Agent?    @relation("DestAgent", fields: [destAgentId], references: [id])
+  customsAgentId String?
+  customsAgent   Agent?    @relation("CustomsAgent", fields: [customsAgentId], references: [id])
   originCity    String?
   originCountry String?
   destCity      String?
   destCountry   String?
+  callDate      DateTime?
   surveyDate    DateTime?
   packDate      DateTime?
   moveDate      DateTime?
@@ -57,6 +83,18 @@ model Job {
   weightKg      Float?
   shipmentMode  String?
   notes         String?
+  files         JobFile[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+model JobFile {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  category    String   @default("OTHER")
+  filename    String
+  storagePath String
+  sizeBytes   Int?
+  uploadedAt  DateTime @default(now())
 }

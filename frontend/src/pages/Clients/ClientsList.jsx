@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
+import { clientTypeMeta } from '../../constants'
 
 export default function ClientsList() {
   const { t } = useLanguage()
@@ -70,6 +71,7 @@ export default function ClientsList() {
               <thead>
                 <tr>
                   <th>{t('clients.companyName')}</th>
+                  <th>{t('clients.clientType')}</th>
                   <th>{t('clients.accountNum')}</th>
                   <th>{t('common.email')}</th>
                   <th>{t('common.phone')}</th>
@@ -78,9 +80,16 @@ export default function ClientsList() {
                 </tr>
               </thead>
               <tbody>
-                {clients.map(c => (
+                {clients.map(c => {
+                  const typeBadge = clientTypeMeta(c.clientType, t)
+                  return (
                   <tr key={c.id}>
                     <td><strong>{c.name}</strong></td>
+                    <td>
+                      <span style={{ background: typeBadge.bg, color: typeBadge.color, padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600 }}>
+                        {typeBadge.label}
+                      </span>
+                    </td>
                     <td>{c.accountNum || '—'}</td>
                     <td>{c.email || '—'}</td>
                     <td>{c.phone || '—'}</td>
@@ -90,7 +99,8 @@ export default function ClientsList() {
                       <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c)}>{t('common.delete')}</button>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

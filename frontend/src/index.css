@@ -217,6 +217,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 /* ── Status pills on dashboard ───────────────────── */
 .status-list { display: flex; flex-direction: column; gap: 8px; }
 .status-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.status-row-link { display: flex; justify-content: space-between; align-items: center; font-size: 13px; text-decoration: none; color: inherit; padding: 4px 8px; margin: 0 -8px; border-radius: 6px; transition: background 0.15s; }
+.status-row-link:hover { background: var(--hover); cursor: pointer; }
 .status-count { font-weight: 700; }
 
 /* ── Dashboard stat section ──────────────────────── */

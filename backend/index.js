@@ -11,10 +11,12 @@ app.use(cors())
 app.use(express.json())
 
 // API routes
-app.use('/api/dashboard', require('./routes/dashboard'))
-app.use('/api/clients',   require('./routes/clients'))
-app.use('/api/contacts',  require('./routes/contacts'))
-app.use('/api/jobs',      require('./routes/jobs'))
+app.use('/api/dashboard',          require('./routes/dashboard'))
+app.use('/api/clients',            require('./routes/clients'))
+app.use('/api/contacts',           require('./routes/contacts'))
+app.use('/api/agents',             require('./routes/agents'))
+app.use('/api/jobs/:jobId/files',  require('./routes/jobFiles'))  // must be before /api/jobs
+app.use('/api/jobs',               require('./routes/jobs'))
 
 // Legacy health check
 app.get('/api/hello', (req, res) => {

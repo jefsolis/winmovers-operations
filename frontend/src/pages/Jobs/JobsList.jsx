@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { statusMeta, typeMeta, formatDate, getJobStatuses, getJobTypes } from '../../constants'
 import { useLanguage } from '../../i18n'
 
 export default function JobsList() {
   const { t } = useLanguage()
+  const [searchParams] = useSearchParams()
   const JOB_STATUSES = getJobStatuses(t)
   const JOB_TYPES = getJobTypes(t)
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || '')
+  const [typeFilter, setTypeFilter] = useState(() => searchParams.get('type') || '')
 
   const load = () => {
     setLoading(true)
@@ -95,7 +96,7 @@ export default function JobsList() {
                       const tm = typeMeta(job.type, t)
                       return (
                         <tr key={job.id}>
-                          <td><Link to={`/jobs/${job.id}/edit`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.jobNumber}</Link></td>
+                          <td><Link to={`/jobs/${job.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.jobNumber}</Link></td>
                           <td>{job.contact ? `${job.contact.firstName} ${job.contact.lastName}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                           <td style={{ color: 'var(--text-muted)' }}>{job.client?.name || '—'}</td>
                           <td><span className="badge" style={{ background: job.type === 'INTERNATIONAL' ? '#eff6ff' : '#f0fdf4', color: job.type === 'INTERNATIONAL' ? '#1e40af' : '#166534' }}>{tm.label}</span></td>

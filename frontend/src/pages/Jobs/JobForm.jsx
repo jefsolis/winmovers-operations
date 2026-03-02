@@ -1,20 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
-import { getJobStatuses, getJobTypes, getShipmentModes } from '../../constants'
+import { getJobStatuses, getJobTypes, getShipmentModes, getClientTypes, REQUIRED_FILE_CATEGORIES, getFileCategories } from '../../constants'
 import { useLanguage } from '../../i18n'
 
 const EMPTY = {
   type: 'INTERNATIONAL', status: 'SURVEY',
   clientId: '', contactId: '',
+  originAgentId: '', destAgentId: '', customsAgentId: '',
   originCity: '', originCountry: '', destCity: '', destCountry: '',
-  surveyDate: '', packDate: '', moveDate: '', deliveryDate: '',
+  callDate: '', surveyDate: '', packDate: '', moveDate: '', deliveryDate: '',
   volumeCbm: '', weightKg: '', shipmentMode: '', notes: ''
 }
 
 function toInputDate(v) {
   if (!v) return ''
   return new Date(v).toISOString().slice(0, 10)
+}
+
+function toInputDateTime(v) {
+  if (!v) return ''
+  return new Date(v).toISOString().slice(0, 16)
 }
 
 export default function JobForm() {
@@ -25,18 +31,26 @@ export default function JobForm() {
   const JOB_STATUSES = getJobStatuses(t)
   const JOB_TYPES = getJobTypes(t)
   const SHIPMENT_MODES = getShipmentModes(t)
+  const CLIENT_TYPES = getClientTypes(t)
 
   const [form, setForm] = useState(EMPTY)
   const [clients, setClients] = useState([])
   const [contacts, setContacts] = useState([])
+  const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const errorRef = useRef(null)
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [error])
 
   useEffect(() => {
     const tasks = [
       api.get('/clients').then(setClients).catch(() => {}),
-      api.get('/contacts').then(setContacts).catch(() => {})
+      api.get('/contacts').then(setContacts).catch(() => {}),
+      api.get('/agents').then(setAgents).catch(() => {})
     ]
     if (isEdit) {
       tasks.push(
@@ -44,12 +58,15 @@ export default function JobForm() {
           setForm({
             type: job.type, status: job.status,
             clientId: job.clientId || '', contactId: job.contactId || '',
+            originAgentId: job.originAgentId || '', destAgentId: job.destAgentId || '', customsAgentId: job.customsAgentId || '',
             originCity: job.originCity || '', originCountry: job.originCountry || '',
             destCity: job.destCity || '', destCountry: job.destCountry || '',
-            surveyDate: toInputDate(job.surveyDate), packDate: toInputDate(job.packDate),
+            callDate: toInputDate(job.callDate),
+            surveyDate: toInputDateTime(job.surveyDate), packDate: toInputDate(job.packDate),
             moveDate: toInputDate(job.moveDate), deliveryDate: toInputDate(job.deliveryDate),
             volumeCbm: job.volumeCbm ?? '', weightKg: job.weightKg ?? '',
-            shipmentMode: job.shipmentMode || '', notes: job.notes || ''
+            shipmentMode: job.shipmentMode || '', notes: job.notes || '',
+            jobNumber: job.jobNumber || ''
           })
         }).catch(e => setError(e.message)).finally(() => setLoading(false))
       )
@@ -58,6 +75,14 @@ export default function JobForm() {
   }, [id]) // eslint-disable-line
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
+
+  const handleClientChange = (clientId) => {
+    setForm(prev => ({ ...prev, clientId, contactId: '' }))
+  }
+
+  const filteredContacts = form.clientId
+    ? contacts.filter(c => c.clientId === form.clientId)
+    : contacts
   const field = (name, type = 'text') => ({
     type,
     className: 'form-control',
@@ -69,13 +94,30 @@ export default function JobForm() {
     e.preventDefault()
     setSaving(true); setError(null)
     try {
+      // Pre-check: if setting status to CLOSED, verify all required files are attached
+      if (isEdit && form.status === 'CLOSED') {
+        const files = await api.get(`/jobs/${id}/files`)
+        const attached = new Set(files.map(f => f.category))
+        const FILE_CATS = getFileCategories(t)
+        const missing = REQUIRED_FILE_CATEGORIES.filter(c => !attached.has(c))
+        if (missing.length > 0) {
+          const labels = missing.map(c => FILE_CATS.find(x => x.value === c)?.label || c)
+          setError(`${t('files.closedBlocked')}\n• ${labels.join('\n• ')}`)
+          setSaving(false)
+          return
+        }
+      }
       const payload = {
         ...form,
         clientId:  form.clientId  || null,
         contactId: form.contactId || null,
+        originAgentId: form.originAgentId || null,
+        destAgentId: form.destAgentId || null,
+        customsAgentId: form.customsAgentId || null,
         shipmentMode: form.shipmentMode || null,
         volumeCbm: form.volumeCbm === '' ? null : form.volumeCbm,
         weightKg:  form.weightKg  === '' ? null : form.weightKg,
+        callDate:     form.callDate     || null,
         surveyDate:   form.surveyDate   || null,
         packDate:     form.packDate     || null,
         moveDate:     form.moveDate     || null,
@@ -93,19 +135,17 @@ export default function JobForm() {
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
 
-  const jobNumber = isEdit && form._jobNumber ? form._jobNumber : (isEdit ? '…' : 'Auto-assigned')
-
   return (
     <>
       <div className="page-header">
         <div>
           <div className="page-title">{isEdit ? t('jobs.editJob') : t('jobs.newJobTitle')}</div>
-          <div className="page-subtitle">{isEdit ? `Job #${id.slice(-6)}` : t('jobs.autoAssigned')}</div>
+          <div className="page-subtitle">{isEdit ? (form.jobNumber || '…') : t('jobs.autoAssigned')}</div>
         </div>
         <Link to="/jobs" className="btn btn-ghost">{t('jobs.backToJobs')}</Link>
       </div>
 
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div ref={errorRef} className="alert alert-error" style={{ marginBottom: 16, whiteSpace: 'pre-line' }}>{error}</div>}
 
       <div className="card card-body">
         <form onSubmit={handleSubmit}>
@@ -142,16 +182,41 @@ export default function JobForm() {
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">{t('jobs.corporateClient')}</label>
-                <select className="form-control" value={form.clientId} onChange={e => set('clientId', e.target.value)}>
+                <select className="form-control" value={form.clientId} onChange={e => handleClientChange(e.target.value)}>
                   <option value="">{t('common.none')}</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {clients.map(c => {
+                    const typeLabel = CLIENT_TYPES.find(ct => ct.value === c.clientType)?.label || c.clientType
+                    return <option key={c.id} value={c.id}>{c.name} ({typeLabel})</option>
+                  })}
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">{t('jobs.shipperContact')}</label>
-                <select className="form-control" value={form.contactId} onChange={e => set('contactId', e.target.value)}>
+                <select className="form-control" value={form.contactId} onChange={e => set('contactId', e.target.value)}
+                  disabled={!form.clientId}>
+                  <option value="">{form.clientId ? t('common.none') : t('jobs.selectClientFirst')}</option>
+                  {filteredContacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('jobs.originAgent')}</label>
+                <select className="form-control" value={form.originAgentId} onChange={e => set('originAgentId', e.target.value)}>
                   <option value="">{t('common.none')}</option>
-                  {contacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+                  {agents.map(a => <option key={a.id} value={a.id}>{a.name} {a.city ? `(${a.city})` : ''}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('jobs.destAgent')}</label>
+                <select className="form-control" value={form.destAgentId} onChange={e => set('destAgentId', e.target.value)}>
+                  <option value="">{t('common.none')}</option>
+                  {agents.map(a => <option key={a.id} value={a.id}>{a.name} {a.city ? `(${a.city})` : ''}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('jobs.customsAgent')}</label>
+                <select className="form-control" value={form.customsAgentId} onChange={e => set('customsAgentId', e.target.value)}>
+                  <option value="">{t('common.none')}</option>
+                  {agents.map(a => <option key={a.id} value={a.id}>{a.name} {a.city ? `(${a.city})` : ''}</option>)}
                 </select>
               </div>
             </div>
@@ -186,8 +251,12 @@ export default function JobForm() {
           <div className="form-section-title">{t('jobs.dates')}</div>
             <div className="form-grid">
               <div className="form-group">
+                <label className="form-label">{t('jobs.callDate')}</label>
+                <input {...field('callDate', 'date')} />
+              </div>
+              <div className="form-group">
                 <label className="form-label">{t('jobs.surveyDate')}</label>
-                <input {...field('surveyDate', 'date')} />
+                <input {...field('surveyDate', 'datetime-local')} />
               </div>
               <div className="form-group">
                 <label className="form-label">{t('jobs.packDate')}</label>
@@ -227,6 +296,11 @@ export default function JobForm() {
             </div>
           </div>
 
+          {error && (
+            <div className="alert alert-error" style={{ marginBottom: 12, whiteSpace: 'pre-line', fontSize: 13 }}>
+              {error}
+            </div>
+          )}
           <div className="form-actions">
             <Link to="/jobs" className="btn btn-ghost">{t('common.cancel')}</Link>
             <button type="submit" className="btn btn-primary" disabled={saving}>

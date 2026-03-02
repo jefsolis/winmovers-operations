@@ -9,6 +9,9 @@ import ClientsList from './pages/Clients/ClientsList'
 import ClientForm from './pages/Clients/ClientForm'
 import ContactsList from './pages/Contacts/ContactsList'
 import ContactForm from './pages/Contacts/ContactForm'
+import AgentsList from './pages/Agents/AgentsList'
+import AgentForm from './pages/Agents/AgentForm'
+import JobDetail from './pages/Jobs/JobDetail'
 
 export default function App() {
   return (
@@ -20,13 +23,17 @@ export default function App() {
           <Route path="dashboard"          element={<Dashboard />} />
           <Route path="jobs"               element={<JobsList />} />
           <Route path="jobs/new"           element={<JobForm />} />
+          <Route path="jobs/:id"           element={<JobDetail />} />
           <Route path="jobs/:id/edit"      element={<JobForm />} />
           <Route path="clients"            element={<ClientsList />} />
           <Route path="clients/new"        element={<ClientForm />} />
           <Route path="clients/:id/edit"   element={<ClientForm />} />
-          <Route path="contacts"           element={<ContactsList />} />
-          <Route path="contacts/new"       element={<ContactForm />} />
+          <Route path="contacts"            element={<ContactsList />} />
+          <Route path="contacts/new"        element={<ContactForm />} />
           <Route path="contacts/:id/edit"  element={<ContactForm />} />
+          <Route path="agents"              element={<AgentsList />} />
+          <Route path="agents/new"          element={<AgentForm />} />
+          <Route path="agents/:id/edit"     element={<AgentForm />} />
         </Route>
       </Routes>
     </BrowserRouter>

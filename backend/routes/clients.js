@@ -5,9 +5,15 @@ const { getPrisma } = require('../db')
 router.get('/', async (req, res, next) => {
   try {
     const { search } = req.query
-    const where = search
-      ? { name: { contains: search, mode: 'insensitive' } }
-      : {}
+    const where = search ? {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { country: { contains: search, mode: 'insensitive' } },
+      ]
+    } : {}
     const clients = await getPrisma().client.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -32,10 +38,12 @@ router.get('/:id', async (req, res, next) => {
 // POST create
 router.post('/', async (req, res, next) => {
   try {
-    const { name, accountNum, email, phone, address, country, notes } = req.body
+    const { clientType = 'CORPORATE', firstName, lastName, accountNum, email, phone, address, country, notes } = req.body
+    let name = req.body.name
+    if (clientType === 'INDIVIDUAL') name = [firstName, lastName].filter(Boolean).join(' ')
     if (!name) return res.status(400).json({ error: 'name is required' })
     const client = await getPrisma().client.create({
-      data: { name, accountNum: accountNum || undefined, email, phone, address, country, notes }
+      data: { clientType, name, firstName: firstName || null, lastName: lastName || null, accountNum: accountNum || undefined, email, phone, address, country, notes }
     })
     res.status(201).json(client)
   } catch (err) { next(err) }
@@ -44,10 +52,12 @@ router.post('/', async (req, res, next) => {
 // PUT update
 router.put('/:id', async (req, res, next) => {
   try {
-    const { name, accountNum, email, phone, address, country, notes } = req.body
+    const { clientType, firstName, lastName, accountNum, email, phone, address, country, notes } = req.body
+    let name = req.body.name
+    if (clientType === 'INDIVIDUAL') name = [firstName, lastName].filter(Boolean).join(' ')
     const client = await getPrisma().client.update({
       where: { id: req.params.id },
-      data: { name, accountNum: accountNum || undefined, email, phone, address, country, notes }
+      data: { clientType, name, firstName: firstName || null, lastName: lastName || null, accountNum: accountNum || undefined, email, phone, address, country, notes }
     })
     res.json(client)
   } catch (err) { next(err) }

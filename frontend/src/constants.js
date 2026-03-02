@@ -35,7 +35,60 @@ export function typeMeta(value, t) {
   return { value, label: t ? t(`types.${value}`) : value }
 }
 
+const CLIENT_TYPE_META = [
+  { value: 'CORPORATE', bg: '#dbeafe', color: '#1e40af' },
+  { value: 'INDIVIDUAL', bg: '#dcfce7', color: '#166534' },
+  { value: 'BROKER',     bg: '#ede9fe', color: '#6d28d9' },
+]
+
+export function getClientTypes(t) {
+  return CLIENT_TYPE_META.map(c => ({ ...c, label: t(`clients.clientTypes.${c.value}`) }))
+}
+
+export function clientTypeMeta(value, t) {
+  const meta = CLIENT_TYPE_META.find(c => c.value === value) || { value, bg: '#e2e8f0', color: '#475569' }
+  return { ...meta, label: t ? t(`clients.clientTypes.${value}`) : value }
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+export const REQUIRED_FILE_CATEGORIES = [
+  'SURVEY_REPORT', 'QUOTATION', 'INSURANCE_INVENTORY', 'SIGNED_QUOTATION',
+  'WORK_ORDER', 'PRE_ADVICE', 'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT',
+  'INSURANCE_CERTIFICATE', 'SIGNED_PACKING_LIST', 'INVOICE', 'DELIVERY_CONFIRMATION'
+]
+
+const FILE_CATEGORY_META = [
+  { value: 'SURVEY_REPORT',          bg: '#dbeafe', color: '#1e40af' },
+  { value: 'QUOTATION',              bg: '#ede9fe', color: '#6d28d9' },
+  { value: 'INSURANCE_INVENTORY',    bg: '#fef3c7', color: '#92400e' },
+  { value: 'SIGNED_QUOTATION',       bg: '#e0e7ff', color: '#3730a3' },
+  { value: 'WORK_ORDER',             bg: '#ccfbf1', color: '#0f766e' },
+  { value: 'PRE_ADVICE',             bg: '#fef9c3', color: '#854d0e' },
+  { value: 'SHIPPING_INSTRUCTIONS',  bg: '#e0f2fe', color: '#0369a1' },
+  { value: 'TRANSPORT_DOCUMENT',     bg: '#bfdbfe', color: '#1d4ed8' },
+  { value: 'INSURANCE_CERTIFICATE',  bg: '#ffedd5', color: '#c2410c' },
+  { value: 'SIGNED_PACKING_LIST',    bg: '#dcfce7', color: '#16a34a' },
+  { value: 'INVOICE',                bg: '#fee2e2', color: '#b91c1c' },
+  { value: 'DELIVERY_CONFIRMATION',  bg: '#d1fae5', color: '#065f46' },
+  { value: 'OTHER',                  bg: '#e2e8f0', color: '#475569' },
+]
+
+export function getFileCategories(t) {
+  return FILE_CATEGORY_META.map(c => ({ ...c, label: t(`files.categories.${c.value}`) }))
+}
+
+export function fileCategoryMeta(value, t) {
+  const meta = FILE_CATEGORY_META.find(c => c.value === value) || { value, bg: '#e2e8f0', color: '#475569' }
+  return { ...meta, label: t ? t(`files.categories.${value}`) : value }
+}
+
+export function formatFileSize(bytes) {
+  if (!bytes) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
