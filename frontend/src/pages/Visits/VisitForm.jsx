@@ -219,7 +219,7 @@ export default function VisitForm() {
               rows={4}
               value={form.observations}
               onChange={e => set('observations', e.target.value)}
-              placeholder="Add any relevant notes from the visit…"
+              placeholder={t('visits.observationsPlaceholder')}
             />
           </div>
         </div>

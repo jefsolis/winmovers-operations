@@ -138,4 +138,4 @@ export function quoteStatusMeta(value, t) {
   return { ...meta, label: t ? t(`quoteStatuses.${value}`) : value }
 }
 
-export const CURRENCIES = ['USD', 'EUR', 'GBP', 'COP', 'MXN', 'PEN', 'CLP', 'ARS']
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'CRC', 'COP', 'MXN', 'PEN', 'CLP', 'ARS']

@@ -139,6 +139,7 @@ const translations = {
       originInfo: 'Origin', destInfo: 'Destination',
       originAddress: 'Origin Address', destAddress: 'Destination Address',
       observations: 'Observations',
+      observationsPlaceholder: 'Add any relevant notes from the visit…',
       statusSection: 'Status & Actions',
       markCompleted: 'Mark as Completed', closeLost: 'Close (Lost)',
       createQuote: '+ Create Quote', viewQuote: 'View Quote',
@@ -168,6 +169,7 @@ const translations = {
       autoAssigned: 'Quote number will be auto-assigned',
       backSubtitle: 'Quotation record',
       fromVisit: 'From Visit',
+      notesPlaceholder: 'Scope of work, inclusions, exclusions…',
     },
   },
   es: {
@@ -308,6 +310,7 @@ const translations = {
       originInfo: 'Origen', destInfo: 'Destino',
       originAddress: 'Dirección de Origen', destAddress: 'Dirección de Destino',
       observations: 'Observaciones',
+      observationsPlaceholder: 'Agregue notas relevantes de la visita…',
       statusSection: 'Estado y Acciones',
       markCompleted: 'Marcar como Completada', closeLost: 'Cerrar (Perdida)',
       createQuote: '+ Crear Cotización', viewQuote: 'Ver Cotización',
@@ -337,6 +340,7 @@ const translations = {
       autoAssigned: 'El número de cotización se asignará automáticamente',
       backSubtitle: 'Registro de cotización',
       fromVisit: 'De la Visita',
+      notesPlaceholder: 'Alcance del servicio, inclusiones, exclusiones…',
     },
   },
 }

@@ -137,7 +137,7 @@ export default function QuoteForm() {
             <textarea
               className="form-control" rows={4}
               value={form.notes} onChange={e => set('notes', e.target.value)}
-              placeholder="Scope of work, inclusions, exclusions…"
+              placeholder={t('quotes.notesPlaceholder')}
             />
           </div>
         </div>
