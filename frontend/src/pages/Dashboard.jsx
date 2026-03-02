@@ -121,7 +121,7 @@ export default function Dashboard() {
       </div>
 
       {/* Status + Mode + Type row */}
-      <div style={{ display: 'grid', gridTemplateColumns: hasModeData ? '1fr 1fr 1fr' : '1fr 1fr', gap: 16, marginBottom: 20 }}>
+      <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: hasModeData ? '1fr 1fr 1fr' : '1fr 1fr', gap: 16, marginBottom: 20 }}>
 
         {/* Status donut */}
         <div className="card card-body">

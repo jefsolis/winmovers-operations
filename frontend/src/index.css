@@ -288,6 +288,11 @@ textarea.form-control { resize: vertical; min-height: 80px; }
    RESPONSIVE BREAKPOINTS
    ══════════════════════════════════════════════════ */
 
+/* ══════════════════════════════════════════════════
+   CHART GRID
+   ══════════════════════════════════════════════════ */
+.chart-grid > .card { min-width: 0; }
+
 /* Tablet: 768px and below */
 @media (max-width: 768px) {
   /* Show topbar, hide static sidebar */
@@ -316,6 +321,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   /* KPI grid: 2 columns */
   .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
 
+  /* Chart grid: 1 column on tablet */
+  .chart-grid { grid-template-columns: 1fr !important; }
+
   /* Tables: horizontal scroll */
   .table-wrapper, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
@@ -335,6 +343,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 @media (max-width: 480px) {
   /* KPI: 1 column */
   .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+
+  /* Chart grid: 1 column on mobile (already set by tablet rule, kept explicit) */
+  .chart-grid { grid-template-columns: 1fr !important; }
 
   /* Hide less critical table columns */
   table th:nth-child(3),
