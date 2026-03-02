@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { visitStatusMeta, quoteStatusMeta, formatDate } from '../../constants'
 import { useLanguage } from '../../i18n'
+import QuickCreateClientModal from '../../components/QuickCreateClientModal'
 
 function Field({ label, value }) {
   return (
@@ -20,6 +21,7 @@ export default function VisitDetail() {
   const [visit, setVisit]   = useState(null)
   const [loading, setLoading] = useState(true)
   const [acting, setActing]   = useState(false)
+  const [showCreateClient, setShowCreateClient] = useState(false)
 
   const load = () => api.get(`/visits/${id}`).then(setVisit).catch(() => navigate('/visits')).finally(() => setLoading(false))
   useEffect(() => { load() }, [id]) // eslint-disable-line
@@ -29,6 +31,12 @@ export default function VisitDetail() {
     await api.put(`/visits/${id}`, { ...visit, status })
     await load()
     setActing(false)
+  }
+
+  const handleClientCreated = async (newClient) => {
+    await api.put(`/visits/${id}`, { clientId: newClient.id })
+    setShowCreateClient(false)
+    await load()
   }
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
@@ -73,6 +81,11 @@ export default function VisitDetail() {
         {(visit.status === 'SCHEDULED' || visit.status === 'COMPLETED') && (
           <button className="btn btn-danger btn-sm" disabled={acting} onClick={() => setStatus('CLOSED')}>
             {t('visits.closeLost')}
+          </button>
+        )}
+        {!visit.clientId && (
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowCreateClient(true)}>
+            {t('visits.createClientFromProspect')}
           </button>
         )}
       </div>
@@ -150,6 +163,14 @@ export default function VisitDetail() {
             </div>
         }
       </div>
+      <QuickCreateClientModal
+        open={showCreateClient}
+        onClose={() => setShowCreateClient(false)}
+        initialName={visit.prospectName || ''}
+        initialPhone={visit.prospectPhone || ''}
+        initialEmail={visit.prospectEmail || ''}
+        onCreated={handleClientCreated}
+      />
     </>
   )
 }

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { quoteStatusMeta, visitStatusMeta, formatDate } from '../../constants'
 import { useLanguage } from '../../i18n'
+import QuickCreateClientModal from '../../components/QuickCreateClientModal'
 
 function Field({ label, value }) {
   return (
@@ -17,9 +18,11 @@ export default function QuoteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { t } = useLanguage()
-  const [quote, setQuote]   = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [acting, setActing]   = useState(false)
+  const [quote, setQuote]       = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [acting, setActing]     = useState(false)
+  const [interceptPending, setInterceptPending] = useState(false)
+  const [showCreateClient, setShowCreateClient] = useState(false)
 
   const load = () => api.get(`/quotes/${id}`).then(setQuote).catch(() => navigate('/quotes')).finally(() => setLoading(false))
   useEffect(() => { load() }, [id]) // eslint-disable-line
@@ -29,6 +32,22 @@ export default function QuoteDetail() {
     await api.put(`/quotes/${id}`, { status })
     await load()
     setActing(false)
+  }
+
+  const handleConvertToJob = () => {
+    if (!visit?.clientId) {
+      setInterceptPending(true)
+    } else {
+      navigate(`/jobs/new?fromQuote=${id}`)
+    }
+  }
+
+  const handleClientCreated = async (newClient) => {
+    if (visit?.id) {
+      await api.put(`/visits/${visit.id}`, { clientId: newClient.id })
+    }
+    setShowCreateClient(false)
+    navigate(`/jobs/new?fromQuote=${id}`)
   }
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
@@ -79,7 +98,7 @@ export default function QuoteDetail() {
           </>
         )}
         {quote.status === 'ACCEPTED' && !quote.job && (
-          <Link to={`/jobs/new?fromQuote=${id}`} className="btn btn-primary btn-sm">{t('quotes.convertToJob')}</Link>
+          <button className="btn btn-primary btn-sm" onClick={handleConvertToJob}>{t('quotes.convertToJob')}</button>
         )}
         {quote.job && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -90,6 +109,19 @@ export default function QuoteDetail() {
           </div>
         )}
       </div>
+
+      {interceptPending && (
+        <div className="card card-body" style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', borderLeft: '4px solid #f59e0b' }}>
+          <span style={{ flex: 1, minWidth: 200, fontSize: 14 }}>{t('quotes.noClientWarning')}</span>
+          <button className="btn btn-primary btn-sm" onClick={() => { setInterceptPending(false); setShowCreateClient(true) }}>
+            {t('quotes.createClientFirst')}
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => { setInterceptPending(false); navigate(`/jobs/new?fromQuote=${id}`) }}>
+            {t('quotes.continueWithoutClient')}
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setInterceptPending(false)}>{t('common.cancel')}</button>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="chart-grid">
         {/* Quote details */}
@@ -125,6 +157,14 @@ export default function QuoteDetail() {
           </div>
         )}
       </div>
+      <QuickCreateClientModal
+        open={showCreateClient}
+        onClose={() => setShowCreateClient(false)}
+        initialName={visit?.prospectName || ''}
+        initialPhone={visit?.prospectPhone || ''}
+        initialEmail={visit?.prospectEmail || ''}
+        onCreated={handleClientCreated}
+      />
     </>
   )
 }

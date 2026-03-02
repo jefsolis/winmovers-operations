@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
-import { getVisitStatuses, getServiceTypes, getClientTypes } from '../../constants'
+import { getVisitStatuses, getServiceTypes } from '../../constants'
 import { useLanguage } from '../../i18n'
 
 const EMPTY = {
@@ -22,7 +22,6 @@ export default function VisitForm() {
   const { t } = useLanguage()
   const VISIT_STATUSES  = getVisitStatuses(t)
   const SERVICE_TYPES   = getServiceTypes(t)
-  const CLIENT_TYPES    = getClientTypes(t)
 
   const [form, setForm]       = useState(EMPTY)
   const [clients, setClients] = useState([])
@@ -31,11 +30,6 @@ export default function VisitForm() {
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
   const errorRef = useRef(null)
-
-  const [showClientModal, setShowClientModal] = useState(false)
-  const [clientModal, setClientModal] = useState({ name: '', clientType: 'CORPORATE', email: '', phone: '' })
-  const [creatingClient, setCreatingClient] = useState(false)
-  const [clientModalError, setClientModalError] = useState(null)
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -84,28 +78,6 @@ export default function VisitForm() {
     value: form[name],
     onChange: e => set(name, e.target.value),
   })
-
-  const handleCreateClient = async e => {
-    e.preventDefault()
-    if (!clientModal.name.trim()) return
-    setCreatingClient(true); setClientModalError(null)
-    try {
-      const newClient = await api.post('/clients', {
-        name: clientModal.name.trim(),
-        clientType: clientModal.clientType,
-        email: clientModal.email || null,
-        phone: clientModal.phone || null,
-      })
-      setClients(prev => [...prev, newClient])
-      set('clientId', newClient.id)
-      set('contactId', '')
-      setShowClientModal(false)
-    } catch (err) {
-      setClientModalError(err.message)
-    } finally {
-      setCreatingClient(false)
-    }
-  }
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -159,23 +131,10 @@ export default function VisitForm() {
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.linkedClient')}</label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <select className="form-control" style={{ flex: 1 }} value={form.clientId} onChange={e => { set('clientId', e.target.value); set('contactId', '') }}>
-                  <option value="">{t('common.none')}</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name || `${c.firstName} ${c.lastName}`}</option>)}
-                </select>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-                  title={t('visits.createClientFromProspect')}
-                  onClick={() => {
-                    setClientModal({ name: form.prospectName || '', clientType: 'CORPORATE', email: form.prospectEmail || '', phone: form.prospectPhone || '' })
-                    setClientModalError(null)
-                    setShowClientModal(true)
-                  }}
-                >+</button>
-              </div>
+              <select className="form-control" value={form.clientId} onChange={e => { set('clientId', e.target.value); set('contactId', '') }}>
+                <option value="">{t('common.none')}</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name || `${c.firstName} ${c.lastName}`}</option>)}
+              </select>
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.linkedContact')}</label>
@@ -274,41 +233,6 @@ export default function VisitForm() {
           <Link to={isEdit ? `/visits/${id}` : '/visits'} className="btn btn-secondary">{t('common.cancel')}</Link>
         </div>
       </form>
-      {showClientModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          onClick={e => { if (e.target === e.currentTarget) setShowClientModal(false) }}>
-          <div className="card card-body" style={{ width: '100%', maxWidth: 440, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div className="page-title" style={{ marginBottom: 16 }}>{t('visits.quickCreateClient')}</div>
-            {clientModalError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{clientModalError}</div>}
-            <form onSubmit={handleCreateClient}>
-              <div className="form-group">
-                <label className="form-label">{t('clients.clientType')}</label>
-                <select className="form-control" value={clientModal.clientType} onChange={e => setClientModal(p => ({ ...p, clientType: e.target.value }))}>
-                  {CLIENT_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('clients.companyName')} *</label>
-                <input className="form-control" required value={clientModal.name} onChange={e => setClientModal(p => ({ ...p, name: e.target.value }))} placeholder={t('clients.namePlaceholder')} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('visits.prospectPhone')}</label>
-                <input className="form-control" value={clientModal.phone} onChange={e => setClientModal(p => ({ ...p, phone: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('visits.prospectEmail')}</label>
-                <input className="form-control" type="email" value={clientModal.email} onChange={e => setClientModal(p => ({ ...p, email: e.target.value }))} />
-              </div>
-              <div className="form-actions">
-                <button type="submit" className="btn btn-primary" disabled={creatingClient}>
-                  {creatingClient ? t('common.saving') : t('clients.createClient')}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowClientModal(false)}>{t('common.cancel')}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </>
   )
 }
