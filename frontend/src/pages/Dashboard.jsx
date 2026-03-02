@@ -80,7 +80,10 @@ export default function Dashboard() {
           <div className="page-title">{t('dashboard.title')}</div>
           <div className="page-subtitle">{t('dashboard.subtitle')}</div>
         </div>
-        <Link to="/jobs/new" className="btn btn-primary">{t('jobs.newJob')}</Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link to="/visits/new" className="btn btn-primary">{t('visits.newVisit')}</Link>
+          <Link to="/jobs/new" className="btn btn-secondary">{t('jobs.newJob')}</Link>
+        </div>
       </div>
 
       {/* KPI cards */}
