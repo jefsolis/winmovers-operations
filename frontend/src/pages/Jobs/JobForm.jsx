@@ -39,6 +39,8 @@ export default function JobForm() {
   const [clients, setClients] = useState([])
   const [contacts, setContacts] = useState([])
   const [agents, setAgents] = useState([])
+  const [linkedQuoteId, setLinkedQuoteId] = useState(null)
+  const [availableQuotes, setAvailableQuotes] = useState([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -90,6 +92,13 @@ export default function JobForm() {
         }).catch(() => {})
       )
     }
+    if (!isEdit && !fromQuoteId) {
+      tasks.push(
+        api.get('/quotes').then(qs => {
+          setAvailableQuotes(qs.filter(q => q.status === 'ACCEPTED' && !q.job))
+        }).catch(() => {})
+      )
+    }
     Promise.all(tasks)
   }, [id]) // eslint-disable-line
 
@@ -97,6 +106,25 @@ export default function JobForm() {
 
   const handleClientChange = (clientId) => {
     setForm(prev => ({ ...prev, clientId, contactId: '' }))
+  }
+
+  const handleQuoteLink = async (quoteId) => {
+    setLinkedQuoteId(quoteId || null)
+    if (!quoteId) { setForm(EMPTY); return }
+    try {
+      const q = await api.get(`/quotes/${quoteId}`)
+      const v = q.visit
+      setForm(prev => ({
+        ...prev,
+        clientId:      v?.clientId      || '',
+        contactId:     v?.contactId     || '',
+        originCity:    v?.originCity    || '',
+        originCountry: v?.originCountry || '',
+        destCity:      v?.destCity      || '',
+        destCountry:   v?.destCountry   || '',
+        notes:         v?.observations  || '',
+      }))
+    } catch { /* ignore */ }
   }
 
   const filteredContacts = form.clientId
@@ -147,7 +175,8 @@ export default function JobForm() {
       } else {
         const created = await api.post('/jobs', payload)
         // Link the originating quote to this job
-        if (fromQuoteId) await api.put(`/quotes/${fromQuoteId}`, { jobId: created.id })
+        const quoteToLink = fromQuoteId || linkedQuoteId
+        if (quoteToLink) await api.put(`/quotes/${quoteToLink}`, { jobId: created.id })
       }
       navigate('/jobs')
     } catch (e) { setError(e.message) }
@@ -170,6 +199,35 @@ export default function JobForm() {
 
       <div className="card card-body">
         <form onSubmit={handleSubmit}>
+
+          {/* Link to Quote — only on new jobs not already coming from a quote */}
+          {!isEdit && !fromQuoteId && (
+            <div className="form-section">
+              <div className="form-section-title">{t('jobs.linkToQuote')}</div>
+              <div className="form-grid">
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">{t('jobs.selectQuote')}</label>
+                  <select className="form-control" value={linkedQuoteId || ''} onChange={e => handleQuoteLink(e.target.value)}>
+                    <option value="">{t('jobs.noLinkedQuote')}</option>
+                    {availableQuotes.map(q => {
+                      const clientName = q.visit?.client?.name || q.visit?.prospectName || ''
+                      return (
+                        <option key={q.id} value={q.id}>
+                          {q.quoteNumber}{clientName ? ` — ${clientName}` : ''}
+                        </option>
+                      )
+                    })}
+                  </select>
+                  {availableQuotes.length === 0 && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>{t('jobs.noAcceptedQuotes')}</div>
+                  )}
+                  {linkedQuoteId && (
+                    <div style={{ marginTop: 6, fontSize: 13, color: 'var(--success, #16a34a)' }}>✓ {t('jobs.quotePreFilled')}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Basic Info */}
           <div className="form-section">

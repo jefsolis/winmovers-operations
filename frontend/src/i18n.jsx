@@ -53,6 +53,10 @@ const translations = {
       moveDate_label: 'Move / Load Date', deliveryDate: 'Delivery Date',
       volumeCbm: 'Volume (CBM)', weightKg: 'Weight (KG)',
       createJob: 'Create Job', backToJobs: '← Back to Jobs',
+      linkToQuote: 'Link to Quote', selectQuote: 'Select Quote (optional)',
+      noLinkedQuote: 'None — standalone job',
+      noAcceptedQuotes: 'No accepted quotes available to link.',
+      quotePreFilled: 'Fields pre-filled from the linked quote’s visit.',
       originPlaceholder: 'e.g. New York', destPlaceholder: 'e.g. London',
     },
     clients: {
@@ -232,6 +236,10 @@ const translations = {
       moveDate_label: 'Fecha de Mudanza / Carga', deliveryDate: 'Fecha de Entrega',
       volumeCbm: 'Volumen (CBM)', weightKg: 'Peso (KG)',
       createJob: 'Crear Orden de Trabajo', backToJobs: '← Volver a Órdenes',
+      linkToQuote: 'Vincular a Cotización', selectQuote: 'Seleccionar Cotización (opcional)',
+      noLinkedQuote: 'Ninguna — orden independiente',
+      noAcceptedQuotes: 'No hay cotizaciones aceptadas disponibles para vincular.',
+      quotePreFilled: 'Campos completados desde la visita vinculada a la cotización.',
       originPlaceholder: 'ej. Nueva York', destPlaceholder: 'ej. Madrid',
     },
     clients: {
