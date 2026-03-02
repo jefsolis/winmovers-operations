@@ -69,6 +69,8 @@ const translations = {
       empty: 'No clients yet', backSubtitle: 'Client account details',
       deleteConfirm: 'Delete client "{{name}}"? This cannot be undone.',
       searchPlaceholder: 'Search name, email, country…',
+      firstNameRequired: 'First name is required.',
+      nameRequired: 'Company name is required.',
     },
     contacts: {
       title: 'Contacts', subtitle: 'Manage shipper and point-of-contact records',
@@ -246,6 +248,8 @@ const translations = {
       empty: 'Aún no hay clientes', backSubtitle: 'Datos de cuenta del cliente',
       deleteConfirm: '¿Eliminar cliente "{{name}}"? Esta acción no se puede deshacer.',
       searchPlaceholder: 'Buscar nombre, correo, país…',
+      firstNameRequired: 'El nombre es obligatorio.',
+      nameRequired: 'El nombre de empresa es obligatorio.',
     },
     contacts: {
       title: 'Contactos', subtitle: 'Gestionar embarcadores y puntos de contacto',

@@ -8,7 +8,7 @@ import { useLanguage } from '../i18n'
  * Props:
  *  open          – boolean
  *  onClose       – () => void
- *  initialName   – string
+ *  initialName   – string  (full prospect name; auto-split into first/last for INDIVIDUAL)
  *  initialPhone  – string
  *  initialEmail  – string
  *  onCreated     – (newClient) => void
@@ -17,14 +17,22 @@ export default function QuickCreateClientModal({ open, onClose, initialName = ''
   const { t } = useLanguage()
   const CLIENT_TYPES = getClientTypes(t)
 
-  const [form, setForm]   = useState({ name: '', clientType: 'CORPORATE', phone: '', email: '' })
+  const [form, setForm]   = useState({ name: '', firstName: '', lastName: '', clientType: 'CORPORATE', phone: '', email: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
 
   // Reset form with prospect values whenever modal opens
   useEffect(() => {
     if (open) {
-      setForm({ name: initialName, clientType: 'CORPORATE', phone: initialPhone, email: initialEmail })
+      const parts = initialName.trim().split(/\s+/)
+      setForm({
+        clientType: 'CORPORATE',
+        name:       initialName,
+        firstName:  parts[0] || '',
+        lastName:   parts.slice(1).join(' '),
+        phone:      initialPhone,
+        email:      initialEmail,
+      })
       setError(null)
     }
   }, [open]) // eslint-disable-line
@@ -33,16 +41,39 @@ export default function QuickCreateClientModal({ open, onClose, initialName = ''
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
+  const isIndividual = form.clientType === 'INDIVIDUAL'
+
+  // When the type changes, keep name fields in sync so switching back doesn't lose data
+  const handleTypeChange = (newType) => {
+    setForm(p => {
+      if (newType === 'INDIVIDUAL') {
+        // Split current name into first/last
+        const parts = p.name.trim().split(/\s+/)
+        return { ...p, clientType: newType, firstName: parts[0] || '', lastName: parts.slice(1).join(' ') }
+      } else {
+        // Merge first+last back into name
+        const merged = [p.firstName, p.lastName].filter(Boolean).join(' ')
+        return { ...p, clientType: newType, name: merged || p.name }
+      }
+    })
+  }
+
   const handleSubmit = async e => {
     e.preventDefault()
-    if (!form.name.trim()) return
+    if (isIndividual && !form.firstName.trim()) { setError(t('clients.firstNameRequired')); return }
+    if (!isIndividual && !form.name.trim())      { setError(t('clients.nameRequired'));      return }
     setSaving(true); setError(null)
     try {
+      const fullName = isIndividual
+        ? [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(' ')
+        : form.name.trim()
       const newClient = await api.post('/clients', {
-        name:       form.name.trim(),
+        name:       fullName,
+        firstName:  isIndividual ? form.firstName.trim() : null,
+        lastName:   isIndividual ? form.lastName.trim()  : null,
         clientType: form.clientType,
-        email:      form.email  || null,
-        phone:      form.phone  || null,
+        email:      form.email || null,
+        phone:      form.phone || null,
       })
       onCreated(newClient)
     } catch (err) {
@@ -62,15 +93,30 @@ export default function QuickCreateClientModal({ open, onClose, initialName = ''
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">{t('clients.clientType')}</label>
-            <select className="form-control" value={form.clientType} onChange={e => set('clientType', e.target.value)}>
+            <label className="form-label">{t('clients.clientType')} *</label>
+            <select className="form-control" value={form.clientType} onChange={e => handleTypeChange(e.target.value)}>
               {CLIENT_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
             </select>
           </div>
-          <div className="form-group">
-            <label className="form-label">{t('clients.companyName')} *</label>
-            <input className="form-control" required value={form.name} onChange={e => set('name', e.target.value)} placeholder={t('clients.namePlaceholder')} />
-          </div>
+
+          {isIndividual ? (
+            <div className="form-grid" style={{ marginBottom: 0 }}>
+              <div className="form-group">
+                <label className="form-label">{t('clients.firstName')} *</label>
+                <input className="form-control" required value={form.firstName} onChange={e => set('firstName', e.target.value)} placeholder={t('clients.firstNamePlaceholder')} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('clients.lastName')}</label>
+                <input className="form-control" value={form.lastName} onChange={e => set('lastName', e.target.value)} placeholder={t('clients.lastNamePlaceholder')} />
+              </div>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label className="form-label">{t('clients.companyName')} *</label>
+              <input className="form-control" required value={form.name} onChange={e => set('name', e.target.value)} placeholder={t('clients.namePlaceholder')} />
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label">{t('visits.prospectPhone')}</label>
             <input className="form-control" value={form.phone} onChange={e => set('phone', e.target.value)} />
