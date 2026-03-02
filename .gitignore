@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+/package.json
+/package-lock.json
 .env.local
 .env.*.local
 *.log
