@@ -15,6 +15,8 @@ app.use('/api/dashboard',          require('./routes/dashboard'))
 app.use('/api/clients',            require('./routes/clients'))
 app.use('/api/contacts',           require('./routes/contacts'))
 app.use('/api/agents',             require('./routes/agents'))
+app.use('/api/visits',             require('./routes/visits'))
+app.use('/api/quotes',             require('./routes/quotes'))
 app.use('/api/jobs/:jobId/files',  require('./routes/jobFiles'))  // must be before /api/jobs
 app.use('/api/jobs',               require('./routes/jobs'))
 

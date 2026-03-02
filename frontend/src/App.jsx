@@ -12,6 +12,12 @@ import ContactForm from './pages/Contacts/ContactForm'
 import AgentsList from './pages/Agents/AgentsList'
 import AgentForm from './pages/Agents/AgentForm'
 import JobDetail from './pages/Jobs/JobDetail'
+import VisitsList from './pages/Visits/VisitsList'
+import VisitForm from './pages/Visits/VisitForm'
+import VisitDetail from './pages/Visits/VisitDetail'
+import QuotesList from './pages/Quotes/QuotesList'
+import QuoteForm from './pages/Quotes/QuoteForm'
+import QuoteDetail from './pages/Quotes/QuoteDetail'
 
 export default function App() {
   return (
@@ -34,6 +40,14 @@ export default function App() {
           <Route path="agents"              element={<AgentsList />} />
           <Route path="agents/new"          element={<AgentForm />} />
           <Route path="agents/:id/edit"     element={<AgentForm />} />
+          <Route path="visits"              element={<VisitsList />} />
+          <Route path="visits/new"          element={<VisitForm />} />
+          <Route path="visits/:id"          element={<VisitDetail />} />
+          <Route path="visits/:id/edit"     element={<VisitForm />} />
+          <Route path="quotes"              element={<QuotesList />} />
+          <Route path="quotes/new"          element={<QuoteForm />} />
+          <Route path="quotes/:id"          element={<QuoteDetail />} />
+          <Route path="quotes/:id/edit"     element={<QuoteForm />} />
         </Route>
       </Routes>
     </BrowserRouter>

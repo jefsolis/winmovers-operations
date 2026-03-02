@@ -8,6 +8,8 @@ export default function Layout() {
 
   const nav = [
     { to: '/dashboard', label: t('nav.dashboard'), icon: '⬛' },
+    { to: '/visits',    label: t('nav.visits'),    icon: '📅' },
+    { to: '/quotes',    label: t('nav.quotes'),    icon: '💬' },
     { to: '/jobs',      label: t('nav.jobs'),      icon: '📦' },
     { to: '/clients',   label: t('nav.clients'),   icon: '🏢' },
     { to: '/contacts',  label: t('nav.contacts'),  icon: '👤' },

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { getJobStatuses, getJobTypes, getShipmentModes, getClientTypes, REQUIRED_FILE_CATEGORIES, getFileCategories } from '../../constants'
 import { useLanguage } from '../../i18n'
@@ -25,8 +25,10 @@ function toInputDateTime(v) {
 
 export default function JobForm() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
+  const fromQuoteId = !isEdit ? searchParams.get('fromQuote') : null
   const { t } = useLanguage()
   const JOB_STATUSES = getJobStatuses(t)
   const JOB_TYPES = getJobTypes(t)
@@ -69,6 +71,23 @@ export default function JobForm() {
             jobNumber: job.jobNumber || ''
           })
         }).catch(e => setError(e.message)).finally(() => setLoading(false))
+      )
+    } else if (fromQuoteId) {
+      // Pre-fill from an accepted quote
+      tasks.push(
+        api.get(`/quotes/${fromQuoteId}`).then(q => {
+          const v = q.visit
+          setForm(prev => ({
+            ...prev,
+            clientId:     v?.clientId  || '',
+            contactId:    v?.contactId || '',
+            originCity:   v?.originCity    || '',
+            originCountry: v?.originCountry || '',
+            destCity:     v?.destCity    || '',
+            destCountry:  v?.destCountry  || '',
+            notes:        v?.observations  || '',
+          }))
+        }).catch(() => {})
       )
     }
     Promise.all(tasks)
@@ -126,7 +145,9 @@ export default function JobForm() {
       if (isEdit) {
         await api.put(`/jobs/${id}`, payload)
       } else {
-        await api.post('/jobs', payload)
+        const created = await api.post('/jobs', payload)
+        // Link the originating quote to this job
+        if (fromQuoteId) await api.put(`/quotes/${fromQuoteId}`, { jobId: created.id })
       }
       navigate('/jobs')
     } catch (e) { setError(e.message) }

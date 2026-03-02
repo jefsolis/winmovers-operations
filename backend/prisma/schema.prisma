@@ -22,6 +22,7 @@ model Client {
   notes      String?
   contacts   Contact[]
   jobs       Job[]
+  visits     Visit[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -35,6 +36,7 @@ model Contact {
   clientId  String?
   client    Client?  @relation(fields: [clientId], references: [id])
   jobs      Job[]
+  visits    Visit[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -84,6 +86,7 @@ model Job {
   shipmentMode  String?
   notes         String?
   files         JobFile[]
+  quotes        Quote[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -97,4 +100,49 @@ model JobFile {
   storagePath String
   sizeBytes   Int?
   uploadedAt  DateTime @default(now())
+}
+
+model Visit {
+  id            String    @id @default(cuid())
+  visitNumber   String    @unique
+  status        String    @default("SCHEDULED")
+  // Prospect info (for leads not yet in the system)
+  prospectName  String?
+  prospectPhone String?
+  prospectEmail String?
+  // Optional links to existing records
+  clientId      String?
+  client        Client?   @relation(fields: [clientId], references: [id])
+  contactId     String?
+  contact       Contact?  @relation(fields: [contactId], references: [id])
+  // Route
+  originAddress String?
+  originCity    String?
+  originCountry String?
+  destAddress   String?
+  destCity      String?
+  destCountry   String?
+  // Service
+  serviceType   String?
+  scheduledDate DateTime?
+  observations  String?
+  quotes        Quote[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Quote {
+  id          String    @id @default(cuid())
+  quoteNumber String    @unique
+  visitId     String
+  visit       Visit     @relation(fields: [visitId], references: [id])
+  status      String    @default("DRAFT")
+  totalAmount Float?
+  currency    String    @default("USD")
+  validUntil  DateTime?
+  notes       String?
+  jobId       String?
+  job         Job?      @relation(fields: [jobId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }

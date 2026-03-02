@@ -92,3 +92,50 @@ export function formatFileSize(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
+
+// ── Visit ────────────────────────────────────────────────────────────────────
+const VISIT_STATUS_META = [
+  { value: 'SCHEDULED',  bg: '#dbeafe', color: '#1e40af' },
+  { value: 'COMPLETED',  bg: '#ede9fe', color: '#6d28d9' },
+  { value: 'QUOTED',     bg: '#fef3c7', color: '#92400e' },
+  { value: 'CLOSED',     bg: '#e2e8f0', color: '#475569' },
+]
+
+export function getVisitStatuses(t) {
+  return VISIT_STATUS_META.map(s => ({ ...s, label: t(`visitStatuses.${s.value}`) }))
+}
+
+export function visitStatusMeta(value, t) {
+  const meta = VISIT_STATUS_META.find(s => s.value === value) || { value, bg: '#e2e8f0', color: '#475569' }
+  return { ...meta, label: t ? t(`visitStatuses.${value}`) : value }
+}
+
+const SERVICE_TYPE_META = [
+  { value: 'PORT_TO_PORT' },
+  { value: 'DOOR_TO_DOOR' },
+  { value: 'PACKING' },
+  { value: 'LOCAL_MOVE' },
+]
+
+export function getServiceTypes(t) {
+  return SERVICE_TYPE_META.map(s => ({ ...s, label: t(`serviceTypes.${s.value}`) }))
+}
+
+// ── Quote ────────────────────────────────────────────────────────────────────
+const QUOTE_STATUS_META = [
+  { value: 'DRAFT',     bg: '#e2e8f0', color: '#475569' },
+  { value: 'SENT',      bg: '#dbeafe', color: '#1e40af' },
+  { value: 'ACCEPTED',  bg: '#dcfce7', color: '#166534' },
+  { value: 'REJECTED',  bg: '#fee2e2', color: '#991b1b' },
+]
+
+export function getQuoteStatuses(t) {
+  return QUOTE_STATUS_META.map(s => ({ ...s, label: t(`quoteStatuses.${s.value}`) }))
+}
+
+export function quoteStatusMeta(value, t) {
+  const meta = QUOTE_STATUS_META.find(s => s.value === value) || { value, bg: '#e2e8f0', color: '#475569' }
+  return { ...meta, label: t ? t(`quoteStatuses.${value}`) : value }
+}
+
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'COP', 'MXN', 'PEN', 'CLP', 'ARS']
