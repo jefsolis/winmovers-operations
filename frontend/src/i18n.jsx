@@ -151,6 +151,9 @@ const translations = {
       allStatuses: 'All Statuses',
       autoAssigned: 'Visit number will be auto-assigned',
       backSubtitle: 'Pre-sale visit record',
+      createClientFromProspect: 'Create Client from Prospect',
+      quickCreateClient: 'New Client',
+      clientCreated: 'Client created and linked.',
     },
     quotes: {
       title: 'Quotes', subtitle: 'Manage quotations',
@@ -322,6 +325,9 @@ const translations = {
       allStatuses: 'Todos los Estados',
       autoAssigned: 'El número de visita se asignará automáticamente',
       backSubtitle: 'Registro de visita de preventa',
+      createClientFromProspect: 'Crear Cliente desde Prospecto',
+      quickCreateClient: 'Nuevo Cliente',
+      clientCreated: 'Cliente creado y vinculado.',
     },
     quotes: {
       title: 'Cotizaciones', subtitle: 'Gestionar cotizaciones',
