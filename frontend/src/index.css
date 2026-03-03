@@ -125,9 +125,51 @@ html, body, #root { height: 100%; font-family: system-ui, -apple-system, sans-se
 .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
 .btn-danger  { background: var(--danger); color: #fff; }
 .btn-danger:hover:not(:disabled)  { background: #b91c1c; }
+.btn-success { background: #16a34a; color: #fff; }
+.btn-success:hover:not(:disabled) { background: #15803d; }
 .btn-ghost   { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
 .btn-ghost:hover:not(:disabled)   { background: var(--bg); }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* ── KPI info tooltip ───────────────────────────── */
+.kpi-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  color: #fff;
+  font-size: 9px;
+  font-style: italic;
+  font-weight: 700;
+  cursor: help;
+  position: relative;
+  margin-left: 5px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.kpi-info::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  padding: 5px 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 200;
+}
+.kpi-info:hover::after { opacity: 1; }
 
 /* ── Toolbar / Filters ───────────────────────────── */
 .toolbar {

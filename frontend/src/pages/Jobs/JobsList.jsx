@@ -9,12 +9,15 @@ export default function JobsList() {
   const [searchParams] = useSearchParams()
   const JOB_STATUSES = getJobStatuses(t)
   const JOB_TYPES = getJobTypes(t)
+  const TERMINAL = ['DELIVERED', 'CLOSED', 'CANCELLED']
+
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || '')
   const [typeFilter, setTypeFilter] = useState(() => searchParams.get('type') || '')
+  const [showClosed, setShowClosed] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -29,6 +32,10 @@ export default function JobsList() {
   }
 
   useEffect(() => { load() }, [search, statusFilter, typeFilter]) // eslint-disable-line
+
+  const displayed = (!statusFilter && !showClosed)
+    ? jobs.filter(j => !TERMINAL.includes(j.status))
+    : jobs
 
   const handleDelete = async (id, jobNumber) => {
     if (!window.confirm(t('jobs.deleteConfirm', { num: jobNumber }))) return
@@ -59,6 +66,10 @@ export default function JobsList() {
           <option value="">{t('jobs.allStatuses')}</option>
           {JOB_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} />
+          {t('common.showClosed')}
+        </label>
         <select className="filter-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
           <option value="">{t('jobs.allTypes')}</option>
           {JOB_TYPES.map(tp => <option key={tp.value} value={tp.value}>{tp.label}</option>)}
@@ -91,7 +102,7 @@ export default function JobsList() {
                     </tr>
                   </thead>
                   <tbody>
-                    {jobs.map(job => {
+                    {displayed.map(job => {
                       const sm = statusMeta(job.status, t)
                       const tm = typeMeta(job.type, t)
                       return (

@@ -3,8 +3,14 @@ const { getPrisma } = require('../db')
 
 async function generateVisitNumber() {
   const year = new Date().getFullYear()
-  const count = await getPrisma().visit.count()
-  return `VIS-${year}-${String(count + 1).padStart(4, '0')}`
+  const prefix = `VIS-${year}-`
+  const last = await getPrisma().visit.findFirst({
+    where: { visitNumber: { startsWith: prefix } },
+    orderBy: { visitNumber: 'desc' },
+    select: { visitNumber: true },
+  })
+  const next = last ? parseInt(last.visitNumber.slice(prefix.length), 10) + 1 : 1
+  return `${prefix}${String(next).padStart(4, '0')}`
 }
 
 function toDate(val) {
@@ -33,9 +39,10 @@ router.get('/', async (req, res, next) => {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        client:  { select: { id: true, name: true } },
-        contact: { select: { id: true, firstName: true, lastName: true } },
-        quotes:  { select: { id: true, quoteNumber: true, status: true } },
+        client:      { select: { id: true, name: true } },
+        contact:     { select: { id: true, firstName: true, lastName: true } },
+        assignedTo:  { select: { id: true, name: true, email: true } },
+        quotes:      { select: { id: true, quoteNumber: true, status: true } },
       },
     })
     res.json(visits)
@@ -48,9 +55,10 @@ router.get('/:id', async (req, res, next) => {
     const visit = await getPrisma().visit.findUnique({
       where: { id: req.params.id },
       include: {
-        client:  true,
-        contact: true,
-        quotes:  { include: { job: { select: { id: true, jobNumber: true } } } },
+        client:     true,
+        contact:    true,
+        assignedTo: true,
+        quotes:     { include: { job: { select: { id: true, jobNumber: true } } } },
       },
     })
     if (!visit) return res.status(404).json({ error: 'Not found' })
@@ -62,12 +70,17 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const {
-      status, clientId, contactId,
+      status, clientId, contactId, assignedToId,
       prospectName, prospectPhone, prospectEmail,
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
       serviceType, scheduledDate, observations,
     } = req.body
+    const errs = []
+    if (!serviceType)                         errs.push('Service type is required.')
+    if (!scheduledDate)                       errs.push('Scheduled date is required.')
+    if (!clientId && !prospectName?.trim())   errs.push('Please enter a prospect name or select a linked client.')
+    if (errs.length) return res.status(400).json({ error: errs.join(' ') })
     const visitNumber = await generateVisitNumber()
     const visit = await getPrisma().visit.create({
       data: {
@@ -75,6 +88,7 @@ router.post('/', async (req, res, next) => {
         status: status || 'SCHEDULED',
         clientId: clientId || null,
         contactId: contactId || null,
+        assignedToId: assignedToId || null,
         prospectName:  prospectName  || null,
         prospectPhone: prospectPhone || null,
         prospectEmail: prospectEmail || null,
@@ -97,7 +111,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const {
-      status, clientId, contactId,
+      status, clientId, contactId, assignedToId,
       prospectName, prospectPhone, prospectEmail,
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
@@ -109,6 +123,7 @@ router.put('/:id', async (req, res, next) => {
         status,
         clientId: clientId || null,
         contactId: contactId || null,
+        assignedToId: assignedToId || null,
         prospectName:  prospectName  || null,
         prospectPhone: prospectPhone || null,
         prospectEmail: prospectEmail || null,

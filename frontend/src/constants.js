@@ -55,6 +55,14 @@ export function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+export function formatDateTime(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  return `${date} ${time}`
+}
+
 export const REQUIRED_FILE_CATEGORIES = [
   'SURVEY_REPORT', 'QUOTATION', 'INSURANCE_INVENTORY', 'SIGNED_QUOTATION',
   'WORK_ORDER', 'PRE_ADVICE', 'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT',

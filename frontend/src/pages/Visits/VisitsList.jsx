@@ -3,17 +3,20 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { visitStatusMeta, getVisitStatuses } from '../../constants'
 import { useLanguage } from '../../i18n'
-import { formatDate } from '../../constants'
+import { formatDateTime } from '../../constants'
 
 export default function VisitsList() {
   const { t } = useLanguage()
   const navigate = useNavigate()
   const VISIT_STATUSES = getVisitStatuses(t)
 
+  const TERMINAL = ['CLOSED']
+
   const [visits, setVisits]       = useState([])
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
   const [statusFilter, setStatus] = useState('')
+  const [showClosed, setShowClosed] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -31,6 +34,10 @@ export default function VisitsList() {
     await api.delete(`/visits/${v.id}`)
     setVisits(prev => prev.filter(x => x.id !== v.id))
   }
+
+  const displayed = (!statusFilter && !showClosed)
+    ? visits.filter(v => !TERMINAL.includes(v.status))
+    : visits
 
   const displayName = (v) => {
     if (v.client) return v.client.name
@@ -64,6 +71,10 @@ export default function VisitsList() {
             <option value="">{t('visits.allStatuses')}</option>
             {VISIT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} />
+            {t('common.showClosed')}
+          </label>
         </div>
       </div>
 
@@ -85,12 +96,13 @@ export default function VisitsList() {
                       <th>{t('visits.serviceType')}</th>
                       <th>{t('common.country')}</th>
                       <th>{t('visits.scheduledDate')}</th>
+                      <th>{t('visits.assignedTo')}</th>
                       <th>{t('jobs.status')}</th>
                       <th>{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {visits.map(v => {
+                    {displayed.map(v => {
                       const m = visitStatusMeta(v.status, t)
                       const serviceLabel = v.serviceType ? t(`serviceTypes.${v.serviceType}`) : '—'
                       const route = [v.originCountry, v.destCountry].filter(Boolean).join(' → ') || '—'
@@ -100,7 +112,10 @@ export default function VisitsList() {
                           <td>{displayName(v)}</td>
                           <td>{serviceLabel}</td>
                           <td>{route}</td>
-                          <td>{formatDate(v.scheduledDate)}</td>
+                          <td>{formatDateTime(v.scheduledDate)}</td>
+                          <td style={{ fontSize: 13, color: v.assignedTo ? 'var(--text)' : 'var(--text-muted)', fontStyle: v.assignedTo ? 'normal' : 'italic' }}>
+                            {v.assignedTo ? v.assignedTo.name : t('visits.unassigned')}
+                          </td>
                           <td><span className="badge" style={{ background: m.bg, color: m.color }}>{m.label}</span></td>
                           <td onClick={e => e.stopPropagation()}>
                             <div style={{ display: 'flex', gap: 6 }}>

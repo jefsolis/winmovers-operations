@@ -7,7 +7,7 @@ import { useLanguage } from '../../i18n'
 const EMPTY = {
   status: 'SCHEDULED',
   prospectName: '', prospectPhone: '', prospectEmail: '',
-  clientId: '', contactId: '',
+  clientId: '', contactId: '', assignedToId: '',
   serviceType: '',
   scheduledDate: '',
   originAddress: '', originCity: '', originCountry: '',
@@ -26,6 +26,7 @@ export default function VisitForm() {
   const [form, setForm]       = useState(EMPTY)
   const [clients, setClients] = useState([])
   const [contacts, setContacts] = useState([])
+  const [staffMembers, setStaffMembers] = useState([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
@@ -39,6 +40,7 @@ export default function VisitForm() {
     const tasks = [
       api.get('/clients').then(setClients).catch(() => {}),
       api.get('/contacts').then(setContacts).catch(() => {}),
+      api.get('/staff').then(setStaffMembers).catch(() => {}),
     ]
     if (isEdit) {
       tasks.push(
@@ -50,6 +52,7 @@ export default function VisitForm() {
             prospectEmail: v.prospectEmail || '',
             clientId:      v.clientId      || '',
             contactId:     v.contactId     || '',
+            assignedToId:  v.assignedToId  || '',
             serviceType:   v.serviceType   || '',
             scheduledDate: v.scheduledDate ? new Date(v.scheduledDate).toISOString().slice(0, 16) : '',
             originAddress: v.originAddress || '',
@@ -81,9 +84,20 @@ export default function VisitForm() {
 
   const handleSubmit = async e => {
     e.preventDefault()
+    const errs = []
+    if (!form.serviceType)                         errs.push(t('visits.validation.serviceType'))
+    if (!form.scheduledDate)                       errs.push(t('visits.validation.scheduledDate'))
+    if (!form.clientId && !form.prospectName?.trim()) errs.push(t('visits.validation.nameOrClient'))
+    if (errs.length) { setError(errs.join('\n')); return }
     setSaving(true); setError(null)
     try {
-      const payload = { ...form, clientId: form.clientId || null, contactId: form.contactId || null }
+      const payload = {
+        ...form,
+        clientId:      form.clientId      || null,
+        contactId:     form.contactId     || null,
+        assignedToId:  form.assignedToId  || null,
+        scheduledDate: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
+      }
       if (isEdit) {
         await api.put(`/visits/${id}`, payload)
         navigate(`/visits/${id}`)
@@ -99,6 +113,8 @@ export default function VisitForm() {
   }
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
+
+  const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }} title="Required">*</span>
 
   return (
     <>
@@ -116,6 +132,7 @@ export default function VisitForm() {
         {/* Prospect / Client Info */}
         <div className="card card-body" style={{ marginBottom: 16 }}>
           <div className="section-label">{t('visits.prospectInfo')}</div>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)' }}>{t('visits.requiredLegend')}</p>
           <div className="form-grid">
             <div className="form-group">
               <label className="form-label">{t('visits.prospectName')}</label>
@@ -131,7 +148,20 @@ export default function VisitForm() {
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.linkedClient')}</label>
-              <select className="form-control" value={form.clientId} onChange={e => { set('clientId', e.target.value); set('contactId', '') }}>
+              <select className="form-control" value={form.clientId} onChange={e => {
+                const selectedId = e.target.value
+                const client = clients.find(c => c.id === selectedId)
+                setForm(prev => ({
+                  ...prev,
+                  clientId: selectedId,
+                  contactId: '',
+                  ...(client ? {
+                    prospectName:  client.name || [client.firstName, client.lastName].filter(Boolean).join(' ') || prev.prospectName,
+                    prospectPhone: client.phone || prev.prospectPhone,
+                    prospectEmail: client.email || prev.prospectEmail,
+                  } : {}),
+                }))
+              }}>
                 <option value="">{t('common.none')}</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name || `${c.firstName} ${c.lastName}`}</option>)}
               </select>
@@ -151,14 +181,21 @@ export default function VisitForm() {
           <div className="section-label">{t('visits.visitNumber')}</div>
           <div className="form-grid">
             <div className="form-group">
-              <label className="form-label">{t('visits.scheduledDate')}</label>
+              <label className="form-label">{t('visits.scheduledDate')}<Req /></label>
               <input {...field('scheduledDate', 'datetime-local')} />
             </div>
             <div className="form-group">
-              <label className="form-label">{t('visits.serviceType')}</label>
+              <label className="form-label">{t('visits.serviceType')}<Req /></label>
               <select className="form-control" value={form.serviceType} onChange={e => set('serviceType', e.target.value)}>
                 <option value="">{t('common.select')}</option>
                 {SERVICE_TYPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('visits.assignedTo')}</label>
+              <select className="form-control" value={form.assignedToId} onChange={e => set('assignedToId', e.target.value)}>
+                <option value="">{t('visits.unassigned')}</option>
+                {staffMembers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
             {isEdit && (

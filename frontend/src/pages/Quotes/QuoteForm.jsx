@@ -4,6 +4,12 @@ import { api } from '../../api'
 import { CURRENCIES } from '../../constants'
 import { useLanguage } from '../../i18n'
 
+const daysFromNow = (n) => {
+  const d = new Date()
+  d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
 const EMPTY = {
   visitId: '',
   status: 'DRAFT',
@@ -20,7 +26,7 @@ export default function QuoteForm() {
   const isEdit = Boolean(id)
   const { t } = useLanguage()
 
-  const [form, setForm]       = useState({ ...EMPTY, visitId: searchParams.get('visitId') || '' })
+  const [form, setForm]       = useState({ ...EMPTY, visitId: searchParams.get('visitId') || '', validUntil: daysFromNow(30) })
   const [visit, setVisit]     = useState(null)
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving]   = useState(false)
@@ -95,6 +101,7 @@ export default function QuoteForm() {
       <form onSubmit={handleSubmit}>
         <div className="card card-body" style={{ marginBottom: 16 }}>
           <div className="section-label">{t('quotes.quoteDetails')}</div>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)' }}>{t('common.allFieldsOptional')}</p>
 
           {/* Linked visit — readonly */}
           <div className="form-group">
@@ -125,10 +132,20 @@ export default function QuoteForm() {
             </div>
             <div className="form-group">
               <label className="form-label">{t('quotes.validUntil')}</label>
-              <input
-                type="date" className="form-control"
-                value={form.validUntil} onChange={e => set('validUntil', e.target.value)}
-              />
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="date" className="form-control" style={{ flex: 1, minWidth: 140 }}
+                  value={form.validUntil} onChange={e => set('validUntil', e.target.value)}
+                />
+                {[30, 60, 90].map(n => (
+                  <button
+                    key={n} type="button"
+                    className={`btn btn-sm${form.validUntil === daysFromNow(n) ? ' btn-primary' : ' btn-secondary'}`}
+                    style={{ whiteSpace: 'nowrap' }}
+                    onClick={() => set('validUntil', daysFromNow(n))}
+                  >+{n}d</button>
+                ))}
+              </div>
             </div>
           </div>
 

@@ -81,13 +81,14 @@ export default function JobForm() {
           const v = q.visit
           setForm(prev => ({
             ...prev,
-            clientId:     v?.clientId  || '',
-            contactId:    v?.contactId || '',
-            originCity:   v?.originCity    || '',
+            clientId:      v?.clientId      || '',
+            contactId:     v?.contactId     || '',
+            originCity:    v?.originCity    || '',
             originCountry: v?.originCountry || '',
-            destCity:     v?.destCity    || '',
-            destCountry:  v?.destCountry  || '',
-            notes:        v?.observations  || '',
+            destCity:      v?.destCity      || '',
+            destCountry:   v?.destCountry   || '',
+            surveyDate:    toInputDateTime(v?.scheduledDate) || '',
+            notes:         v?.observations  || '',
           }))
         }).catch(() => {})
       )
@@ -122,6 +123,7 @@ export default function JobForm() {
         originCountry: v?.originCountry || '',
         destCity:      v?.destCity      || '',
         destCountry:   v?.destCountry   || '',
+        surveyDate:    toInputDateTime(v?.scheduledDate) || '',
         notes:         v?.observations  || '',
       }))
     } catch { /* ignore */ }
@@ -231,9 +233,10 @@ export default function JobForm() {
           {/* Basic Info */}
           <div className="form-section">
           <div className="form-section-title">{t('jobs.basicInfo')}</div>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)' }}>{t('common.allFieldsOptional')}</p>
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">{t('jobs.jobType')} *</label>
+                <label className="form-label">{t('jobs.jobType')}</label>
                 <select className="form-control" value={form.type} onChange={e => set('type', e.target.value)} required>
                   {JOB_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>

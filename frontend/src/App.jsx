@@ -18,6 +18,8 @@ import VisitDetail from './pages/Visits/VisitDetail'
 import QuotesList from './pages/Quotes/QuotesList'
 import QuoteForm from './pages/Quotes/QuoteForm'
 import QuoteDetail from './pages/Quotes/QuoteDetail'
+import StaffList from './pages/Staff/StaffList'
+import StaffForm from './pages/Staff/StaffForm'
 
 export default function App() {
   return (
@@ -48,6 +50,9 @@ export default function App() {
           <Route path="quotes/new"          element={<QuoteForm />} />
           <Route path="quotes/:id"          element={<QuoteDetail />} />
           <Route path="quotes/:id/edit"     element={<QuoteForm />} />
+          <Route path="staff"               element={<StaffList />} />
+          <Route path="staff/new"           element={<StaffForm />} />
+          <Route path="staff/:id/edit"      element={<StaffForm />} />
         </Route>
       </Routes>
     </BrowserRouter>

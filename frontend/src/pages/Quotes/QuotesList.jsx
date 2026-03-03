@@ -9,10 +9,13 @@ export default function QuotesList() {
   const navigate = useNavigate()
   const QUOTE_STATUSES = getQuoteStatuses(t)
 
+  const TERMINAL = ['REJECTED']
+
   const [quotes, setQuotes]       = useState([])
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
   const [statusFilter, setStatus] = useState('')
+  const [showClosed, setShowClosed] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -34,6 +37,10 @@ export default function QuotesList() {
 
   useEffect(() => { load() }, [statusFilter]) // eslint-disable-line
   const handleSearch = e => { e.preventDefault(); load() }
+
+  const displayed = (!statusFilter && !showClosed)
+    ? quotes.filter(q => !TERMINAL.includes(q.status))
+    : quotes
 
   const handleDelete = async (q) => {
     if (!window.confirm(t('quotes.deleteConfirm', { num: q.quoteNumber }))) return
@@ -72,6 +79,10 @@ export default function QuotesList() {
             <option value="">{t('quotes.allStatuses')}</option>
             {QUOTE_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} />
+            {t('common.showClosed')}
+          </label>
         </div>
       </div>
 
@@ -98,7 +109,7 @@ export default function QuotesList() {
                     </tr>
                   </thead>
                   <tbody>
-                    {quotes.map(q => {
+                    {displayed.map(q => {
                       const m = quoteStatusMeta(q.status, t)
                       const amount = q.totalAmount != null
                         ? new Intl.NumberFormat('en-US', { style: 'currency', currency: q.currency || 'USD' }).format(q.totalAmount)

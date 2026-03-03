@@ -9,8 +9,14 @@ const REQUIRED_FILE_CATEGORIES = [
 
 async function generateJobNumber() {
   const year = new Date().getFullYear()
-  const count = await getPrisma().job.count()
-  return `WM-${year}-${String(count + 1).padStart(4, '0')}`
+  const prefix = `WM-${year}-`
+  const last = await getPrisma().job.findFirst({
+    where: { jobNumber: { startsWith: prefix } },
+    orderBy: { jobNumber: 'desc' },
+    select: { jobNumber: true },
+  })
+  const next = last ? parseInt(last.jobNumber.slice(prefix.length), 10) + 1 : 1
+  return `${prefix}${String(next).padStart(4, '0')}`
 }
 
 function toDate(val) {
@@ -144,6 +150,29 @@ router.put('/:id', async (req, res, next) => {
         shipmentMode, notes,
         quoteId: quoteId !== undefined ? (quoteId || null) : undefined,
       }
+    })
+    res.json(job)
+  } catch (err) { next(err) }
+})
+
+// PATCH status only
+router.patch('/:id/status', async (req, res, next) => {
+  try {
+    const { status } = req.body
+    if (!status) return res.status(400).json({ error: 'status is required' })
+
+    if (status === 'CLOSED') {
+      const files = await getPrisma().jobFile.findMany({ where: { jobId: req.params.id } })
+      const attached = new Set(files.map(f => f.category))
+      const missing = REQUIRED_FILE_CATEGORIES.filter(c => !attached.has(c))
+      if (missing.length > 0) {
+        return res.status(422).json({ error: 'MISSING_REQUIRED_FILES', missing })
+      }
+    }
+
+    const job = await getPrisma().job.update({
+      where: { id: req.params.id },
+      data: { status },
     })
     res.json(job)
   } catch (err) { next(err) }

@@ -12,6 +12,7 @@ app.use(express.json())
 
 // API routes
 app.use('/api/dashboard',          require('./routes/dashboard'))
+app.use('/api/staff',              require('./routes/staff'))
 app.use('/api/clients',            require('./routes/clients'))
 app.use('/api/contacts',           require('./routes/contacts'))
 app.use('/api/agents',             require('./routes/agents'))

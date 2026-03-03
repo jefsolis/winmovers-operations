@@ -3,8 +3,14 @@ const { getPrisma } = require('../db')
 
 async function generateQuoteNumber() {
   const year = new Date().getFullYear()
-  const count = await getPrisma().quote.count()
-  return `QUO-${year}-${String(count + 1).padStart(4, '0')}`
+  const prefix = `QUO-${year}-`
+  const last = await getPrisma().quote.findFirst({
+    where: { quoteNumber: { startsWith: prefix } },
+    orderBy: { quoteNumber: 'desc' },
+    select: { quoteNumber: true },
+  })
+  const next = last ? parseInt(last.quoteNumber.slice(prefix.length), 10) + 1 : 1
+  return `${prefix}${String(next).padStart(4, '0')}`
 }
 
 function toDate(val) {
@@ -89,6 +95,10 @@ router.put('/:id', async (req, res, next) => {
         notes: notes !== undefined ? notes : undefined,
       },
     })
+    // When a quote is rejected, close its linked visit
+    if (status === 'REJECTED' && quote.visitId) {
+      await getPrisma().visit.update({ where: { id: quote.visitId }, data: { status: 'CLOSED' } })
+    }
     res.json(quote)
   } catch (err) { next(err) }
 })

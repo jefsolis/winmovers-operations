@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
-import { visitStatusMeta, quoteStatusMeta, formatDate } from '../../constants'
+import { visitStatusMeta, quoteStatusMeta, formatDate, formatDateTime } from '../../constants'
 import { useLanguage } from '../../i18n'
 import QuickCreateClientModal from '../../components/QuickCreateClientModal'
 
@@ -47,6 +47,79 @@ export default function VisitDetail() {
     || (visit.contact ? `${visit.contact.firstName} ${visit.contact.lastName}` : null)
     || visit.prospectName
 
+  const downloadIcs = () => {
+    const pad = n => String(n).padStart(2, '0')
+    const toIcsDate = (d) => {
+      const dt = new Date(d)
+      // Floating time (no Z) — preserves the wall-clock time the user entered
+      return [
+        dt.getFullYear(),
+        pad(dt.getMonth() + 1),
+        pad(dt.getDate()),
+        'T',
+        pad(dt.getHours()),
+        pad(dt.getMinutes()),
+        pad(dt.getSeconds()),
+      ].join('')
+    }
+    const escape = s => (s || '').replace(/[\\;,]/g, c => '\\' + c).replace(/\n/g, '\\n')
+    const fold = (line) => {
+      const chunks = []
+      while (line.length > 75) { chunks.push(line.slice(0, 75)); line = ' ' + line.slice(75) }
+      chunks.push(line)
+      return chunks.join('\r\n')
+    }
+
+    const start = visit.scheduledDate ? new Date(visit.scheduledDate) : new Date()
+    const end   = new Date(start.getTime() + 90 * 60 * 1000) // +90 min
+    const now   = new Date()
+
+    const location = [
+      visit.originAddress,
+      visit.originCity,
+      visit.originCountry,
+    ].filter(Boolean).join(', ')
+
+    const descParts = [
+      clientName          ? `${t('visits.prospectName')}: ${clientName}` : null,
+      visit.prospectPhone ? `${t('visits.prospectPhone')}: ${visit.prospectPhone}` : null,
+      visit.prospectEmail ? `${t('visits.prospectEmail')}: ${visit.prospectEmail}` : null,
+      visit.serviceType   ? `${t('visits.serviceType')}: ${t(`serviceTypes.${visit.serviceType}`)}` : null,
+      location            ? `${t('visits.originInfo')}: ${location}` : null,
+      (visit.destCity || visit.destCountry) ? `${t('visits.destInfo')}: ${[visit.destCity, visit.destCountry].filter(Boolean).join(', ')}` : null,
+      visit.assignedTo    ? `${t('visits.assignedTo')}: ${visit.assignedTo.name}` : null,
+      visit.observations  ? `${t('visits.observations')}: ${visit.observations}` : null,
+    ].filter(x => x !== null).join('\n')
+
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//WinMovers//Operations//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      fold(`UID:${visit.id}@winmovers-operations`),
+      fold(`DTSTAMP:${toIcsDate(now)}`),
+      fold(`DTSTART:${toIcsDate(start)}`),
+      fold(`DTEND:${toIcsDate(end)}`),
+      fold(`SUMMARY:${escape(`${visit.visitNumber} \u2013 ${clientName || 'Visit'}`)}`),
+      fold(`DESCRIPTION:${escape(descParts)}`),
+      location ? fold(`LOCATION:${escape(location)}`) : null,
+      visit.assignedTo?.email ? fold(`ATTENDEE;CN=${escape(visit.assignedTo.name)}:mailto:${visit.assignedTo.email}`) : null,
+      'STATUS:CONFIRMED',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].filter(Boolean).join('\r\n')
+
+    const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `${visit.visitNumber}.ics`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <>
       {/* Header */}
@@ -61,6 +134,9 @@ export default function VisitDetail() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link to="/visits" className="btn btn-secondary">{t('visits.backToVisits')}</Link>
           <Link to={`/visits/${id}/edit`} className="btn btn-secondary">{t('common.edit')}</Link>
+          {visit.scheduledDate && (
+            <button className="btn btn-secondary" onClick={downloadIcs}>📅 {t('visits.downloadIcs')}</button>
+          )}
         </div>
       </div>
 
@@ -75,7 +151,7 @@ export default function VisitDetail() {
         {visit.status === 'COMPLETED' && visit.quotes.length === 0 && (
           <Link to={`/quotes/new?visitId=${id}`} className="btn btn-primary btn-sm">{t('visits.createQuote')}</Link>
         )}
-        {visit.status === 'QUOTED' && visit.quotes.length > 0 && (
+        {(visit.status === 'QUOTED' || visit.status === 'CLOSED') && visit.quotes.length > 0 && (
           <Link to={`/quotes/${visit.quotes[0].id}`} className="btn btn-primary btn-sm">{t('visits.viewQuote')}</Link>
         )}
         {(visit.status === 'SCHEDULED' || visit.status === 'COMPLETED') && (
@@ -107,8 +183,15 @@ export default function VisitDetail() {
         {/* Visit info */}
         <div className="card card-body">
           <div className="section-label" style={{ marginBottom: 12 }}>{t('visits.visitNumber')}</div>
-          <Field label={t('visits.scheduledDate')} value={formatDate(visit.scheduledDate)} />
+          <Field label={t('visits.scheduledDate')} value={formatDateTime(visit.scheduledDate)} />
           <Field label={t('visits.serviceType')}   value={visit.serviceType ? t(`serviceTypes.${visit.serviceType}`) : null} />
+          <Field
+            label={t('visits.assignedTo')}
+            value={visit.assignedTo
+              ? <span>{visit.assignedTo.name}<span style={{ color: 'var(--text-muted)', fontSize: 12, marginLeft: 6 }}>{visit.assignedTo.email}</span></span>
+              : t('visits.unassigned')
+            }
+          />
         </div>
 
         {/* Origin */}
@@ -156,7 +239,7 @@ export default function VisitDetail() {
                       <span className="badge" style={{ background: qm.bg, color: qm.color }}>{qm.label}</span>
                       {q.job && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>→ {q.job.jobNumber}</span>}
                     </div>
-                    <Link to={`/quotes/${q.id}`} className="btn btn-secondary btn-sm">{t('common.edit')}</Link>
+                    <Link to={`/quotes/${q.id}`} className="btn btn-secondary btn-sm">{t('visits.viewQuote')}</Link>
                   </div>
                 )
               })}

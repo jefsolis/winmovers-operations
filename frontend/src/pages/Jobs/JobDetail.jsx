@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { statusMeta, typeMeta, formatDate } from '../../constants'
+import { statusMeta, typeMeta, formatDate, REQUIRED_FILE_CATEGORIES } from '../../constants'
 import JobFiles from './JobFiles'
 
 export default function JobDetail() {
@@ -12,8 +12,10 @@ export default function JobDetail() {
   const [job, setJob]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [tab, setTab]     = useState('overview') // 'overview' | 'files'
-  const [fileCount, setFileCount] = useState(null)
+  const [tab, setTab]          = useState('overview') // 'overview' | 'files'
+  const [fileCount, setFileCount]       = useState(null)
+  const [allRequiredDone, setAllRequiredDone] = useState(false)
+  const [closing, setClosing]           = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -24,10 +26,28 @@ export default function JobDetail() {
       .then(([j, files]) => {
         setJob(j)
         setFileCount(files.length)
+        const bycat = {}
+        files.forEach(f => { if (!bycat[f.category]) bycat[f.category] = []; bycat[f.category].push(f) })
+        setAllRequiredDone(REQUIRED_FILE_CATEGORIES.every(c => bycat[c]?.length))
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [id])
+
+  const TERMINAL = ['DELIVERED', 'CLOSED', 'CANCELLED']
+
+  const closeJob = async () => {
+    if (!window.confirm(t('jobs.closeJobConfirm'))) return
+    setClosing(true)
+    try {
+      const updated = await api.patch(`/jobs/${id}/status`, { status: 'CLOSED' })
+      setJob(updated)
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setClosing(false)
+    }
+  }
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
   if (error)   return <div className="alert alert-error">{error}</div>
@@ -83,6 +103,11 @@ export default function JobDetail() {
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to="/jobs" className="btn btn-ghost">{t('jobs.backToJobs')}</Link>
           <Link to={`/jobs/${id}/edit`} className="btn btn-primary">{t('jobs.editJob')}</Link>
+          {allRequiredDone && !TERMINAL.includes(job.status) && (
+            <button className="btn btn-success" onClick={closeJob} disabled={closing}>
+              {closing ? t('common.saving') : t('jobs.closeJob')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -157,7 +182,7 @@ export default function JobDetail() {
 
       {/* Files tab */}
       {tab === 'files' && (
-        <JobFiles jobId={id} onCountChange={setFileCount} />
+        <JobFiles jobId={id} onCountChange={setFileCount} onRequiredStatusChange={setAllRequiredDone} />
       )}
     </>
   )

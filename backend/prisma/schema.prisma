@@ -103,19 +103,33 @@ model JobFile {
   uploadedAt  DateTime @default(now())
 }
 
+model StaffMember {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  isActive  Boolean  @default(true)
+  visits    Visit[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Visit {
-  id            String    @id @default(cuid())
-  visitNumber   String    @unique
-  status        String    @default("SCHEDULED")
+  id            String       @id @default(cuid())
+  visitNumber   String       @unique
+  status        String       @default("SCHEDULED")
   // Prospect info (for leads not yet in the system)
   prospectName  String?
   prospectPhone String?
   prospectEmail String?
   // Optional links to existing records
   clientId      String?
-  client        Client?   @relation(fields: [clientId], references: [id])
+  client        Client?      @relation(fields: [clientId], references: [id])
   contactId     String?
-  contact       Contact?  @relation(fields: [contactId], references: [id])
+  contact       Contact?     @relation(fields: [contactId], references: [id])
+  // Assigned staff member
+  assignedToId  String?
+  assignedTo    StaffMember? @relation(fields: [assignedToId], references: [id])
   // Route
   originAddress String?
   originCity    String?
@@ -128,8 +142,8 @@ model Visit {
   scheduledDate DateTime?
   observations  String?
   quotes        Quote[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model Quote {

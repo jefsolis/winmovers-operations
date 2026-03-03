@@ -14,6 +14,7 @@ export default function Layout() {
     { to: '/clients',   label: t('nav.clients'),   icon: '🏢' },
     { to: '/contacts',  label: t('nav.contacts'),  icon: '👤' },
     { to: '/agents',    label: t('nav.agents'),    icon: '🤝' },
+    { to: '/staff',     label: t('nav.staff'),     icon: '👷' },
   ]
 
   return (
