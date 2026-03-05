@@ -87,6 +87,17 @@ model Job {
   weightKg      Float?
   shipmentMode  String?
   notes         String?
+  serviceDate     DateTime?
+  serviceTime     String?
+  clientPhone     String?
+  clientHomePhone String?
+  companyName     String?
+  companyPhone    String?
+  serviceDetails  String?   @db.Text
+  materials       String?   @db.Text
+  quoteTo         String?
+  creatorName     String?
+  language        String    @default("EN")
   quoteId       String?   @unique
   quote         Quote?    @relation(fields: [quoteId], references: [id])
   files         JobFile[]

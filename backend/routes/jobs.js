@@ -61,7 +61,7 @@ router.get('/:id', async (req, res, next) => {
       include: {
         contact: true, client: true,
         originAgent: true, destAgent: true, customsAgent: true,
-        quote: { select: { id: true, quoteNumber: true } },
+        quote: { select: { id: true, quoteNumber: true, visit: { select: { id: true, visitNumber: true, serviceType: true, scheduledDate: true } } } },
       }
     })
     if (!job) return res.status(404).json({ error: 'Not found' })
@@ -78,7 +78,9 @@ router.post('/', async (req, res, next) => {
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
       callDate, surveyDate, packDate, moveDate, deliveryDate,
-      volumeCbm, weightKg, shipmentMode, notes, quoteId
+      volumeCbm, weightKg, shipmentMode, notes, quoteId,
+      serviceDate, serviceTime, clientPhone, clientHomePhone,
+      companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language
     } = req.body
     if (!type) return res.status(400).json({ error: 'type is required' })
     const jobNumber = await generateJobNumber()
@@ -102,6 +104,17 @@ router.post('/', async (req, res, next) => {
         volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
         weightKg: weightKg ? parseFloat(weightKg) : null,
         shipmentMode, notes,
+        serviceDate: serviceDate ? new Date(serviceDate) : null,
+        serviceTime: serviceTime || null,
+        clientPhone: clientPhone || null,
+        clientHomePhone: clientHomePhone || null,
+        companyName: companyName || null,
+        companyPhone: companyPhone || null,
+        serviceDetails: serviceDetails || null,
+        materials: materials || null,
+        quoteTo: quoteTo || null,
+        creatorName: creatorName || null,
+        language: language || 'EN',
         quoteId: quoteId || null,
       }
     })
@@ -118,7 +131,9 @@ router.put('/:id', async (req, res, next) => {
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
       callDate, surveyDate, packDate, moveDate, deliveryDate,
-      volumeCbm, weightKg, shipmentMode, notes, quoteId
+      volumeCbm, weightKg, shipmentMode, notes, quoteId,
+      serviceDate, serviceTime, clientPhone, clientHomePhone,
+      companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language
     } = req.body
 
     // Validate CLOSED status: all required document categories must be attached
@@ -152,6 +167,17 @@ router.put('/:id', async (req, res, next) => {
         volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
         weightKg: weightKg ? parseFloat(weightKg) : null,
         shipmentMode, notes,
+        serviceDate: serviceDate !== undefined ? (serviceDate ? new Date(serviceDate) : null) : undefined,
+        serviceTime: serviceTime !== undefined ? (serviceTime || null) : undefined,
+        clientPhone: clientPhone !== undefined ? (clientPhone || null) : undefined,
+        clientHomePhone: clientHomePhone !== undefined ? (clientHomePhone || null) : undefined,
+        companyName: companyName !== undefined ? (companyName || null) : undefined,
+        companyPhone: companyPhone !== undefined ? (companyPhone || null) : undefined,
+        serviceDetails: serviceDetails !== undefined ? (serviceDetails || null) : undefined,
+        materials: materials !== undefined ? (materials || null) : undefined,
+        quoteTo: quoteTo !== undefined ? (quoteTo || null) : undefined,
+        creatorName: creatorName !== undefined ? (creatorName || null) : undefined,
+        language: language !== undefined ? (language || 'EN') : undefined,
         quoteId: quoteId !== undefined ? (quoteId || null) : undefined,
       }
     })

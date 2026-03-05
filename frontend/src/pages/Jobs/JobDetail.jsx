@@ -1,21 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { statusMeta, typeMeta, formatDate, REQUIRED_FILE_CATEGORIES } from '../../constants'
 import JobFiles from './JobFiles'
+import JobDocument from './JobDocument'
 
 export default function JobDetail() {
   const { id } = useParams()
   const { t }  = useLanguage()
+  const docRef    = useRef(null)
+  const headerRef = useRef(null)
 
   const [job, setJob]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [tab, setTab]          = useState('overview') // 'overview' | 'files'
+  const [tab, setTab]          = useState('workorder') // 'workorder' | 'overview' | 'files'
   const [fileCount, setFileCount]       = useState(null)
   const [allRequiredDone, setAllRequiredDone] = useState(false)
   const [closing, setClosing]           = useState(false)
+  const [exporting, setExporting]       = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -35,6 +39,53 @@ export default function JobDetail() {
   }, [id])
 
   const TERMINAL = ['DELIVERED', 'CLOSED', 'CANCELLED']
+
+  const exportPDF = async () => {
+    if (!docRef.current || !headerRef.current) return
+    setExporting(true)
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+      const captureOpts = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }
+      const [headerCanvas, docCanvas] = await Promise.all([
+        html2canvas(headerRef.current, captureOpts),
+        html2canvas(docRef.current,    captureOpts),
+      ])
+      const pdf   = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const mTop = 30, mSide = 28, mBottom = 30, gap = 8
+      const contentW    = pageW - mSide * 2
+      const headerPt    = (headerCanvas.height / headerCanvas.width) * contentW
+      const contentStartY = mTop + headerPt + gap
+      const slicePtH    = pageH - contentStartY - mBottom
+      const docPxW      = docCanvas.width
+      const docPxH      = docCanvas.height
+      const slicePxH    = Math.round((slicePtH / contentW) * docPxW)
+      const headerDataUrl = headerCanvas.toDataURL('image/jpeg', 0.95)
+      let page = 0, offsetPx = 0
+      while (offsetPx < docPxH) {
+        if (page > 0) pdf.addPage()
+        pdf.addImage(headerDataUrl, 'JPEG', mSide, mTop, contentW, headerPt)
+        const thisSlicePx = Math.min(slicePxH, docPxH - offsetPx)
+        const sliceCanvas = document.createElement('canvas')
+        sliceCanvas.width  = docPxW
+        sliceCanvas.height = thisSlicePx
+        const ctx = sliceCanvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, docPxW, thisSlicePx)
+        ctx.drawImage(docCanvas, 0, offsetPx, docPxW, thisSlicePx, 0, 0, docPxW, thisSlicePx)
+        const slicePtActual = (thisSlicePx / slicePxH) * slicePtH
+        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', mSide, contentStartY, contentW, slicePtActual)
+        offsetPx += thisSlicePx
+        page++
+      }
+      pdf.save(`${job?.jobNumber || 'OT'}.pdf`)
+    } catch (e) { console.error(e) }
+    finally { setExporting(false) }
+  }
 
   const closeJob = async () => {
     if (!window.confirm(t('jobs.closeJobConfirm'))) return
@@ -103,6 +154,9 @@ export default function JobDetail() {
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to="/jobs" className="btn btn-ghost">{t('jobs.backToJobs')}</Link>
           <Link to={`/jobs/${id}/edit`} className="btn btn-primary">{t('jobs.editJob')}</Link>
+          <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
+            {exporting ? '…' : t('jobs.exportPDF')}
+          </button>
           {allRequiredDone && !TERMINAL.includes(job.status) && (
             <button className="btn btn-success" onClick={closeJob} disabled={closing}>
               {closing ? t('common.saving') : t('jobs.closeJob')}
@@ -114,6 +168,7 @@ export default function JobDetail() {
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', marginBottom: 20 }}>
         {[
+          { key: 'workorder', label: t('jobs.workOrder') },
           { key: 'overview', label: t('files.overview') },
           { key: 'files',    label: `${t('files.title')}${fileCount !== null ? ` (${fileCount})` : ''}` },
         ].map(tb => (
@@ -137,9 +192,33 @@ export default function JobDetail() {
         ))}
       </div>
 
+      {/* Work Order tab */}
+      {tab === 'workorder' && (
+        <JobDocument ref={docRef} headerRef={headerRef} job={job} language={job.language || 'EN'} />
+      )}
+
       {/* Overview tab */}
       {tab === 'overview' && (
         <div className="card" style={{ padding: '20px 24px' }}>
+          {job.quote && (
+            <Section title={t('jobs.linkedQuote')}>
+              <Field
+                label={t('quotes.quoteNumber')}
+                value={<Link to={`/quotes/${job.quote.id}`} style={{ color: 'var(--primary)' }}>{job.quote.quoteNumber}</Link>}
+              />
+              {job.quote.visit && (
+                <>
+                  <Field
+                    label={t('visits.visitNumber')}
+                    value={<Link to={`/visits/${job.quote.visit.id}`} style={{ color: 'var(--primary)' }}>{job.quote.visit.visitNumber}</Link>}
+                  />
+                  <Field label={t('visits.serviceType')} value={job.quote.visit.serviceType ? t(`serviceTypes.${job.quote.visit.serviceType}`) : null} />
+                  <Field label={t('visits.scheduledDate')} value={job.quote.visit.scheduledDate ? new Date(job.quote.visit.scheduledDate).toLocaleString('en-GB') : null} />
+                </>
+              )}
+            </Section>
+          )}
+
           <Section title={t('jobs.parties')}>
             <Field label={t('jobs.corporateClient')} value={clientName} />
             <Field label={t('jobs.shipperContact')} value={job.contact ? `${job.contact.firstName} ${job.contact.lastName}` : null} />
