@@ -52,7 +52,9 @@ router.get('/', async (req, res, next) => {
         where: { status: 'SCHEDULED' },
         orderBy: { scheduledDate: 'asc' },
         take: 5,
-        include: {
+        select: {
+          id: true, visitNumber: true, scheduledDate: true, status: true,
+          serviceType: true, prospectName: true,
           client:     { select: { name: true, firstName: true, lastName: true, clientType: true } },
           assignedTo: { select: { id: true, name: true } },
         },
@@ -62,7 +64,8 @@ router.get('/', async (req, res, next) => {
         where: { status: 'SENT' },
         orderBy: { validUntil: 'asc' },
         take: 5,
-        include: {
+        select: {
+          id: true, quoteNumber: true, validUntil: true, status: true,
           visit: { select: { prospectName: true, client: { select: { name: true, firstName: true, lastName: true, clientType: true } } } },
         },
       }),
