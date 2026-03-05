@@ -75,7 +75,8 @@ router.post('/', async (req, res, next) => {
     const {
       type, status, clientId, contactId,
       originAgentId, destAgentId, customsAgentId,
-      originCity, originCountry, destCity, destCountry,
+      originAddress, originCity, originCountry,
+      destAddress, destCity, destCountry,
       callDate, surveyDate, packDate, moveDate, deliveryDate,
       volumeCbm, weightKg, shipmentMode, notes, quoteId
     } = req.body
@@ -91,7 +92,8 @@ router.post('/', async (req, res, next) => {
         originAgentId: originAgentId || null,
         destAgentId: destAgentId || null,
         customsAgentId: customsAgentId || null,
-        originCity, originCountry, destCity, destCountry,
+        originAddress, originCity, originCountry,
+        destAddress, destCity, destCountry,
         callDate: toDate(callDate),
         surveyDate: toDate(surveyDate),
         packDate: toDate(packDate),
@@ -113,7 +115,8 @@ router.put('/:id', async (req, res, next) => {
     const {
       type, status, clientId, contactId,
       originAgentId, destAgentId, customsAgentId,
-      originCity, originCountry, destCity, destCountry,
+      originAddress, originCity, originCountry,
+      destAddress, destCity, destCountry,
       callDate, surveyDate, packDate, moveDate, deliveryDate,
       volumeCbm, weightKg, shipmentMode, notes, quoteId
     } = req.body
@@ -139,7 +142,8 @@ router.put('/:id', async (req, res, next) => {
         originAgentId: originAgentId || null,
         destAgentId: destAgentId || null,
         customsAgentId: customsAgentId || null,
-        originCity, originCountry, destCity, destCountry,
+        originAddress, originCity, originCountry,
+        destAddress, destCity, destCountry,
         callDate: toDate(callDate),
         surveyDate: toDate(surveyDate),
         packDate: toDate(packDate),

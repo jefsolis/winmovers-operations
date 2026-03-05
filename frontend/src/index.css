@@ -403,3 +403,181 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   /* Buttons smaller */
   .btn { padding: 8px 14px; font-size: 13px; }
 }
+/* ── Quote Document ───────────────────────────────── */
+.quote-document-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0 40px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  margin-top: 16px;
+}
+
+.qd-outer-wrapper {
+  width: 210mm;
+  max-width: 100%;
+  box-shadow: 0 4px 24px rgba(0,0,0,.15);
+}
+
+/* Page header (logo + contact info) — repeated on every PDF page */
+.qd-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  padding: 10px 20mm;
+  border-bottom: 2px solid #1a1a1a;
+}
+
+.qd-header-logo {
+  max-height: 60px;
+  width: auto;
+  display: block;
+}
+
+.qd-header-contact {
+  text-align: right;
+  font-family: -apple-system, Arial, sans-serif;
+  font-size: 8pt;
+  line-height: 1.55;
+  color: #333;
+}
+
+.quote-document {
+  background: #fff;
+  color: #1a1a1a;
+  width: 210mm;
+  max-width: 100%;
+  min-height: 257mm;
+  padding: 14mm 20mm 14mm;
+  font-family: 'Georgia', serif;
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.qd-letterhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4mm;
+}
+.qd-company-name {
+  font-size: 16pt;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: #1a1a1a;
+}
+.qd-quote-ref {
+  font-size: 10pt;
+  color: #555;
+  text-align: right;
+  margin-top: 4px;
+}
+.qd-letterhead-divider {
+  border: none;
+  border-top: 2px solid #1a1a1a;
+  margin-bottom: 8mm;
+}
+
+.qd-section {
+  margin-bottom: 6mm;
+}
+.qd-section-edit-label {
+  font-family: -apple-system, sans-serif;
+  font-size: 9pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--primary);
+  margin-bottom: 4px;
+  user-select: none;
+}
+.qd-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px dashed #bbb;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: 'Georgia', serif;
+  font-size: 11pt;
+  line-height: 1.6;
+  color: #1a1a1a;
+  background: #fafafa;
+  resize: vertical;
+  min-height: 60px;
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.qd-textarea:focus {
+  border-color: var(--primary);
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(99,102,241,.15);
+}
+.qd-text { color: #1a1a1a; font-size: 11pt; }
+.qd-line { line-height: 1.6; }
+.qd-line-bold { line-height: 1.6; font-weight: 700; }
+.qd-line-empty { height: 0.75em; }
+
+/* Language toggle */
+.lang-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.lang-toggle-btn {
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: background .12s, color .12s;
+}
+.lang-toggle-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* Meta strip */
+.quote-meta-strip {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin: 12px 0;
+}
+
+/* Sticky editor toolbar */
+.quote-editor-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+  padding-bottom: 12px;
+}
+
+/* Print / PDF export — hide chrome, show only the document */
+@media print {
+  body * { visibility: hidden; }
+  .qd-outer-wrapper, .qd-outer-wrapper * { visibility: visible; }
+  .qd-outer-wrapper {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    box-shadow: none;
+  }
+  .quote-document { box-shadow: none; padding: 12mm 14mm; }
+  .qd-section-edit-label { display: none; }
+  .qd-textarea { border: none; background: transparent; padding: 0; }
+}
+
+@media (max-width: 900px) {
+  .qd-outer-wrapper { width: 100%; }
+  .qd-page-header { padding: 8px 6mm; }
+  .qd-header-logo { max-height: 44px; }
+  .quote-document { width: 100%; padding: 10mm 6mm; }
+}

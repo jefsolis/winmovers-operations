@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { CURRENCIES } from '../../constants'
 import { useLanguage } from '../../i18n'
+import QuoteDocument from './QuoteDocument'
+import { buildDefaultSections, SERVICE_TYPE_LABELS } from './quoteTemplates'
 
 const daysFromNow = (n) => {
   const d = new Date()
@@ -10,13 +12,21 @@ const daysFromNow = (n) => {
   return d.toISOString().slice(0, 10)
 }
 
-const EMPTY = {
-  visitId: '',
-  status: 'DRAFT',
-  totalAmount: '',
-  currency: 'USD',
-  validUntil: '',
-  notes: '',
+const EMPTY_META = {
+  totalAmount: '', currency: 'USD', validUntil: '', creatorName: '', status: 'DRAFT',
+}
+
+const EMPTY_VARS = { clientName: '', company: '', origin: '', destiny: '', serviceType: '' }
+
+function extractVarsFromVisit(visitData, lang) {
+  const l = lang === 'ES' ? 'ES' : 'EN'
+  return {
+    clientName:  visitData?.client?.name || visitData?.prospectName || '',
+    company:     visitData?.client?.name || '',
+    origin:      [visitData?.originAddress, visitData?.originCity, visitData?.originCountry].filter(Boolean).join(', '),
+    destiny:     [visitData?.destAddress,   visitData?.destCity,   visitData?.destCountry  ].filter(Boolean).join(', '),
+    serviceType: SERVICE_TYPE_LABELS[l]?.[visitData?.serviceType] || visitData?.serviceType || '',
+  }
 }
 
 export default function QuoteForm() {
@@ -26,47 +36,122 @@ export default function QuoteForm() {
   const isEdit = Boolean(id)
   const { t } = useLanguage()
 
-  const [form, setForm]       = useState({ ...EMPTY, visitId: searchParams.get('visitId') || '', validUntil: daysFromNow(30) })
-  const [visit, setVisit]     = useState(null)
-  const [loading, setLoading] = useState(isEdit)
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState(null)
+  const [language, setLanguage]       = useState('EN')
+  const [meta, setMeta]               = useState({ ...EMPTY_META, validUntil: daysFromNow(30) })
+  const [vars, setVars]               = useState({ ...EMPTY_VARS })
+  const [sections, setSections]       = useState({})
+  const [visitId, setVisitId]         = useState(searchParams.get('visitId') || '')
+  const [visit, setVisit]             = useState(null)
+  const [quoteNumber, setQuoteNumber] = useState('')
+  const [loading, setLoading]         = useState(true)
+  const [saving, setSaving]           = useState(false)
+  const [error, setError]             = useState(null)
   const errorRef = useRef(null)
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [error])
 
-  // Load existing quote for edit, or load visit for "new from visitId"
+  const buildTplVars = (lang, currentVars, currentMeta) => {
+    const l = lang === 'ES' ? 'ES' : 'EN'
+    const validUntilStr = currentMeta?.validUntil
+      ? new Date(currentMeta.validUntil).toLocaleDateString(
+          l === 'ES' ? 'es-CR' : 'en-GB',
+          { day: '2-digit', month: 'long', year: 'numeric' }
+        )
+      : ''
+    return {
+      clientName:  currentVars?.clientName  || '',
+      company:     currentVars?.company     || '',
+      origin:      currentVars?.origin      || '',
+      destiny:     currentVars?.destiny     || '',
+      serviceType: currentVars?.serviceType || '',
+      currency:    currentMeta?.currency    || 'USD',
+      price:       currentMeta?.totalAmount || '',
+      validUntil:  validUntilStr,
+      creatorName: currentMeta?.creatorName || '',
+    }
+  }
+
+  const rebuildSections = (lang, currentVars, currentMeta) => {
+    setSections(buildDefaultSections(lang, buildTplVars(lang, currentVars, currentMeta)))
+  }
+
   useEffect(() => {
     if (isEdit) {
-      api.get(`/quotes/${id}`).then(q => {
-        setForm({
-          visitId:     q.visitId,
-          status:      q.status,
-          totalAmount: q.totalAmount ?? '',
-          currency:    q.currency || 'USD',
-          validUntil:  q.validUntil ? new Date(q.validUntil).toISOString().slice(0, 10) : '',
-          notes:       q.notes || '',
+      api.get(`/quotes/${id}`)
+        .then(q => {
+          const lang = q.language || 'EN'
+          setLanguage(lang)
+          setQuoteNumber(q.quoteNumber)
+          setVisitId(q.visitId)
+          const m = {
+            totalAmount: q.totalAmount ?? '',
+            currency:    q.currency || 'USD',
+            validUntil:  q.validUntil ? new Date(q.validUntil).toISOString().slice(0, 10) : '',
+            creatorName: q.creatorName || '',
+            status:      q.status,
+          }
+          setMeta(m)
+          const v = extractVarsFromVisit(q.visit, lang)
+          setVars(v)
+          if (q.visit) setVisit(q.visit)
+          if (q.content) {
+            try { setSections(JSON.parse(q.content)) } catch { rebuildSections(lang, v, m) }
+          } else {
+            rebuildSections(lang, v, m)
+          }
         })
-        if (q.visit) setVisit(q.visit)
-      }).catch(e => setError(e.message)).finally(() => setLoading(false))
-    } else if (form.visitId) {
-      api.get(`/visits/${form.visitId}`).then(setVisit).catch(() => {})
+        .catch(e => setError(e.message))
+        .finally(() => setLoading(false))
+    } else {
+      const vid = searchParams.get('visitId') || ''
+      if (vid) {
+        const initMeta = { ...EMPTY_META, validUntil: daysFromNow(30) }
+        api.get(`/visits/${vid}`)
+          .then(v => {
+            setVisit(v)
+            const lang = v.language || 'EN'
+            setLanguage(lang)
+            const initVars = extractVarsFromVisit(v, lang)
+            setVars(initVars)
+            rebuildSections(lang, initVars, initMeta)
+          })
+          .catch(() => {})
+          .finally(() => setLoading(false))
+      } else {
+        rebuildSections('EN', vars, meta)
+        setLoading(false)
+      }
     }
   }, [id]) // eslint-disable-line
 
-  const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
+  const setMetaField = (field, value) => setMeta(prev => ({ ...prev, [field]: value }))
+  const setVarField  = (field, value) => setVars(prev => ({ ...prev, [field]: value }))
 
-  const handleSubmit = async e => {
-    e.preventDefault()
+  const handleLanguageChange = (lang) => {
+    setLanguage(lang)
+    const newVars = { ...vars }
+    if (visit?.serviceType) {
+      newVars.serviceType = SERVICE_TYPE_LABELS[lang]?.[visit.serviceType] || vars.serviceType
+    }
+    setVars(newVars)
+    if (!isEdit) rebuildSections(lang, newVars, meta)
+  }
+
+  const handleSubmit = async () => {
+    if (!visitId) { setError(t('quotes.visitRequired')); return }
     setSaving(true); setError(null)
-    if (!form.visitId) { setError('visitId is required'); setSaving(false); return }
     try {
       const payload = {
-        ...form,
-        totalAmount: form.totalAmount !== '' ? parseFloat(form.totalAmount) : null,
-        validUntil: form.validUntil || null,
+        visitId,
+        status:      meta.status || 'DRAFT',
+        totalAmount: meta.totalAmount !== '' ? parseFloat(meta.totalAmount) : null,
+        currency:    meta.currency || 'USD',
+        validUntil:  meta.validUntil || null,
+        creatorName: meta.creatorName || null,
+        language,
+        content:     JSON.stringify(sections),
       }
       if (isEdit) {
         await api.put(`/quotes/${id}`, payload)
@@ -84,90 +169,131 @@ export default function QuoteForm() {
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
 
-  const visitName = visit?.client?.name || visit?.prospectName || visit?.visitNumber || form.visitId
+  const visitLabel = visit?.client?.name || visit?.prospectName || visit?.visitNumber || visitId
 
   return (
-    <>
-      <div className="page-header">
+    <div>
+      {/* Sticky toolbar */}
+      <div className="page-header quote-editor-toolbar">
         <div>
-          <div className="page-title">{isEdit ? t('quotes.editQuote') : t('quotes.newQuoteTitle')}</div>
-          <div className="page-subtitle">{isEdit ? t('quotes.backSubtitle') : t('quotes.autoAssigned')}</div>
+          <div className="page-title" style={{ fontSize: 16 }}>
+            {isEdit ? `${t('common.edit')} — ${quoteNumber}` : t('quotes.newQuoteTitle')}
+          </div>
+          {visitLabel && (
+            <div className="page-subtitle">{t('quotes.linkedVisit')}: {visitLabel}</div>
+          )}
         </div>
-        <Link to={isEdit ? `/quotes/${id}` : (form.visitId ? `/visits/${form.visitId}` : '/quotes')} className="btn btn-secondary">{t('common.cancel')}</Link>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="lang-toggle">
+            <button type="button"
+              className={`lang-toggle-btn${language === 'EN' ? ' active' : ''}`}
+              onClick={() => handleLanguageChange('EN')}>EN</button>
+            <button type="button"
+              className={`lang-toggle-btn${language === 'ES' ? ' active' : ''}`}
+              onClick={() => handleLanguageChange('ES')}>ES</button>
+          </div>
+          <Link
+            to={isEdit ? `/quotes/${id}` : (visitId ? `/visits/${visitId}` : '/quotes')}
+            className="btn btn-secondary btn-sm"
+          >{t('common.cancel')}</Link>
+          <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={saving}>
+            {saving ? t('common.saving') : t('common.save')}
+          </button>
+        </div>
       </div>
 
-      {error && <div ref={errorRef} className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && (
+        <div ref={errorRef} className="alert alert-error" style={{ margin: '12px 0' }}>{error}</div>
+      )}
 
-      <form onSubmit={handleSubmit}>
-        <div className="card card-body" style={{ marginBottom: 16 }}>
-          <div className="section-label">{t('quotes.quoteDetails')}</div>
-          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)' }}>{t('common.allFieldsOptional')}</p>
+      {/* Template variables strip */}
+      <div className="card card-body quote-meta-strip" style={{ marginTop: 12 }}>
+        <div style={{ width: '100%', marginBottom: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>
+            {t('quotes.tplVars')}
+          </span>
+        </div>
+        <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 160 }}>
+          <label className="form-label">{t('quotes.tplClientName')}</label>
+          <input type="text" className="form-control"
+            value={vars.clientName} onChange={e => setVarField('clientName', e.target.value)} />
+        </div>
+        <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 140 }}>
+          <label className="form-label">{t('quotes.tplCompany')}</label>
+          <input type="text" className="form-control"
+            value={vars.company} onChange={e => setVarField('company', e.target.value)} />
+        </div>
+        <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 160 }}>
+          <label className="form-label">{t('quotes.tplOrigin')}</label>
+          <input type="text" className="form-control"
+            value={vars.origin} onChange={e => setVarField('origin', e.target.value)} />
+        </div>
+        <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 160 }}>
+          <label className="form-label">{t('quotes.tplDestiny')}</label>
+          <input type="text" className="form-control"
+            value={vars.destiny} onChange={e => setVarField('destiny', e.target.value)} />
+        </div>
+        <div className="form-group" style={{ margin: 0, minWidth: 170 }}>
+          <label className="form-label">{t('quotes.tplServiceType')}</label>
+          <select className="form-control" value={vars.serviceType} onChange={e => setVarField('serviceType', e.target.value)}>
+            <option value="">—</option>
+            {Object.values(SERVICE_TYPE_LABELS[language] || SERVICE_TYPE_LABELS.EN).map(label => (
+              <option key={label} value={label}>{label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-          {/* Linked visit — readonly */}
-          <div className="form-group">
-            <label className="form-label">{t('quotes.linkedVisit')}</label>
-            {visit
-              ? <div style={{ padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 8, fontSize: 14 }}>
-                  <Link to={`/visits/${visit.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{visit.visitNumber}</Link>
-                  {visitName !== visit.visitNumber && <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>— {visitName}</span>}
-                </div>
-              : <input className="form-control" value={form.visitId} readOnly placeholder="Visit ID" />
-            }
-          </div>
-
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">{t('quotes.totalAmount')}</label>
-              <input
-                type="number" min="0" step="0.01" className="form-control"
-                value={form.totalAmount} onChange={e => set('totalAmount', e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('quotes.currency')}</label>
-              <select className="form-control" value={form.currency} onChange={e => set('currency', e.target.value)}>
-                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('quotes.validUntil')}</label>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <input
-                  type="date" className="form-control" style={{ flex: 1, minWidth: 140 }}
-                  value={form.validUntil} onChange={e => set('validUntil', e.target.value)}
-                />
-                {[30, 60, 90].map(n => (
-                  <button
-                    key={n} type="button"
-                    className={`btn btn-sm${form.validUntil === daysFromNow(n) ? ' btn-primary' : ' btn-secondary'}`}
-                    style={{ whiteSpace: 'nowrap' }}
-                    onClick={() => set('validUntil', daysFromNow(n))}
-                  >+{n}d</button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">{t('common.notes')}</label>
-            <textarea
-              className="form-control" rows={4}
-              value={form.notes} onChange={e => set('notes', e.target.value)}
-              placeholder={t('quotes.notesPlaceholder')}
-            />
+      {/* Meta fields strip */}
+      <div className="card card-body quote-meta-strip" style={{ marginTop: 0, borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
+        <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+          <label className="form-label">{t('quotes.totalAmount')}</label>
+          <input type="number" min="0" step="0.01" className="form-control"
+            value={meta.totalAmount} onChange={e => setMetaField('totalAmount', e.target.value)}
+            placeholder="0.00" />
+        </div>
+        <div className="form-group" style={{ margin: 0, minWidth: 90 }}>
+          <label className="form-label">{t('quotes.currency')}</label>
+          <select className="form-control" value={meta.currency} onChange={e => setMetaField('currency', e.target.value)}>
+            {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="form-group" style={{ margin: 0, minWidth: 180 }}>
+          <label className="form-label">{t('quotes.validUntil')}</label>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <input type="date" className="form-control" style={{ flex: 1 }}
+              value={meta.validUntil} onChange={e => setMetaField('validUntil', e.target.value)} />
+            {[30, 60, 90].map(n => (
+              <button key={n} type="button" className="btn btn-secondary btn-sm"
+                onClick={() => setMetaField('validUntil', daysFromNow(n))}>+{n}d</button>
+            ))}
           </div>
         </div>
-
-        {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
-
-        <div className="form-actions">
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? t('common.saving') : isEdit ? t('common.save') : t('quotes.createQuote')}
+        <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 180 }}>
+          <label className="form-label">{t('quotes.creatorName')}</label>
+          <input type="text" className="form-control"
+            value={meta.creatorName} onChange={e => setMetaField('creatorName', e.target.value)}
+            placeholder={t('quotes.creatorPlaceholder')} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <button type="button" className="btn btn-secondary btn-sm"
+            title={t('quotes.refreshTemplate')}
+            onClick={() => rebuildSections(language, vars, meta)}>
+            ↺ {t('quotes.refreshTemplate')}
           </button>
-          <Link to={isEdit ? `/quotes/${id}` : (form.visitId ? `/visits/${form.visitId}` : '/quotes')} className="btn btn-secondary">{t('common.cancel')}</Link>
         </div>
-      </form>
-    </>
+      </div>
+
+      {/* Document editor */}
+      <div className="quote-document-wrapper">
+        <QuoteDocument
+          sections={sections}
+          editMode={true}
+          onChange={(key, val) => setSections(prev => ({ ...prev, [key]: val }))}
+          language={language}
+          quoteNumber={quoteNumber || t('quotes.newQuoteTitle')}
+        />
+      </div>
+    </div>
   )
 }

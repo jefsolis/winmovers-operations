@@ -74,7 +74,7 @@ router.post('/', async (req, res, next) => {
       prospectName, prospectPhone, prospectEmail,
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
-      serviceType, scheduledDate, observations,
+      serviceType, scheduledDate, observations, language,
     } = req.body
     const errs = []
     if (!serviceType)                         errs.push('Service type is required.')
@@ -101,6 +101,7 @@ router.post('/', async (req, res, next) => {
         serviceType: serviceType || null,
         scheduledDate: toDate(scheduledDate),
         observations: observations || null,
+        language: language || 'EN',
       },
     })
     res.status(201).json(visit)
@@ -115,7 +116,7 @@ router.put('/:id', async (req, res, next) => {
       prospectName, prospectPhone, prospectEmail,
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
-      serviceType, scheduledDate, observations,
+      serviceType, scheduledDate, observations, language,
     } = req.body
     const visit = await getPrisma().visit.update({
       where: { id: req.params.id },
@@ -136,6 +137,7 @@ router.put('/:id', async (req, res, next) => {
         serviceType: serviceType || null,
         scheduledDate: toDate(scheduledDate),
         observations: observations || null,
+        language: language || 'EN',
       },
     })
     res.json(visit)

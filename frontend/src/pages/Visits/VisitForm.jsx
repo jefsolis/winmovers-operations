@@ -9,6 +9,7 @@ const EMPTY = {
   prospectName: '', prospectPhone: '', prospectEmail: '',
   clientId: '', contactId: '', assignedToId: '',
   serviceType: '',
+  language: 'EN',
   scheduledDate: '',
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '',   destCity: '',   destCountry: '',
@@ -54,6 +55,7 @@ export default function VisitForm() {
             contactId:     v.contactId     || '',
             assignedToId:  v.assignedToId  || '',
             serviceType:   v.serviceType   || '',
+            language:      v.language      || 'EN',
             scheduledDate: v.scheduledDate ? new Date(v.scheduledDate).toISOString().slice(0, 16) : '',
             originAddress: v.originAddress || '',
             originCity:    v.originCity    || '',
@@ -189,6 +191,13 @@ export default function VisitForm() {
               <select className="form-control" value={form.serviceType} onChange={e => set('serviceType', e.target.value)}>
                 <option value="">{t('common.select')}</option>
                 {SERVICE_TYPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('visits.clientLanguage')}</label>
+              <select className="form-control" value={form.language} onChange={e => set('language', e.target.value)}>
+                <option value="EN">English</option>
+                <option value="ES">Español</option>
               </select>
             </div>
             <div className="form-group">

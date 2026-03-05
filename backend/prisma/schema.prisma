@@ -72,8 +72,10 @@ model Job {
   destAgent      Agent?    @relation("DestAgent", fields: [destAgentId], references: [id])
   customsAgentId String?
   customsAgent   Agent?    @relation("CustomsAgent", fields: [customsAgentId], references: [id])
+  originAddress String?
   originCity    String?
   originCountry String?
+  destAddress   String?
   destCity      String?
   destCountry   String?
   callDate      DateTime?
@@ -139,6 +141,7 @@ model Visit {
   destCountry   String?
   // Service
   serviceType   String?
+  language      String    @default("EN")
   scheduledDate DateTime?
   observations  String?
   quotes        Quote[]
@@ -156,6 +159,9 @@ model Quote {
   currency    String    @default("USD")
   validUntil  DateTime?
   notes       String?
+  language    String    @default("EN")
+  content     String?   @db.Text
+  creatorName String?
   job         Job?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

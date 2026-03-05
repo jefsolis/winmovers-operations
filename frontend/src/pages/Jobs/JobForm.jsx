@@ -8,7 +8,8 @@ const EMPTY = {
   type: 'INTERNATIONAL', status: 'SURVEY',
   clientId: '', contactId: '',
   originAgentId: '', destAgentId: '', customsAgentId: '',
-  originCity: '', originCountry: '', destCity: '', destCountry: '',
+  originAddress: '', originCity: '', originCountry: '',
+  destAddress: '', destCity: '', destCountry: '',
   callDate: '', surveyDate: '', packDate: '', moveDate: '', deliveryDate: '',
   volumeCbm: '', weightKg: '', shipmentMode: '', notes: ''
 }
@@ -63,8 +64,8 @@ export default function JobForm() {
             type: job.type, status: job.status,
             clientId: job.clientId || '', contactId: job.contactId || '',
             originAgentId: job.originAgentId || '', destAgentId: job.destAgentId || '', customsAgentId: job.customsAgentId || '',
-            originCity: job.originCity || '', originCountry: job.originCountry || '',
-            destCity: job.destCity || '', destCountry: job.destCountry || '',
+            originAddress: job.originAddress || '', originCity: job.originCity || '', originCountry: job.originCountry || '',
+            destAddress: job.destAddress || '', destCity: job.destCity || '', destCountry: job.destCountry || '',
             callDate: toInputDate(job.callDate),
             surveyDate: toInputDateTime(job.surveyDate), packDate: toInputDate(job.packDate),
             moveDate: toInputDate(job.moveDate), deliveryDate: toInputDate(job.deliveryDate),
@@ -83,8 +84,10 @@ export default function JobForm() {
             ...prev,
             clientId:      v?.clientId      || '',
             contactId:     v?.contactId     || '',
+            originAddress: v?.originAddress || '',
             originCity:    v?.originCity    || '',
             originCountry: v?.originCountry || '',
+            destAddress:   v?.destAddress   || '',
             destCity:      v?.destCity      || '',
             destCountry:   v?.destCountry   || '',
             surveyDate:    toInputDateTime(v?.scheduledDate) || '',
@@ -119,8 +122,10 @@ export default function JobForm() {
         ...prev,
         clientId:      v?.clientId      || '',
         contactId:     v?.contactId     || '',
+        originAddress: v?.originAddress || '',
         originCity:    v?.originCity    || '',
         originCountry: v?.originCountry || '',
+        destAddress:   v?.destAddress   || '',
         destCity:      v?.destCity      || '',
         destCountry:   v?.destCountry   || '',
         surveyDate:    toInputDateTime(v?.scheduledDate) || '',
@@ -307,6 +312,10 @@ export default function JobForm() {
           <div className="form-section">
           <div className="form-section-title">{t('jobs.route_section')}</div>
             <div className="form-grid cols-3">
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">{t('jobs.originAddress')}</label>
+                <input {...field('originAddress')} placeholder="e.g. 123 Main St" />
+              </div>
               <div className="form-group">
                 <label className="form-label">{t('jobs.originCity')}</label>
                 <input {...field('originCity')} placeholder={t('jobs.originPlaceholder')} />
@@ -316,6 +325,10 @@ export default function JobForm() {
                 <input {...field('originCountry')} placeholder="e.g. USA" />
               </div>
               <div className="form-group" style={{ visibility: 'hidden' }} />
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">{t('jobs.destAddress')}</label>
+                <input {...field('destAddress')} placeholder="e.g. 42 Rue de la Paix" />
+              </div>
               <div className="form-group">
                 <label className="form-label">{t('jobs.destCity')}</label>
                 <input {...field('destCity')} placeholder={t('jobs.destPlaceholder')} />

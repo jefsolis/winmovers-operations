@@ -61,7 +61,7 @@ router.get('/:id', async (req, res, next) => {
 // POST create — also marks the linked visit as QUOTED
 router.post('/', async (req, res, next) => {
   try {
-    const { visitId, status, totalAmount, currency, validUntil, notes } = req.body
+    const { visitId, status, totalAmount, currency, validUntil, notes, language, content, creatorName } = req.body
     if (!visitId) return res.status(400).json({ error: 'visitId is required' })
     const quoteNumber = await generateQuoteNumber()
     // Mark visit as QUOTED
@@ -75,6 +75,9 @@ router.post('/', async (req, res, next) => {
         currency: currency || 'USD',
         validUntil: toDate(validUntil),
         notes: notes || null,
+        language: language || 'EN',
+        content: content || null,
+        creatorName: creatorName || null,
       },
     })
     res.status(201).json(quote)
@@ -84,7 +87,7 @@ router.post('/', async (req, res, next) => {
 // PUT update
 router.put('/:id', async (req, res, next) => {
   try {
-    const { status, totalAmount, currency, validUntil, notes } = req.body
+    const { status, totalAmount, currency, validUntil, notes, language, content, creatorName } = req.body
     const quote = await getPrisma().quote.update({
       where: { id: req.params.id },
       data: {
@@ -93,6 +96,9 @@ router.put('/:id', async (req, res, next) => {
         currency: currency || undefined,
         validUntil: validUntil !== undefined ? toDate(validUntil) : undefined,
         notes: notes !== undefined ? notes : undefined,
+        language: language || undefined,
+        content: content !== undefined ? content : undefined,
+        creatorName: creatorName !== undefined ? creatorName : undefined,
       },
     })
     // When a quote is rejected, close its linked visit
