@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { statusMeta, typeMeta, formatDate, REQUIRED_FILE_CATEGORIES } from '../../constants'
-import JobFiles from './JobFiles'
+import { statusMeta, typeMeta, formatDate } from '../../constants'
+import FileAttachments from '../Files/FileAttachments'
 import JobDocument from './JobDocument'
 
 export default function JobDetail() {
@@ -16,24 +16,13 @@ export default function JobDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [tab, setTab]          = useState('workorder') // 'workorder' | 'overview' | 'files'
-  const [fileCount, setFileCount]       = useState(null)
-  const [allRequiredDone, setAllRequiredDone] = useState(false)
   const [closing, setClosing]           = useState(false)
   const [exporting, setExporting]       = useState(false)
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([
-      api.get(`/jobs/${id}`),
-      api.get(`/jobs/${id}/files`),
-    ])
-      .then(([j, files]) => {
-        setJob(j)
-        setFileCount(files.length)
-        const bycat = {}
-        files.forEach(f => { if (!bycat[f.category]) bycat[f.category] = []; bycat[f.category].push(f) })
-        setAllRequiredDone(REQUIRED_FILE_CATEGORIES.every(c => bycat[c]?.length))
-      })
+    api.get(`/jobs/${id}`)
+      .then(j => setJob(j))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [id])
@@ -157,7 +146,7 @@ export default function JobDetail() {
           <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
             {exporting ? '…' : t('jobs.exportPDF')}
           </button>
-          {allRequiredDone && !TERMINAL.includes(job.status) && (
+          {!TERMINAL.includes(job.status) && (
             <button className="btn btn-success" onClick={closeJob} disabled={closing}>
               {closing ? t('common.saving') : t('jobs.closeJob')}
             </button>
@@ -170,7 +159,7 @@ export default function JobDetail() {
         {[
           { key: 'workorder', label: t('jobs.workOrder') },
           { key: 'overview', label: t('files.overview') },
-          { key: 'files',    label: `${t('files.title')}${fileCount !== null ? ` (${fileCount})` : ''}` },
+          { key: 'files',    label: t('movingFiles.attachments') },
         ].map(tb => (
           <button
             key={tb.key}
@@ -263,7 +252,9 @@ export default function JobDetail() {
 
       {/* Files tab */}
       {tab === 'files' && (
-        <JobFiles jobId={id} onCountChange={setFileCount} onRequiredStatusChange={setAllRequiredDone} />
+        job.movingFile
+          ? <FileAttachments fileId={job.movingFile.id} fileCategory={job.movingFile.category} />
+          : <div className="card card-body" style={{ color: 'var(--text-muted)', fontSize: 14 }}>{t('movingFiles.noJob')}</div>
       )}
     </>
   )

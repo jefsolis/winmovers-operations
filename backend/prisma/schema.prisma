@@ -23,6 +23,7 @@ model Client {
   contacts   Contact[]
   jobs       Job[]
   visits     Visit[]
+  movingFiles MovingFile[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -58,20 +59,20 @@ model Agent {
 }
 
 model Job {
-  id            String    @id @default(cuid())
-  jobNumber     String    @unique
+  id            String      @id @default(cuid())
+  jobNumber     String      @unique
   type          String
-  status        String    @default("SURVEY")
+  status        String      @default("SURVEY")
   clientId      String?
-  client        Client?   @relation(fields: [clientId], references: [id])
+  client        Client?     @relation(fields: [clientId], references: [id])
   contactId     String?
-  contact       Contact?  @relation(fields: [contactId], references: [id])
+  contact       Contact?    @relation(fields: [contactId], references: [id])
   originAgentId  String?
-  originAgent    Agent?    @relation("OriginAgent", fields: [originAgentId], references: [id])
+  originAgent    Agent?      @relation("OriginAgent", fields: [originAgentId], references: [id])
   destAgentId    String?
-  destAgent      Agent?    @relation("DestAgent", fields: [destAgentId], references: [id])
+  destAgent      Agent?      @relation("DestAgent", fields: [destAgentId], references: [id])
   customsAgentId String?
-  customsAgent   Agent?    @relation("CustomsAgent", fields: [customsAgentId], references: [id])
+  customsAgent   Agent?      @relation("CustomsAgent", fields: [customsAgentId], references: [id])
   originAddress String?
   originCity    String?
   originCountry String?
@@ -93,27 +94,46 @@ model Job {
   clientHomePhone String?
   companyName     String?
   companyPhone    String?
-  serviceDetails  String?   @db.Text
-  materials       String?   @db.Text
+  serviceDetails  String?     @db.Text
+  materials       String?     @db.Text
   quoteTo         String?
   creatorName     String?
-  language        String    @default("EN")
-  quoteId       String?   @unique
-  quote         Quote?    @relation(fields: [quoteId], references: [id])
-  files         JobFile[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  language        String      @default("EN")
+  quoteId         String?     @unique
+  quote           Quote?      @relation(fields: [quoteId], references: [id])
+  movingFileId    String?     @unique
+  movingFile      MovingFile? @relation(fields: [movingFileId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 }
 
-model JobFile {
-  id          String   @id @default(cuid())
-  jobId       String
-  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  category    String   @default("OTHER")
+// ── File (Expediente) ─────────────────────────────────────────────────────────
+// A File is the physical/administrative folder for a move.
+// category: EXPORT (E-####) | IMPORT (D-####) | LOCAL (M-####)
+// LOCAL files have no Job; EXPORT jobs share the same number as the File.
+model MovingFile {
+  id          String       @id @default(cuid())
+  fileNumber  String       @unique
+  category    String       // EXPORT | IMPORT | LOCAL
+  status      String       @default("OPEN") // OPEN | CLOSED
+  clientId    String?
+  client      Client?      @relation(fields: [clientId], references: [id])
+  notes       String?
+  job         Job?         // back-relation; null for LOCAL files
+  attachments Attachment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Attachment {
+  id          String     @id @default(cuid())
+  fileId      String
+  movingFile  MovingFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  category    String     @default("OTHER")
   filename    String
   storagePath String
   sizeBytes   Int?
-  uploadedAt  DateTime @default(now())
+  uploadedAt  DateTime   @default(now())
 }
 
 model StaffMember {

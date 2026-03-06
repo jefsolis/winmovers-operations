@@ -18,8 +18,9 @@ app.use('/api/contacts',           require('./routes/contacts'))
 app.use('/api/agents',             require('./routes/agents'))
 app.use('/api/visits',             require('./routes/visits'))
 app.use('/api/quotes',             require('./routes/quotes'))
-app.use('/api/jobs/:jobId/files',  require('./routes/jobFiles'))  // must be before /api/jobs
-app.use('/api/jobs',               require('./routes/jobs'))
+app.use('/api/files/:fileId/attachments', require('./routes/attachments'))  // must be before /api/files
+app.use('/api/files',                    require('./routes/movingFiles'))
+app.use('/api/jobs',                     require('./routes/jobs'))
 
 // Legacy health check
 app.get('/api/hello', (req, res) => {

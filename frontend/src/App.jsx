@@ -20,6 +20,9 @@ import QuoteForm from './pages/Quotes/QuoteForm'
 import QuoteDetail from './pages/Quotes/QuoteDetail'
 import StaffList from './pages/Staff/StaffList'
 import StaffForm from './pages/Staff/StaffForm'
+import FilesList from './pages/Files/FilesList'
+import FileDetail from './pages/Files/FileDetail'
+import FileForm from './pages/Files/FileForm'
 
 export default function App() {
   return (
@@ -53,6 +56,18 @@ export default function App() {
           <Route path="staff"               element={<StaffList />} />
           <Route path="staff/new"           element={<StaffForm />} />
           <Route path="staff/:id/edit"      element={<StaffForm />} />
+          <Route path="files/export"             element={<FilesList category="EXPORT" />} />
+          <Route path="files/export/new"         element={<FileForm />} />
+          <Route path="files/export/:id"         element={<FileDetail />} />
+          <Route path="files/export/:id/edit"    element={<FileForm />} />
+          <Route path="files/import"             element={<FilesList category="IMPORT" />} />
+          <Route path="files/import/new"         element={<FileForm />} />
+          <Route path="files/import/:id"         element={<FileDetail />} />
+          <Route path="files/import/:id/edit"    element={<FileForm />} />
+          <Route path="files/local"              element={<FilesList category="LOCAL" />} />
+          <Route path="files/local/new"          element={<FileForm />} />
+          <Route path="files/local/:id"          element={<FileDetail />} />
+          <Route path="files/local/:id/edit"     element={<FileForm />} />
         </Route>
       </Routes>
     </BrowserRouter>

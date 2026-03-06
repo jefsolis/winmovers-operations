@@ -10,7 +10,7 @@ const STATUS_META = [
   { value: 'CANCELLED',  bg: '#fee2e2', color: '#991b1b' },
 ]
 
-const TYPE_VALUES  = ['INTERNATIONAL', 'DOMESTIC']
+const TYPE_VALUES  = ['EXPORT', 'IMPORT', 'INTERNATIONAL', 'DOMESTIC']
 const MODE_VALUES  = ['ROAD', 'SEA', 'AIR', 'COMBINED']
 
 // Pass the t() function from useLanguage() to get translated labels
@@ -99,6 +99,37 @@ export function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// ── Moving File (Expediente) ─────────────────────────────────────────────────
+export const FILE_CATEGORIES = ['EXPORT', 'IMPORT', 'LOCAL']
+
+export const REQUIRED_ATTACHMENTS = {
+  EXPORT: ['SURVEY_REPORT', 'QUOTATION', 'INSURANCE_INVENTORY', 'SIGNED_QUOTATION',
+           'WORK_ORDER', 'PRE_ADVICE', 'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT',
+           'INSURANCE_CERTIFICATE', 'SIGNED_PACKING_LIST', 'INVOICE', 'DELIVERY_CONFIRMATION'],
+  IMPORT: ['QUOTATION', 'INSURANCE_INVENTORY', 'SIGNED_QUOTATION', 'WORK_ORDER',
+           'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT', 'INSURANCE_CERTIFICATE',
+           'SIGNED_PACKING_LIST', 'INVOICE', 'DELIVERY_CONFIRMATION'],
+  LOCAL:  ['INVOICE'],
+}
+
+const FILE_STATUS_META = [
+  { value: 'OPEN',   bg: '#dbeafe', color: '#1e40af' },
+  { value: 'CLOSED', bg: '#d1fae5', color: '#065f46' },
+]
+
+export function getFileStatuses(t) {
+  return FILE_STATUS_META.map(s => ({ ...s, label: t(`fileStatuses.${s.value}`) }))
+}
+
+export function fileStatusMeta(value, t) {
+  const meta = FILE_STATUS_META.find(s => s.value === value) || { value, bg: '#e2e8f0', color: '#475569' }
+  return { ...meta, label: t ? t(`fileStatuses.${value}`) : value }
+}
+
+export function getFileCategoryLabel(category, t) {
+  return t ? t(`fileCategories.${category}`) : category
 }
 
 // ── Visit ────────────────────────────────────────────────────────────────────

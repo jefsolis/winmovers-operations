@@ -7,7 +7,7 @@ const translations = {
       PRE_MOVE: 'Pre-Move', IN_TRANSIT: 'In Transit', DELIVERED: 'Delivered',
       CLOSED: 'Closed', CANCELLED: 'Cancelled',
     },
-    types: { INTERNATIONAL: "Int'l", DOMESTIC: 'Domestic' },
+    types: { INTERNATIONAL: "Int'l", DOMESTIC: 'Domestic', EXPORT: 'Export', IMPORT: 'Import' },
     modes: { ROAD: 'Road', SEA: 'Sea', AIR: 'Air', COMBINED: 'Combined' },
     common: {
       save: 'Save Changes', cancel: 'Cancel', search: 'Search', loading: 'Loading…',
@@ -22,6 +22,7 @@ const translations = {
     nav: {
       dashboard: 'Dashboard', jobs: 'Jobs', clients: 'Clients', contacts: 'Contacts', agents: 'Agents',
       visits: 'Visits', quotes: 'Quotes', staff: 'Staff',
+      exportFiles: 'Export Files', importFiles: 'Import Files', localFiles: 'Local Files',
       language: 'Español',
     },
     dashboard: {
@@ -163,6 +164,20 @@ const translations = {
         OTHER: 'Other',
       },
     },
+    fileStatuses: { OPEN: 'Open', CLOSED: 'Closed' },
+    movingFiles: {
+      exportTitle: 'Export Files', importTitle: 'Import Files', localTitle: 'Local Files',
+      newFile: '+ New File', createFile: 'Create File', editFile: 'Edit File',
+      fileNumber: 'File #', category: 'Category', status: 'Status', client: 'Client',
+      linkedJob: 'Linked Job', attachments: 'Attachments',
+      noJob: 'No job', createJobForFile: 'Create Job',
+      numberAutoAssigned: 'File number will be auto-assigned',
+      backToFiles: '← Back',
+      empty: 'No files yet', emptyHint: 'Create your first file to get started.',
+      deleteConfirm: 'Delete file {{num}}? This cannot be undone.',
+      allStatuses: 'All Statuses', searchPlaceholder: 'Search file #, client…',
+      exportShort: 'Export', importShort: 'Import', localShort: 'Local',
+    },
     visitStatuses: {
       SCHEDULED: 'Scheduled', COMPLETED: 'Completed', QUOTED: 'Quoted', CLOSED: 'Closed (Lost)',
     },
@@ -244,7 +259,7 @@ const translations = {
       PRE_MOVE: 'Pre-Mudanza', IN_TRANSIT: 'En Tránsito', DELIVERED: 'Entregado',
       CLOSED: 'Cerrado', CANCELLED: 'Cancelado',
     },
-    types: { INTERNATIONAL: 'Internacional', DOMESTIC: 'Doméstico' },
+    types: { INTERNATIONAL: 'Internacional', DOMESTIC: 'Doméstico', EXPORT: 'Exportación', IMPORT: 'Importación' },
     modes: { ROAD: 'Carretera', SEA: 'Marítimo', AIR: 'Aéreo', COMBINED: 'Combinado' },
     common: {
       save: 'Guardar Cambios', cancel: 'Cancelar', search: 'Buscar', loading: 'Cargando…',
@@ -259,6 +274,7 @@ const translations = {
     nav: {
       dashboard: 'Tablero', jobs: 'Órdenes de Trabajo', clients: 'Clientes', contacts: 'Contactos', agents: 'Agentes',
       visits: 'Visitas', quotes: 'Cotizaciones', staff: 'Personal',
+      exportFiles: 'Archivos Exportación', importFiles: 'Archivos Importación', localFiles: 'Archivos Locales',
       language: 'English',
     },
     dashboard: {
@@ -401,6 +417,20 @@ const translations = {
         DELIVERY_CONFIRMATION: 'Confirmación de Entrega',
         OTHER: 'Otro',
       },
+    },
+    fileStatuses: { OPEN: 'Abierto', CLOSED: 'Cerrado' },
+    movingFiles: {
+      exportTitle: 'Archivos de Exportación', importTitle: 'Archivos de Importación', localTitle: 'Archivos Locales',
+      newFile: '+ Nuevo Archivo', createFile: 'Crear Archivo', editFile: 'Editar Archivo',
+      fileNumber: 'Archivo #', category: 'Categoría', status: 'Estado', client: 'Cliente',
+      linkedJob: 'Orden Vinculada', attachments: 'Adjuntos',
+      noJob: 'Sin orden', createJobForFile: 'Crear Orden',
+      numberAutoAssigned: 'El número de archivo se asignará automáticamente',
+      backToFiles: '← Volver',
+      empty: 'Aún no hay archivos', emptyHint: 'Crea tu primer archivo para comenzar.',
+      deleteConfirm: '¿Eliminar archivo {{num}}? Esta acción no se puede deshacer.',
+      allStatuses: 'Todos los Estados', searchPlaceholder: 'Buscar archivo #, cliente…',
+      exportShort: 'Exportación', importShort: 'Importación', localShort: 'Local',
     },
     visitStatuses: {
       SCHEDULED: 'Programada', COMPLETED: 'Completada', QUOTED: 'Cotizada', CLOSED: 'Cerrada (Perdida)',
