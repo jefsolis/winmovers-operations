@@ -20,7 +20,6 @@ const LABELS = {
     homePhone:      'Home Phone Number',
     company:        'Company',
     companyPhone:   'Company Phone Number',
-    contact:        'Contact',
     address:        'Address',
     destAddress:    'Destiny Address',
     serviceDetails: 'Service Details',
@@ -37,9 +36,8 @@ const LABELS = {
     clientName:     'Nombre del Cliente',
     cellPhone:      'Tel. Celular',
     homePhone:      'Tel. Residencia',
-    company:        'Compa\u00f1\u00eda',
+    company:        'Compañía',
     companyPhone:   'Tel. Empresa',
-    contact:        'Contacto',
     address:        'Direcci\u00f3n',
     destAddress:    'Direcci\u00f3n de Destino',
     serviceDetails: 'Detalle del Servicio',
@@ -94,8 +92,7 @@ function Cell({ label, value, editMode, onChange, inputType = 'text', flex, bord
 /**
  * JobDocument
  * View mode  (editMode=false): pass `job`.
- * Edit mode  (editMode=true):  pass `form`, `onFormChange`, `clients`, `filteredContacts`,
- *                               `onClientChange`, `onContactChange`.
+ * Edit mode  (editMode=true):  pass `form`, `onFormChange`, `clients`, `onClientChange`.
  */
 const JobDocument = forwardRef(function JobDocument(
   {
@@ -105,27 +102,20 @@ const JobDocument = forwardRef(function JobDocument(
     form,
     onFormChange,
     clients = [],
-    filteredContacts = [],
     onClientChange,
-    onContactChange,
     resolvedJobNumber = '',
     resolvedCreatedDate = '',
     headerRef,
+    staffMembers = [],
   },
   ref
 ) {
   const L = LABELS[language] || LABELS.EN
 
   // View-mode derived values
-  const viewClientName = job?.contact
-    ? `${job.contact.firstName || ''} ${job.contact.lastName || ''}`.trim()
-    : (job?.client?.clientType === 'INDIVIDUAL'
-        ? `${job?.client?.firstName || ''} ${job?.client?.lastName || ''}`.trim() || job?.client?.name
-        : job?.client?.name || '')
-  const viewContactInfo = job?.contact
-    ? [`${job.contact.firstName || ''} ${job.contact.lastName || ''}`.trim(), job.contact.phone]
-        .filter(Boolean).join('  |  ')
-    : ''
+  const viewClientName = job?.client?.clientType === 'INDIVIDUAL'
+    ? `${job?.client?.firstName || ''} ${job?.client?.lastName || ''}`.trim() || job?.client?.name
+    : job?.client?.name || ''
   const viewOriginAddr = [job?.originAddress, job?.originCity, job?.originCountry].filter(Boolean).join(', ')
   const viewDestAddr   = [job?.destAddress,   job?.destCity,   job?.destCountry  ].filter(Boolean).join(', ')
 
@@ -204,20 +194,9 @@ const JobDocument = forwardRef(function JobDocument(
             <Cell label={L.cellPhone} value={fv('clientPhone')} flex={2} editMode={editMode} onChange={ch('clientPhone')} />
           </Row>
 
-          {/* Row 4: Contact picker (edit) / Contact info (view) | Home Phone */}
+          {/* Row 4: Home Phone */}
           <Row>
-            <div className="jd-cell" style={{ flex: 3, borderRight: '1px solid #bbb' }}>
-              <span className="jd-cell-label">{L.contact}</span>
-              {editMode ? (
-                <select style={selectStyle} value={form?.contactId || ''} onChange={e => onContactChange?.(e.target.value)} disabled={!form?.clientId}>
-                  <option value="">—</option>
-                  {filteredContacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
-                </select>
-              ) : (
-                <span className="jd-cell-value">{viewContactInfo}</span>
-              )}
-            </div>
-            <Cell label={L.homePhone} value={fv('clientHomePhone')} flex={2} editMode={editMode} onChange={ch('clientHomePhone')} />
+            <Cell label={L.homePhone} value={fv('clientHomePhone')} editMode={editMode} onChange={ch('clientHomePhone')} />
           </Row>
 
           {/* Row 5: Company | Company Phone */}
@@ -279,7 +258,21 @@ const JobDocument = forwardRef(function JobDocument(
 
           {/* Row 11: Created By */}
           <Row>
-            <Cell label={L.createdBy} value={fv('creatorName')} editMode={editMode} onChange={ch('creatorName')} />
+            {editMode && staffMembers.length > 0 ? (
+              <div className="jd-cell" style={{ flex: 1, borderRight: 'none' }}>
+                <span className="jd-cell-label">{L.createdBy}</span>
+                <select
+                  className="jd-cell-input"
+                  value={fv('creatorName') || ''}
+                  onChange={e => ch('creatorName')(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {staffMembers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                </select>
+              </div>
+            ) : (
+              <Cell label={L.createdBy} value={fv('creatorName')} editMode={editMode} onChange={ch('creatorName')} />
+            )}
           </Row>
 
         </div>

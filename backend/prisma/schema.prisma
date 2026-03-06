@@ -20,32 +20,17 @@ model Client {
   address    String?
   country    String?
   notes      String?
-  contacts   Contact[]
-  jobs       Job[]
-  visits     Visit[]
-  movingFiles MovingFile[]
+  jobs            Job[]
+  visits          Visit[]              @relation("VisitClient")
+  corporateVisits Visit[]              @relation("VisitCorporateClient")
+  movingFiles     MovingFile[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-}
-
-model Contact {
-  id        String   @id @default(cuid())
-  firstName String
-  lastName  String
-  email     String?
-  phone     String?
-  clientId  String?
-  client    Client?  @relation(fields: [clientId], references: [id])
-  jobs      Job[]
-  visits    Visit[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Agent {
   id        String   @id @default(cuid())
   name      String
-  agentType String
   country   String?
   city      String?
   email     String?
@@ -65,8 +50,6 @@ model Job {
   status        String      @default("SURVEY")
   clientId      String?
   client        Client?     @relation(fields: [clientId], references: [id])
-  contactId     String?
-  contact       Contact?    @relation(fields: [contactId], references: [id])
   originAgentId  String?
   originAgent    Agent?      @relation("OriginAgent", fields: [originAgentId], references: [id])
   destAgentId    String?
@@ -156,10 +139,11 @@ model Visit {
   prospectPhone String?
   prospectEmail String?
   // Optional links to existing records
-  clientId      String?
-  client        Client?      @relation(fields: [clientId], references: [id])
-  contactId     String?
-  contact       Contact?     @relation(fields: [contactId], references: [id])
+  clientId          String?
+  client            Client?      @relation("VisitClient", fields: [clientId], references: [id])
+  corporateClientId String?
+  corporateClient   Client?      @relation("VisitCorporateClient", fields: [corporateClientId], references: [id])
+
   // Assigned staff member
   assignedToId  String?
   assignedTo    StaffMember? @relation(fields: [assignedToId], references: [id])

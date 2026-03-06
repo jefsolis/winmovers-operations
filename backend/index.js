@@ -14,7 +14,7 @@ app.use(express.json())
 app.use('/api/dashboard',          require('./routes/dashboard'))
 app.use('/api/staff',              require('./routes/staff'))
 app.use('/api/clients',            require('./routes/clients'))
-app.use('/api/contacts',           require('./routes/contacts'))
+
 app.use('/api/agents',             require('./routes/agents'))
 app.use('/api/visits',             require('./routes/visits'))
 app.use('/api/quotes',             require('./routes/quotes'))

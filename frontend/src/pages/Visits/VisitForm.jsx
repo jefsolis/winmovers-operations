@@ -7,9 +7,9 @@ import { useLanguage } from '../../i18n'
 const EMPTY = {
   status: 'SCHEDULED',
   prospectName: '', prospectPhone: '', prospectEmail: '',
-  clientId: '', contactId: '', assignedToId: '',
+  clientId: '', corporateClientId: '', assignedToId: '',
   serviceType: '',
-  language: 'EN',
+  language: 'ES',
   scheduledDate: '',
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '',   destCity: '',   destCountry: '',
@@ -26,7 +26,6 @@ export default function VisitForm() {
 
   const [form, setForm]       = useState(EMPTY)
   const [clients, setClients] = useState([])
-  const [contacts, setContacts] = useState([])
   const [staffMembers, setStaffMembers] = useState([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving]   = useState(false)
@@ -40,7 +39,6 @@ export default function VisitForm() {
   useEffect(() => {
     const tasks = [
       api.get('/clients').then(setClients).catch(() => {}),
-      api.get('/contacts').then(setContacts).catch(() => {}),
       api.get('/staff').then(setStaffMembers).catch(() => {}),
     ]
     if (isEdit) {
@@ -51,10 +49,10 @@ export default function VisitForm() {
             prospectName:  v.prospectName  || '',
             prospectPhone: v.prospectPhone || '',
             prospectEmail: v.prospectEmail || '',
-            clientId:      v.clientId      || '',
-            contactId:     v.contactId     || '',
-            assignedToId:  v.assignedToId  || '',
-            serviceType:   v.serviceType   || '',
+            clientId:           v.clientId           || '',
+            corporateClientId:  v.corporateClientId  || '',
+            assignedToId:       v.assignedToId       || '',
+            serviceType:        v.serviceType        || '',
             language:      v.language      || 'EN',
             scheduledDate: v.scheduledDate ? new Date(v.scheduledDate).toISOString().slice(0, 16) : '',
             originAddress: v.originAddress || '',
@@ -73,9 +71,8 @@ export default function VisitForm() {
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
 
-  const filteredContacts = form.clientId
-    ? contacts.filter(c => c.clientId === form.clientId)
-    : contacts
+  const individualClients  = clients.filter(c => c.clientType === 'INDIVIDUAL')
+  const corporateClients   = clients.filter(c => c.clientType === 'CORPORATE' || c.clientType === 'BROKER')
 
   const field = (name, type = 'text') => ({
     type,
@@ -89,15 +86,16 @@ export default function VisitForm() {
     const errs = []
     if (!form.serviceType)                         errs.push(t('visits.validation.serviceType'))
     if (!form.scheduledDate)                       errs.push(t('visits.validation.scheduledDate'))
+    if (!form.assignedToId)                            errs.push(t('visits.validation.assignedTo'))
     if (!form.clientId && !form.prospectName?.trim()) errs.push(t('visits.validation.nameOrClient'))
     if (errs.length) { setError(errs.join('\n')); return }
     setSaving(true); setError(null)
     try {
       const payload = {
         ...form,
-        clientId:      form.clientId      || null,
-        contactId:     form.contactId     || null,
-        assignedToId:  form.assignedToId  || null,
+        clientId:           form.clientId           || null,
+        corporateClientId:  form.corporateClientId  || null,
+        assignedToId:       form.assignedToId       || null,
         scheduledDate: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
       }
       if (isEdit) {
@@ -152,27 +150,26 @@ export default function VisitForm() {
               <label className="form-label">{t('visits.linkedClient')}</label>
               <select className="form-control" value={form.clientId} onChange={e => {
                 const selectedId = e.target.value
-                const client = clients.find(c => c.id === selectedId)
+                const client = individualClients.find(c => c.id === selectedId)
                 setForm(prev => ({
                   ...prev,
                   clientId: selectedId,
-                  contactId: '',
                   ...(client ? {
-                    prospectName:  client.name || [client.firstName, client.lastName].filter(Boolean).join(' ') || prev.prospectName,
+                    prospectName:  [client.firstName, client.lastName].filter(Boolean).join(' ') || client.name || prev.prospectName,
                     prospectPhone: client.phone || prev.prospectPhone,
                     prospectEmail: client.email || prev.prospectEmail,
                   } : {}),
                 }))
               }}>
                 <option value="">{t('common.none')}</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.name || `${c.firstName} ${c.lastName}`}</option>)}
+                {individualClients.map(c => <option key={c.id} value={c.id}>{[c.firstName, c.lastName].filter(Boolean).join(' ') || c.name}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">{t('visits.linkedContact')}</label>
-              <select className="form-control" value={form.contactId} onChange={e => set('contactId', e.target.value)}>
+              <label className="form-label">{t('visits.companyClient')}</label>
+              <select className="form-control" value={form.corporateClientId} onChange={e => set('corporateClientId', e.target.value)}>
                 <option value="">{t('common.none')}</option>
-                {filteredContacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+                {corporateClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           </div>

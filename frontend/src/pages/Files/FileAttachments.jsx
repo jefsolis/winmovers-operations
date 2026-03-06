@@ -10,7 +10,7 @@ import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMEN
  *   fileCategory String   EXPORT | IMPORT | LOCAL
  *   onStatusChange fn(status)   called when file auto-closes or re-opens
  */
-export default function FileAttachments({ fileId, fileCategory, onStatusChange }) {
+export default function FileAttachments({ fileId, fileCategory, onStatusChange, onAllRequiredDone }) {
   const { t } = useLanguage()
   const FILE_CATS   = getFileCategories(t)
   const requiredCats = REQUIRED_ATTACHMENTS[fileCategory] || []
@@ -21,6 +21,13 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange }
   const [error, setError]               = useState(null)
   const fileInputRef                    = useRef(null)
   const pendingCategoryRef              = useRef(null)
+
+  // Notify parent when all required docs are uploaded
+  const allRequiredDone = requiredCats.length === 0 ||
+    requiredCats.every(cat => attachments.some(a => a.category === cat))
+  useEffect(() => {
+    if (!loading) onAllRequiredDone?.(allRequiredDone)
+  }, [allRequiredDone, loading]) // eslint-disable-line
 
   const load = () => {
     setLoading(true)
@@ -57,9 +64,6 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange }
       form.append('category', category)
       const created = await api.upload(`/files/${fileId}/attachments`, form)
       setAttachments(prev => [created, ...prev.filter(f => !replaceIds.includes(f.id))])
-      // Refresh file status (may have auto-closed)
-      const updated = await api.get(`/files/${fileId}`)
-      onStatusChange?.(updated.status)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -80,8 +84,6 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange }
     try {
       await api.delete(`/files/${fileId}/attachments/${att.id}`)
       setAttachments(prev => prev.filter(x => x.id !== att.id))
-      const updated = await api.get(`/files/${fileId}`)
-      onStatusChange?.(updated.status)
     } catch (e) { alert(e.message) }
   }
 
@@ -103,6 +105,10 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange }
   // OTHER uploads (not in required list)
   const otherItems = attachments.filter(f => !requiredCats.includes(f.category) || f.category === 'OTHER')
 
+  const requiredDone  = checklist.filter(c => c.done).length
+  const requiredTotal = checklist.length
+  const requiredPct   = requiredTotal > 0 ? Math.round((requiredDone / requiredTotal) * 100) : 0
+
   return (
     <div>
       <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleFileChosen} />
@@ -112,6 +118,24 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange }
       {/* Required checklist */}
       {checklist.length > 0 && (
         <div style={{ marginBottom: 24 }}>
+          {/* Progress bar */}
+          <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 5 }}>
+                {t('files.requiredProgress', { done: requiredDone, total: requiredTotal })}
+              </div>
+              <div style={{ height: 8, borderRadius: 99, background: 'var(--surface-2, #f1f5f9)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${requiredPct}%`,
+                  background: requiredDone === requiredTotal ? 'var(--success, #16a34a)' : 'var(--primary)',
+                  borderRadius: 99,
+                  transition: 'width 0.3s',
+                }} />
+              </div>
+            </div>
+            <div style={{ fontSize: 22, lineHeight: 1 }}>{requiredDone === requiredTotal ? '✅' : '📋'}</div>
+          </div>
           <div className="section-label" style={{ marginBottom: 12 }}>{t('files.required')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {checklist.map(cat => (
@@ -124,7 +148,7 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange }
                 }}
               >
                 <span style={{ fontSize: 16 }}>{cat.done ? '✅' : '⬜'}</span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{cat.label}</span>
+                <span className="badge" style={{ background: cat.bg, color: cat.color, fontSize: 11, whiteSpace: 'nowrap' }}>{cat.label}</span>
                 {cat.items.map(att => (
                   <span key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)}>

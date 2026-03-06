@@ -6,13 +6,19 @@ const CATEGORY_PREFIX = { EXPORT: "E", IMPORT: "D", LOCAL: "M" }
 async function generateFileNumber(category) {
   const prefix = CATEGORY_PREFIX[category]
   if (!prefix) throw new Error("Unknown category: " + category)
+  const year = new Date().getFullYear()
   const last = await getPrisma().movingFile.findFirst({
     where: { fileNumber: { startsWith: prefix + "-" } },
-    orderBy: { fileNumber: "desc" },
+    orderBy: { createdAt: "desc" },
     select: { fileNumber: true },
   })
-  const next = last ? parseInt(last.fileNumber.slice(prefix.length + 1), 10) + 1 : 1
-  return prefix + "-" + String(next).padStart(4, "0")
+  let next = 1
+  if (last) {
+    // Support both legacy format "E-0001" and new format "E-0001-2026"
+    const parts = last.fileNumber.split("-")
+    next = parseInt(parts[1], 10) + 1
+  }
+  return prefix + "-" + String(next).padStart(4, "0") + "-" + year
 }
 
 async function checkAutoClose(fileId, category) {

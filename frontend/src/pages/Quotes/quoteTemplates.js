@@ -40,13 +40,13 @@ export const SECTION_UI_LABELS = {
 
 export const SERVICE_TYPE_LABELS = {
   EN: {
-    PORT_TO_PORT: 'Door to Port',
+    DOOR_TO_PORT: 'Door to Port',
     DOOR_TO_DOOR: 'Door to Door',
     PACKING:      'Packing',
     LOCAL_MOVE:   'Local Moving',
   },
   ES: {
-    PORT_TO_PORT: 'Puerta a Puerto',
+    DOOR_TO_PORT: 'Puerta a Puerto',
     DOOR_TO_DOOR: 'Puerta a Puerta',
     PACKING:      'Empaque',
     LOCAL_MOVE:   'Mudanza Local',

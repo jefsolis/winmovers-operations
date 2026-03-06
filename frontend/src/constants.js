@@ -150,7 +150,7 @@ export function visitStatusMeta(value, t) {
 }
 
 const SERVICE_TYPE_META = [
-  { value: 'PORT_TO_PORT' },
+  { value: 'DOOR_TO_PORT' },
   { value: 'DOOR_TO_DOOR' },
   { value: 'PACKING' },
   { value: 'LOCAL_MOVE' },

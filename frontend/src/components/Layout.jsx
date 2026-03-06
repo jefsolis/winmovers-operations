@@ -15,7 +15,6 @@ export default function Layout() {
     { to: '/files/import',   label: t('nav.importFiles'), icon: '📥' },
     { to: '/files/local',    label: t('nav.localFiles'),  icon: '🏠' },
     { to: '/clients',        label: t('nav.clients'),     icon: '🏢' },
-    { to: '/contacts',  label: t('nav.contacts'),  icon: '👤' },
     { to: '/agents',    label: t('nav.agents'),    icon: '🤝' },
     { to: '/staff',     label: t('nav.staff'),     icon: '👷' },
   ]

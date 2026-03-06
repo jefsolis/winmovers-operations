@@ -10,7 +10,7 @@ router.get('/', async (req, res, next) => {
     twelveMonthsAgo.setHours(0, 0, 0, 0)
 
     const [
-      totalJobs, totalClients, totalContacts,
+      totalJobs, totalClients,
       byStatus, byType, byMode, recentJobs, monthlyJobs, monthlyVisits, monthlyQuotes,
       totalVisits, visitsByStatus,
       quotesByStatus,
@@ -18,7 +18,6 @@ router.get('/', async (req, res, next) => {
     ] = await Promise.all([
       p.job.count(),
       p.client.count(),
-      p.contact.count(),
       p.job.groupBy({ by: ['status'], _count: { id: true } }),
       p.job.groupBy({ by: ['type'], _count: { id: true } }),
       p.job.groupBy({ by: ['shipmentMode'], _count: { id: true } }),
@@ -26,8 +25,7 @@ router.get('/', async (req, res, next) => {
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
-          contact: { select: { firstName: true, lastName: true } },
-          client: { select: { name: true } }
+          client: { select: { name: true, firstName: true, lastName: true, clientType: true } }
         }
       }),
       p.job.findMany({
@@ -119,7 +117,6 @@ router.get('/', async (req, res, next) => {
       totalJobs,
       activeJobs,
       totalClients,
-      totalContacts,
       jobsByStatus: byStatus.map(s => ({ status: s.status, count: s._count.id })),
       jobsByType: byType.map(t => ({ type: t.type, count: t._count.id })),
       jobsByMode: byMode.filter(m => m.shipmentMode).map(m => ({ mode: m.shipmentMode, count: m._count.id })),

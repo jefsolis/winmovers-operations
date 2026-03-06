@@ -4,9 +4,8 @@ const { getPrisma } = require('../db')
 // GET all
 router.get('/', async (req, res, next) => {
   try {
-    const { search, type } = req.query
+    const { search } = req.query
     const where = {}
-    if (type) where.agentType = type
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -36,11 +35,10 @@ router.get('/:id', async (req, res, next) => {
 // POST create
 router.post('/', async (req, res, next) => {
   try {
-    const { name, agentType, country, city, email, phone, notes } = req.body
+    const { name, country, city, email, phone, notes } = req.body
     if (!name) return res.status(400).json({ error: 'name is required' })
-    if (!agentType) return res.status(400).json({ error: 'agentType is required' })
     const agent = await getPrisma().agent.create({
-      data: { name, agentType, country: country || null, city: city || null, email: email || null, phone: phone || null, notes: notes || null }
+      data: { name, country: country || null, city: city || null, email: email || null, phone: phone || null, notes: notes || null }
     })
     res.status(201).json(agent)
   } catch (err) { next(err) }
@@ -49,10 +47,10 @@ router.post('/', async (req, res, next) => {
 // PUT update
 router.put('/:id', async (req, res, next) => {
   try {
-    const { name, agentType, country, city, email, phone, notes } = req.body
+    const { name, country, city, email, phone, notes } = req.body
     const agent = await getPrisma().agent.update({
       where: { id: req.params.id },
-      data: { name, agentType, country: country || null, city: city || null, email: email || null, phone: phone || null, notes: notes || null }
+      data: { name, country: country || null, city: city || null, email: email || null, phone: phone || null, notes: notes || null }
     })
     res.json(agent)
   } catch (err) { next(err) }

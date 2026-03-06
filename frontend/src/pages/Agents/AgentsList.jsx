@@ -30,10 +30,6 @@ export default function AgentsList() {
     } catch (e) { alert(e.message) }
   }
 
-  const typeLabel = (type) => t(`agents.agentTypes.${type}`) || type
-
-  const typeBg = { ORIGIN: '#dbeafe', DESTINATION: '#dcfce7', CUSTOMS: '#fef3c7', OTHER: '#f1f5f9' }
-  const typeColor = { ORIGIN: '#1e40af', DESTINATION: '#166534', CUSTOMS: '#92400e', OTHER: '#475569' }
 
   return (
     <>
@@ -72,7 +68,6 @@ export default function AgentsList() {
               <thead>
                 <tr>
                   <th>{t('common.name')}</th>
-                  <th>{t('agents.agentType')}</th>
                   <th>{t('common.country')}</th>
                   <th>{t('common.email')}</th>
                   <th>{t('common.phone')}</th>
@@ -86,11 +81,6 @@ export default function AgentsList() {
                   return (
                     <tr key={a.id}>
                       <td><strong>{a.name}</strong>{a.city ? <span style={{ color: '#64748b', fontWeight: 400 }}> — {a.city}</span> : ''}</td>
-                      <td>
-                        <span style={{ background: typeBg[a.agentType] || '#f1f5f9', color: typeColor[a.agentType] || '#475569', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600 }}>
-                          {typeLabel(a.agentType)}
-                        </span>
-                      </td>
                       <td>{a.country || '—'}</td>
                       <td>{a.email || '—'}</td>
                       <td>{a.phone || '—'}</td>

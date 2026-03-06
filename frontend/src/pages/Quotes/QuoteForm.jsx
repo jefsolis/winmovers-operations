@@ -21,8 +21,10 @@ const EMPTY_VARS = { clientName: '', company: '', origin: '', destiny: '', servi
 function extractVarsFromVisit(visitData, lang) {
   const l = lang === 'ES' ? 'ES' : 'EN'
   return {
-    clientName:  visitData?.client?.name || visitData?.prospectName || '',
-    company:     visitData?.client?.name || '',
+    clientName:  visitData?.client
+      ? (`${visitData.client.firstName || ''} ${visitData.client.lastName || ''}`.trim() || visitData.client.name || '')
+      : (visitData?.prospectName || ''),
+    company:     visitData?.corporateClient?.name || '',
     origin:      [visitData?.originAddress, visitData?.originCity, visitData?.originCountry].filter(Boolean).join(', '),
     destiny:     [visitData?.destAddress,   visitData?.destCity,   visitData?.destCountry  ].filter(Boolean).join(', '),
     serviceType: SERVICE_TYPE_LABELS[l]?.[visitData?.serviceType] || visitData?.serviceType || '',
@@ -46,7 +48,10 @@ export default function QuoteForm() {
   const [loading, setLoading]         = useState(true)
   const [saving, setSaving]           = useState(false)
   const [error, setError]             = useState(null)
+  const [staffMembers, setStaffMembers] = useState([])
   const errorRef = useRef(null)
+
+  useEffect(() => { api.get('/staff').then(setStaffMembers).catch(() => {}) }, [])
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -271,9 +276,17 @@ export default function QuoteForm() {
         </div>
         <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 180 }}>
           <label className="form-label">{t('quotes.creatorName')}</label>
-          <input type="text" className="form-control"
-            value={meta.creatorName} onChange={e => setMetaField('creatorName', e.target.value)}
-            placeholder={t('quotes.creatorPlaceholder')} />
+          {staffMembers.length > 0 ? (
+            <select className="form-control"
+              value={meta.creatorName} onChange={e => setMetaField('creatorName', e.target.value)}>
+              <option value="">—</option>
+              {staffMembers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+            </select>
+          ) : (
+            <input type="text" className="form-control"
+              value={meta.creatorName} onChange={e => setMetaField('creatorName', e.target.value)}
+              placeholder={t('quotes.creatorPlaceholder')} />
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <button type="button" className="btn btn-secondary btn-sm"

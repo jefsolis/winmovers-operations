@@ -34,7 +34,25 @@ export default function VisitDetail() {
   }
 
   const handleClientCreated = async (newClient) => {
-    await api.put(`/visits/${id}`, { clientId: newClient.id })
+    await api.put(`/visits/${id}`, {
+      status:            visit.status,
+      clientId:          newClient.id,
+      corporateClientId: visit.corporateClientId,
+      assignedToId:      visit.assignedToId,
+      prospectName:      visit.prospectName,
+      prospectPhone:     visit.prospectPhone,
+      prospectEmail:     visit.prospectEmail,
+      originAddress:     visit.originAddress,
+      originCity:        visit.originCity,
+      originCountry:     visit.originCountry,
+      destAddress:       visit.destAddress,
+      destCity:          visit.destCity,
+      destCountry:       visit.destCountry,
+      serviceType:       visit.serviceType,
+      scheduledDate:     visit.scheduledDate,
+      observations:      visit.observations,
+      language:          visit.language,
+    })
     setShowCreateClient(false)
     await load()
   }
@@ -173,7 +191,9 @@ export default function VisitDetail() {
           <Field label={t('visits.prospectName')}  value={clientName} />
           <Field label={t('visits.prospectPhone')} value={visit.prospectPhone || visit.contact?.phone || visit.client?.phone} />
           <Field label={t('visits.prospectEmail')} value={visit.prospectEmail || visit.contact?.email || visit.client?.email} />
-          {visit.client && (
+          {visit.corporateClient && (
+            <Field label={t('visits.companyClient')} value={visit.corporateClient.name} />
+          )}          {visit.client && (
             <div style={{ marginTop: 8 }}>
               <Link to={`/clients/${visit.client.id}/edit`} className="btn btn-secondary btn-sm">{t('clients.editClient')}</Link>
             </div>

@@ -15,7 +15,9 @@ export default function FileDetail() {
   const [file, setFile]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
-  const [deleting, setDeleting] = useState(false)
+  const [deleting, setDeleting]       = useState(false)
+  const [closing, setClosing]         = useState(false)
+  const [allRequiredDone, setAllRequiredDone] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -38,6 +40,23 @@ export default function FileDetail() {
 
   const handleStatusChange = (newStatus) => {
     setFile(prev => prev ? { ...prev, status: newStatus } : prev)
+  }
+
+  const handleClose = async () => {
+    if (!window.confirm(t('movingFiles.closeConfirm'))) return
+    setClosing(true)
+    try {
+      const updated = await api.put(`/files/${id}`, { status: 'CLOSED' })
+      setFile(updated)
+    } catch (e) { alert(e.message) } finally { setClosing(false) }
+  }
+
+  const handleReopen = async () => {
+    setClosing(true)
+    try {
+      const updated = await api.put(`/files/${id}`, { status: 'OPEN' })
+      setFile(updated)
+    } catch (e) { alert(e.message) } finally { setClosing(false) }
   }
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
@@ -69,6 +88,25 @@ export default function FileDetail() {
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to={back} className="btn btn-ghost">{t('movingFiles.backToFiles')}</Link>
           <Link to={`${back}/${id}/edit`} className="btn btn-primary">{t('common.edit')}</Link>
+          {file.status !== 'CLOSED' ? (
+            <button
+              onClick={handleClose}
+              disabled={closing || !allRequiredDone}
+              style={{
+                padding: '6px 14px', borderRadius: 6, border: 'none', cursor: allRequiredDone ? 'pointer' : 'not-allowed',
+                background: allRequiredDone ? '#16a34a' : 'var(--surface-2, #e2e8f0)',
+                color: allRequiredDone ? '#fff' : 'var(--text-muted)',
+                fontWeight: 600, fontSize: 13, transition: 'background 0.2s',
+              }}
+              title={allRequiredDone ? '' : t('movingFiles.closeDisabledHint')}
+            >
+              {closing ? t('common.saving') : t('movingFiles.closeFile')}
+            </button>
+          ) : (
+            <button className="btn btn-ghost" onClick={handleReopen} disabled={closing}>
+              {closing ? t('common.saving') : t('movingFiles.reopenFile')}
+            </button>
+          )}
           <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
             {deleting ? t('common.saving') : t('common.delete')}
           </button>
@@ -128,7 +166,7 @@ export default function FileDetail() {
         <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 16 }}>
           {t('files.title')}
         </div>
-        <FileAttachments fileId={id} fileCategory={file.category} onStatusChange={handleStatusChange} />
+        <FileAttachments fileId={id} fileCategory={file.category} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} />
       </div>
     </>
   )

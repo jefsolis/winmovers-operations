@@ -97,7 +97,7 @@ export default function JobsList() {
                       <th>{t('jobs.type')}</th>
                       <th>{t('jobs.status')}</th>
                       <th>{t('jobs.route')}</th>
-                      <th>{t('jobs.moveDate')}</th>
+                      <th>{t('jobs.serviceDate')}</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -113,7 +113,7 @@ export default function JobsList() {
                           <td><span className="badge" style={{ background: job.type === 'INTERNATIONAL' ? '#eff6ff' : '#f0fdf4', color: job.type === 'INTERNATIONAL' ? '#1e40af' : '#166534' }}>{tm.label}</span></td>
                           <td><span className="badge" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span></td>
                           <td style={{ color: 'var(--text-muted)' }}>{[job.originCity, job.destCity].filter(Boolean).join(' → ') || '—'}</td>
-                          <td style={{ color: 'var(--text-muted)' }}>{formatDate(job.moveDate)}</td>
+                          <td style={{ color: 'var(--text-muted)' }}>{formatDate(job.serviceDate)}</td>
                           <td className="td-actions">
                             <Link to={`/jobs/${job.id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>
                             <button className="btn btn-danger btn-sm" onClick={() => handleDelete(job.id, job.jobNumber)}>{t('common.delete')}</button>

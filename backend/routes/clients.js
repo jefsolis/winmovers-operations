@@ -17,7 +17,7 @@ router.get('/', async (req, res, next) => {
     const clients = await getPrisma().client.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { jobs: true, contacts: true } } }
+      include: { _count: { select: { jobs: true } } }
     })
     res.json(clients)
   } catch (err) { next(err) }
@@ -28,7 +28,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const client = await getPrisma().client.findUnique({
       where: { id: req.params.id },
-      include: { contacts: true }
+      include: {}
     })
     if (!client) return res.status(404).json({ error: 'Not found' })
     res.json(client)

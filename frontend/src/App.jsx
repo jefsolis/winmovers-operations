@@ -7,8 +7,6 @@ import JobsList from './pages/Jobs/JobsList'
 import JobForm from './pages/Jobs/JobForm'
 import ClientsList from './pages/Clients/ClientsList'
 import ClientForm from './pages/Clients/ClientForm'
-import ContactsList from './pages/Contacts/ContactsList'
-import ContactForm from './pages/Contacts/ContactForm'
 import AgentsList from './pages/Agents/AgentsList'
 import AgentForm from './pages/Agents/AgentForm'
 import JobDetail from './pages/Jobs/JobDetail'
@@ -39,9 +37,6 @@ export default function App() {
           <Route path="clients"            element={<ClientsList />} />
           <Route path="clients/new"        element={<ClientForm />} />
           <Route path="clients/:id/edit"   element={<ClientForm />} />
-          <Route path="contacts"            element={<ContactsList />} />
-          <Route path="contacts/new"        element={<ContactForm />} />
-          <Route path="contacts/:id/edit"  element={<ContactForm />} />
           <Route path="agents"              element={<AgentsList />} />
           <Route path="agents/new"          element={<AgentForm />} />
           <Route path="agents/:id/edit"     element={<AgentForm />} />

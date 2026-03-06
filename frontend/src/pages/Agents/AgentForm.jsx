@@ -3,8 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 
-const AGENT_TYPES = ['ORIGIN', 'DESTINATION', 'CUSTOMS', 'OTHER']
-const EMPTY = { name: '', agentType: 'ORIGIN', country: '', city: '', email: '', phone: '', notes: '' }
+const EMPTY = { name: '', country: '', city: '', email: '', phone: '', notes: '' }
 
 export default function AgentForm() {
   const { id } = useParams()
@@ -21,7 +20,7 @@ export default function AgentForm() {
     if (!isEdit) return
     api.get(`/agents/${id}`)
       .then(a => setForm({
-        name: a.name, agentType: a.agentType,
+        name: a.name,
         country: a.country || '', city: a.city || '',
         email: a.email || '', phone: a.phone || '',
         notes: a.notes || ''
@@ -74,12 +73,6 @@ export default function AgentForm() {
           <div className="form-section">
             <div className="form-section-title">{t('agents.agentDetails')}</div>
             <div className="form-grid">
-              <div className="form-group">
-                <label className="form-label">{t('agents.agentType')} *</label>
-                <select className="form-control" value={form.agentType} onChange={e => set('agentType', e.target.value)}>
-                  {AGENT_TYPES.map(v => <option key={v} value={v}>{t(`agents.agentTypes.${v}`)}</option>)}
-                </select>
-              </div>
               <div className="form-group">
                 <label className="form-label">{t('common.name')} *</label>
                 <input {...field('name')} required placeholder={t('agents.namePlaceholder')} />

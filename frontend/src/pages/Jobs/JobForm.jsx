@@ -1,13 +1,13 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../api'
-import { getJobStatuses, getJobTypes, getShipmentModes, REQUIRED_FILE_CATEGORIES, getFileCategories } from '../../constants'
+import { getJobStatuses, getJobTypes, getShipmentModes } from '../../constants'
 import { useLanguage } from '../../i18n'
 import JobDocument from './JobDocument'
 
 const EMPTY = {
   type: 'INTERNATIONAL', status: 'SURVEY', shipmentMode: '',
-  clientId: '', contactId: '',
+  clientId: '',
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '', destCity: '', destCountry: '',
   notes: '',
@@ -37,7 +37,7 @@ export default function JobForm() {
   const [form, setForm] = useState(EMPTY)
   const [language, setLanguage] = useState('EN')
   const [clients, setClients] = useState([])
-  const [contacts, setContacts] = useState([])
+  const [staffMembers, setStaffMembers] = useState([])
   const [linkedQuoteId, setLinkedQuoteId] = useState(null)
   const [availableQuotes, setAvailableQuotes] = useState([])
   const [loading, setLoading] = useState(isEdit)
@@ -52,14 +52,14 @@ export default function JobForm() {
   useEffect(() => {
     const tasks = [
       api.get('/clients').then(setClients).catch(() => {}),
-      api.get('/contacts').then(setContacts).catch(() => {}),
+      api.get('/staff').then(setStaffMembers).catch(() => {}),
     ]
     if (isEdit) {
       tasks.push(
         api.get(`/jobs/${id}`).then(job => {
           setForm({
             type: job.type, status: job.status, shipmentMode: job.shipmentMode || '',
-            clientId: job.clientId || '', contactId: job.contactId || '',
+            clientId: job.clientId || '',
             originAddress: job.originAddress || '', originCity: job.originCity || '', originCountry: job.originCountry || '',
             destAddress: job.destAddress || '', destCity: job.destCity || '', destCountry: job.destCountry || '',
             notes: job.notes || '',
@@ -82,10 +82,13 @@ export default function JobForm() {
       tasks.push(
         api.get(`/quotes/${fromQuoteId}`).then(q => {
           const v = q.visit
+          const autoPhone   = v?.client?.phone || v?.contact?.phone || ''
+          const autoQuoteTo = v?.client?.name
+            || (v?.client ? `${v.client.firstName || ''} ${v.client.lastName || ''}`.trim() : '')
+            || v?.prospectName || ''
           setForm(prev => ({
             ...prev,
             clientId:      v?.clientId      || '',
-            contactId:     v?.contactId     || '',
             originAddress: v?.originAddress || '',
             originCity:    v?.originCity    || '',
             originCountry: v?.originCountry || '',
@@ -93,6 +96,8 @@ export default function JobForm() {
             destCity:      v?.destCity      || '',
             destCountry:   v?.destCountry   || '',
             notes:         v?.observations  || '',
+            clientPhone:   autoPhone   || prev.clientPhone,
+            quoteTo:       autoQuoteTo || prev.quoteTo,
           }))
           setLanguage(q.language || 'EN')
         }).catch(() => {})
@@ -112,17 +117,19 @@ export default function JobForm() {
 
   const handleClientChange = (clientId) => {
     const client = clients.find(c => c.id === clientId)
-    const autoCompany = client
-      ? (client.clientType === 'CORPORATE' || client.clientType === 'BROKER'
-          ? client.name
-          : `${client.firstName || ''} ${client.lastName || ''}`.trim() || client.name)
+    const isCorporate = client && (client.clientType === 'CORPORATE' || client.clientType === 'BROKER')
+    const autoCompany = isCorporate ? client.name : ''   // don't fill Company for INDIVIDUAL clients
+    const autoPhone   = client?.phone || ''
+    const autoQuoteTo = client
+      ? (client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || '')
       : ''
-    setForm(prev => ({ ...prev, clientId, contactId: '', companyName: autoCompany || prev.companyName }))
-  }
-
-  const handleContactChange = (contactId) => {
-    const contact = contacts.find(c => c.id === contactId)
-    setForm(prev => ({ ...prev, contactId, clientPhone: contact?.phone || prev.clientPhone }))
+    setForm(prev => ({
+      ...prev,
+      clientId,
+      companyName: autoCompany || (isCorporate ? prev.companyName : ''),
+      clientPhone: autoPhone   || prev.clientPhone,
+      quoteTo:     autoQuoteTo || prev.quoteTo,
+    }))
   }
 
   const handleQuoteLink = async (quoteId) => {
@@ -131,40 +138,30 @@ export default function JobForm() {
     try {
       const q = await api.get(`/quotes/${quoteId}`)
       const v = q.visit
+      const autoPhone   = v?.client?.phone || ''
+      const autoQuoteTo = v?.client?.name
+        || (v?.client ? `${v.client.firstName || ''} ${v.client.lastName || ''}`.trim() : '')
+        || v?.prospectName || ''
       setForm(prev => ({
         ...prev,
-        clientId: v?.clientId || '', contactId: v?.contactId || '',
+        clientId: v?.clientId || '',
         originAddress: v?.originAddress || '', originCity: v?.originCity || '', originCountry: v?.originCountry || '',
         destAddress: v?.destAddress || '', destCity: v?.destCity || '', destCountry: v?.destCountry || '',
         notes: v?.observations || '',
+        clientPhone: autoPhone   || prev.clientPhone,
+        quoteTo:     autoQuoteTo || prev.quoteTo,
       }))
     } catch { /* ignore */ }
   }
-
-  const filteredContacts = form.clientId
-    ? contacts.filter(c => c.clientId === form.clientId)
-    : contacts
 
   const handleSubmit = async e => {
     e.preventDefault()
     setSaving(true); setError(null)
     try {
-      if (isEdit && form.status === 'CLOSED') {
-        const files = await api.get(`/jobs/${id}/files`)
-        const attached = new Set(files.map(f => f.category))
-        const FILE_CATS = getFileCategories(t)
-        const missing = REQUIRED_FILE_CATEGORIES.filter(c => !attached.has(c))
-        if (missing.length > 0) {
-          const labels = missing.map(c => FILE_CATS.find(x => x.value === c)?.label || c)
-          setError(`${t('files.closedBlocked')}\n- ${labels.join('\n- ')}`)
-          setSaving(false); return
-        }
-      }
       const quoteToLink = fromQuoteId || linkedQuoteId
       const payload = {
         ...form,
         clientId: form.clientId || null,
-        contactId: form.contactId || null,
         shipmentMode: form.shipmentMode || null,
         quoteId: !isEdit ? (quoteToLink || null) : undefined,
         language,
@@ -228,11 +225,10 @@ export default function JobForm() {
               form={form}
               onFormChange={set}
               clients={clients}
-              filteredContacts={filteredContacts}
               onClientChange={handleClientChange}
-              onContactChange={handleContactChange}
               resolvedJobNumber={resolvedJobNumber}
               resolvedCreatedDate={resolvedCreatedDate}
+              staffMembers={staffMembers}
             />
           </div>
 

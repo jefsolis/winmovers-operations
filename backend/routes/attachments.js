@@ -3,7 +3,6 @@ const router  = express.Router({ mergeParams: true })
 const multer  = require('multer')
 const { getPrisma }          = require('../db')
 const storage                = require('../storage/azure')
-const { checkAutoClose }     = require('./movingFiles')
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } })
 
@@ -33,9 +32,6 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       data: { fileId, category, filename: req.file.originalname, storagePath, sizeBytes: req.file.size },
     })
 
-    // Auto-close the file if all required attachments are now present
-    await checkAutoClose(fileId, mf.category)
-
     res.status(201).json(att)
   } catch (e) { next(e) }
 })
@@ -61,11 +57,6 @@ router.delete('/:attId', async (req, res, next) => {
     if (!att) return res.status(404).json({ error: 'Not found' })
     await storage.deleteFile(att.storagePath)
     await getPrisma().attachment.delete({ where: { id: att.id } })
-    // Re-open the file if it was closed and a required attachment was deleted
-    const mf = await getPrisma().movingFile.findUnique({ where: { id: req.params.fileId } })
-    if (mf?.status === 'CLOSED') {
-      await getPrisma().movingFile.update({ where: { id: req.params.fileId }, data: { status: 'OPEN' } })
-    }
     res.json({ success: true })
   } catch (e) { next(e) }
 })

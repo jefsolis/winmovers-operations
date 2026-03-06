@@ -70,7 +70,7 @@ export default function Dashboard() {
   if (error)   return <div className="alert alert-error">{error}</div>
 
   const {
-    totalJobs, activeJobs, totalClients, totalContacts,
+    totalJobs, activeJobs, totalClients,
     jobsByStatus, jobsByType, jobsByMode, jobsByMonth, recentJobs,
     openVisits, pendingQuotes, conversionRate,
     pipeline, upcomingVisits, pendingQuotesList,
@@ -416,7 +416,7 @@ export default function Dashboard() {
                   return (
                     <tr key={job.id} className="recent-job-row">
                       <td><Link to={`/jobs/${job.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.jobNumber}</Link></td>
-                      <td>{job.contact ? `${job.contact.firstName} ${job.contact.lastName}` : '—'}</td>
+                      <td>{job.client ? (job.client.clientType === 'INDIVIDUAL' ? [`${job.client.firstName || ''}`, `${job.client.lastName || ''}`].filter(Boolean).join(' ') || job.client.name : job.client.name) : '—'}</td>
                       <td style={{ color: 'var(--text-muted)' }}>{[job.originCity, job.destCity].filter(Boolean).join(' → ') || '—'}</td>
                       <td><span className="badge" style={{ background: m.bg, color: m.color }}>{m.label}</span></td>
                       <td style={{ color: 'var(--text-muted)' }}>{formatDate(job.moveDate)}</td>

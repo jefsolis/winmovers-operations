@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { statusMeta, typeMeta, formatDate } from '../../constants'
-import FileAttachments from '../Files/FileAttachments'
 import JobDocument from './JobDocument'
 
 export default function JobDetail() {
@@ -15,9 +14,12 @@ export default function JobDetail() {
   const [job, setJob]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [tab, setTab]          = useState('workorder') // 'workorder' | 'overview' | 'files'
+  const [tab, setTab]          = useState('overview') // 'overview' | 'workorder'
   const [closing, setClosing]           = useState(false)
   const [exporting, setExporting]       = useState(false)
+  const [importFiles, setImportFiles]   = useState(null)  // null = not loaded
+  const [selectedFileId, setSelectedFileId] = useState('')
+  const [linkingSaving, setLinkingSaving]   = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -28,6 +30,23 @@ export default function JobDetail() {
   }, [id])
 
   const TERMINAL = ['DELIVERED', 'CLOSED', 'CANCELLED']
+
+  const loadImportFiles = () => {
+    if (importFiles !== null) return
+    api.get('/files?category=IMPORT').then(setImportFiles).catch(() => setImportFiles([]))
+  }
+
+  const handleLinkFile = async () => {
+    if (!selectedFileId) return
+    setLinkingSaving(true)
+    try {
+      const updated = await api.patch(`/jobs/${id}/moving-file`, { movingFileId: selectedFileId })
+      setJob(prev => ({ ...prev, movingFile: updated.movingFile }))
+      setImportFiles(null)
+      setSelectedFileId('')
+    } catch (e) { alert(e.message) }
+    finally { setLinkingSaving(false) }
+  }
 
   const exportPDF = async () => {
     if (!docRef.current || !headerRef.current) return
@@ -157,9 +176,8 @@ export default function JobDetail() {
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', marginBottom: 20 }}>
         {[
-          { key: 'workorder', label: t('jobs.workOrder') },
-          { key: 'overview', label: t('files.overview') },
-          { key: 'files',    label: t('movingFiles.attachments') },
+          { key: 'overview',   label: t('files.overview') },
+          { key: 'workorder',  label: t('jobs.workOrder') },
         ].map(tb => (
           <button
             key={tb.key}
@@ -189,6 +207,64 @@ export default function JobDetail() {
       {/* Overview tab */}
       {tab === 'overview' && (
         <div className="card" style={{ padding: '20px 24px' }}>
+          {/* Linked File */}
+          <Section title={t('movingFiles.linkedJob')}>
+            {job.movingFile ? (
+              <Field
+                label={t('movingFiles.fileNumber')}
+                value={
+                  <Link
+                    to={`/files/${job.movingFile.category.toLowerCase()}/${job.movingFile.id}`}
+                    style={{ color: 'var(--primary)' }}
+                  >
+                    {job.movingFile.fileNumber}
+                  </Link>
+                }
+              />
+            ) : (
+              <div style={{ gridColumn: '1/-1' }}>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 8px' }}>
+                  {t('movingFiles.noJob')}
+                </p>
+                {importFiles === null ? (
+                  <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={loadImportFiles}>
+                    {t('movingFiles.linkToFile')}
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select
+                      className="form-control"
+                      style={{ maxWidth: 260 }}
+                      value={selectedFileId}
+                      onChange={e => setSelectedFileId(e.target.value)}
+                    >
+                      <option value="">{t('common.select')}</option>
+                      {importFiles.map(f => {
+                        const cn = f.client
+                          ? (f.client.clientType === 'INDIVIDUAL'
+                              ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim()
+                              : f.client.name)
+                          : ''
+                        return <option key={f.id} value={f.id}>{f.fileNumber}{cn ? ` — ${cn}` : ''}</option>
+                      })}
+                    </select>
+                    <button
+                      className="btn btn-primary"
+                      style={{ fontSize: 13 }}
+                      disabled={!selectedFileId || linkingSaving}
+                      onClick={handleLinkFile}
+                    >
+                      {linkingSaving ? t('common.saving') : t('movingFiles.linkFile')}
+                    </button>
+                    <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => { setImportFiles(null); setSelectedFileId('') }}>
+                      {t('common.cancel')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </Section>
+
           {job.quote && (
             <Section title={t('jobs.linkedQuote')}>
               <Field
@@ -250,12 +326,7 @@ export default function JobDetail() {
         </div>
       )}
 
-      {/* Files tab */}
-      {tab === 'files' && (
-        job.movingFile
-          ? <FileAttachments fileId={job.movingFile.id} fileCategory={job.movingFile.category} />
-          : <div className="card card-body" style={{ color: 'var(--text-muted)', fontSize: 14 }}>{t('movingFiles.noJob')}</div>
-      )}
+      {/* Files tab was removed — attachments available via file detail page */}
     </>
   )
 }

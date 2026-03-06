@@ -33,15 +33,12 @@ router.get("/", async (req, res, next) => {
       { destCity:      { contains: search, mode: "insensitive" } },
       { originCountry: { contains: search, mode: "insensitive" } },
       { destCountry:   { contains: search, mode: "insensitive" } },
-      { contact: { firstName: { contains: search, mode: "insensitive" } } },
-      { contact: { lastName:  { contains: search, mode: "insensitive" } } },
       { client:  { name:      { contains: search, mode: "insensitive" } } },
     ]
     const jobs = await getPrisma().job.findMany({
       where,
       orderBy: { createdAt: "desc" },
       include: {
-        contact:     { select: { id: true, firstName: true, lastName: true } },
         client:      { select: { id: true, name: true } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
@@ -59,7 +56,7 @@ router.get("/:id", async (req, res, next) => {
     const job = await getPrisma().job.findUnique({
       where: { id: req.params.id },
       include: {
-        contact: true, client: true,
+        client: true,
         originAgent: true, destAgent: true, customsAgent: true,
         quote: { select: { id: true, quoteNumber: true, visit: { select: { id: true, visitNumber: true, serviceType: true, scheduledDate: true } } } },
         movingFile: { select: { id: true, fileNumber: true, status: true, category: true } },
@@ -70,11 +67,11 @@ router.get("/:id", async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST create  auto-creates MovingFile for EXPORT and IMPORT types
+// POST create  auto-creates MovingFile for EXPORT jobs (detected via visit serviceType)
 router.post("/", async (req, res, next) => {
   try {
     const {
-      type, status, clientId, contactId,
+      type, status, clientId,
       originAgentId, destAgentId, customsAgentId,
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
@@ -82,37 +79,42 @@ router.post("/", async (req, res, next) => {
       volumeCbm, weightKg, shipmentMode, notes, quoteId,
       serviceDate, serviceTime, clientPhone, clientHomePhone,
       companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language,
+      movingFileId: manualMovingFileId,
     } = req.body
     if (!type) return res.status(400).json({ error: "type is required" })
+
+    // Detect Export: visit serviceType DOOR_TO_PORT or DOOR_TO_DOOR
+    const EXPORT_SERVICE_TYPES = ["DOOR_TO_PORT", "DOOR_TO_DOOR"]
+    let isExport = type === "EXPORT"
+    if (!isExport && quoteId) {
+      const quote = await getPrisma().quote.findUnique({
+        where: { id: quoteId },
+        select: { visit: { select: { serviceType: true } } },
+      })
+      isExport = EXPORT_SERVICE_TYPES.includes(quote?.visit?.serviceType)
+    }
 
     let jobNumber
     let movingFileId = null
 
-    if (type === "EXPORT") {
-      // Export: Job number = File number = E-####
+    if (isExport) {
+      // Export: Job number = File number (E-####), file auto-created
       const fileNumber = await generateFileNumber("EXPORT")
       const mf = await getPrisma().movingFile.create({
         data: { fileNumber, category: "EXPORT", status: "OPEN", clientId: clientId || null },
       })
       jobNumber    = fileNumber
       movingFileId = mf.id
-    } else if (type === "IMPORT") {
-      // Import: Job gets WM-####, File gets D-####
-      jobNumber = await generateJobNumber()
-      const fileNumber = await generateFileNumber("IMPORT")
-      const mf = await getPrisma().movingFile.create({
-        data: { fileNumber, category: "IMPORT", status: "OPEN", clientId: clientId || null },
-      })
-      movingFileId = mf.id
     } else {
-      jobNumber = await generateJobNumber()
+      // Import / other: standard WM-YYYY-#### number; file can be linked manually later
+      jobNumber    = await generateJobNumber()
+      movingFileId = manualMovingFileId || null
     }
 
     const data = {
       jobNumber, type,
       status:        status        || "SURVEY",
       clientId:      clientId      || null,
-      contactId:     contactId     || null,
       originAgentId: originAgentId || null,
       destAgentId:   destAgentId   || null,
       customsAgentId:customsAgentId|| null,
@@ -150,7 +152,7 @@ router.post("/", async (req, res, next) => {
 router.put("/:id", async (req, res, next) => {
   try {
     const {
-      type, status, clientId, contactId,
+      type, status, clientId,
       originAgentId, destAgentId, customsAgentId,
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
@@ -158,6 +160,7 @@ router.put("/:id", async (req, res, next) => {
       volumeCbm, weightKg, shipmentMode, notes, quoteId,
       serviceDate, serviceTime, clientPhone, clientHomePhone,
       companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language,
+      movingFileId,
     } = req.body
 
     const job = await getPrisma().job.update({
@@ -165,7 +168,6 @@ router.put("/:id", async (req, res, next) => {
       data: {
         type, status,
         clientId:      clientId      || null,
-        contactId:     contactId     || null,
         originAgentId: originAgentId || null,
         destAgentId:   destAgentId   || null,
         customsAgentId:customsAgentId|| null,
@@ -191,7 +193,21 @@ router.put("/:id", async (req, res, next) => {
         creatorName:    creatorName     !== undefined ? (creatorName     || null) : undefined,
         language:       language        !== undefined ? (language        || "EN") : undefined,
         quoteId:        quoteId         !== undefined ? (quoteId         || null) : undefined,
+        movingFileId:   movingFileId    !== undefined ? (movingFileId    || null) : undefined,
       },
+    })
+    res.json(job)
+  } catch (err) { next(err) }
+})
+
+// PATCH link/unlink moving file
+router.patch("/:id/moving-file", async (req, res, next) => {
+  try {
+    const { movingFileId } = req.body
+    const job = await getPrisma().job.update({
+      where: { id: req.params.id },
+      data:  { movingFileId: movingFileId || null },
+      include: { movingFile: { select: { id: true, fileNumber: true, status: true, category: true } } },
     })
     res.json(job)
   } catch (err) { next(err) }

@@ -39,10 +39,10 @@ router.get('/', async (req, res, next) => {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        client:      { select: { id: true, name: true } },
-        contact:     { select: { id: true, firstName: true, lastName: true } },
-        assignedTo:  { select: { id: true, name: true, email: true } },
-        quotes:      { select: { id: true, quoteNumber: true, status: true } },
+        client:           { select: { id: true, name: true } },
+        corporateClient:  { select: { id: true, name: true } },
+        assignedTo:       { select: { id: true, name: true, email: true } },
+        quotes:           { select: { id: true, quoteNumber: true, status: true } },
       },
     })
     res.json(visits)
@@ -55,10 +55,10 @@ router.get('/:id', async (req, res, next) => {
     const visit = await getPrisma().visit.findUnique({
       where: { id: req.params.id },
       include: {
-        client:     true,
-        contact:    true,
-        assignedTo: true,
-        quotes:     { include: { job: { select: { id: true, jobNumber: true } } } },
+        client:          true,
+        corporateClient: true,
+        assignedTo:      true,
+        quotes:          { include: { job: { select: { id: true, jobNumber: true } } } },
       },
     })
     if (!visit) return res.status(404).json({ error: 'Not found' })
@@ -70,7 +70,7 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const {
-      status, clientId, contactId, assignedToId,
+      status, clientId, corporateClientId, assignedToId,
       prospectName, prospectPhone, prospectEmail,
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
@@ -87,7 +87,7 @@ router.post('/', async (req, res, next) => {
         visitNumber,
         status: status || 'SCHEDULED',
         clientId: clientId || null,
-        contactId: contactId || null,
+        corporateClientId: corporateClientId || null,
         assignedToId: assignedToId || null,
         prospectName:  prospectName  || null,
         prospectPhone: prospectPhone || null,
@@ -112,7 +112,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const {
-      status, clientId, contactId, assignedToId,
+      status, clientId, corporateClientId, assignedToId,
       prospectName, prospectPhone, prospectEmail,
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
@@ -123,7 +123,7 @@ router.put('/:id', async (req, res, next) => {
       data: {
         status,
         clientId: clientId || null,
-        contactId: contactId || null,
+        corporateClientId: corporateClientId || null,
         assignedToId: assignedToId || null,
         prospectName:  prospectName  || null,
         prospectPhone: prospectPhone || null,
