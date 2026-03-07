@@ -179,6 +179,7 @@ const translations = {
       summaryTab: 'Summary', attachmentsTab: 'Attachments',
       newClientInline: '+ New Client', winmoversOption: 'WinMovers',
       newClientSection: 'New Client Details',
+      corporateClient: 'Corporate Client',
     },
     visitStatuses: {
       SCHEDULED: 'Scheduled', COMPLETED: 'Completed', QUOTED: 'Quoted', CLOSED: 'Closed (Lost)',
@@ -439,6 +440,7 @@ const translations = {
       summaryTab: 'Resumen', attachmentsTab: 'Adjuntos',
       newClientInline: '+ Nuevo Cliente', winmoversOption: 'WinMovers',
       newClientSection: 'Datos del Nuevo Cliente',
+      corporateClient: 'Empresa Cliente',
     },
     visitStatuses: {
       SCHEDULED: 'Programada', COMPLETED: 'Completada', QUOTED: 'Cotizada', CLOSED: 'Cerrada (Perdida)',

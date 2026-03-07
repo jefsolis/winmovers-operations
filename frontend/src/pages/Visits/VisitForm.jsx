@@ -239,7 +239,7 @@ export default function VisitForm() {
             <div className="form-group">
               <label className="form-label">{t('visits.originAgent')}</label>
               <select className="form-control" value={form.originAgentId} onChange={e => set('originAgentId', e.target.value)}>
-                <option value="">— {t('common.none')} —</option>
+                <option value="">{t('common.none')}</option>
                 <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
                 {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
@@ -247,7 +247,7 @@ export default function VisitForm() {
             <div className="form-group">
               <label className="form-label">{t('visits.destAgent')}</label>
               <select className="form-control" value={form.destAgentId} onChange={e => set('destAgentId', e.target.value)}>
-                <option value="">— {t('common.none')} —</option>
+                <option value="">{t('common.none')}</option>
                 <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
                 {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>

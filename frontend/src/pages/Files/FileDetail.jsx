@@ -171,6 +171,10 @@ export default function FileDetail() {
 
               <InfoRow label={t('common.name')}>{clientName}</InfoRow>
 
+              {file.corporateClient && (
+                <InfoRow label={t('movingFiles.corporateClient')}>{file.corporateClient.name}</InfoRow>
+              )}
+
               {file.bookerRole && (
                 <InfoRow label={t('movingFiles.bookerRole')}>
                   {t(`movingFiles.bookerRoles.${file.bookerRole}`) || file.bookerRole}

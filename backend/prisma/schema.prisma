@@ -23,7 +23,8 @@ model Client {
   jobs            Job[]
   visits          Visit[]              @relation("VisitClient")
   corporateVisits Visit[]              @relation("VisitCorporateClient")
-  movingFiles     MovingFile[]
+  movingFiles          MovingFile[]         @relation("FileClient")
+  corporateMovingFiles MovingFile[]         @relation("FileCorporateClient")
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -104,7 +105,9 @@ model MovingFile {
   category    String       // EXPORT | IMPORT | LOCAL
   status      String       @default("OPEN") // OPEN | CLOSED
   clientId    String?
-  client      Client?      @relation(fields: [clientId], references: [id])
+  client      Client?      @relation("FileClient", fields: [clientId], references: [id])
+  corporateClientId String?
+  corporateClient   Client?  @relation("FileCorporateClient", fields: [corporateClientId], references: [id])
   notes         String?
   serviceType   String?
   shipmentMode  String?

@@ -51,7 +51,8 @@ router.get("/", async (req, res, next) => {
       where,
       orderBy: { createdAt: "desc" },
       include: {
-        client: { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+        client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+        corporateClient: { select: { id: true, name: true } },
         job:    { select: { id: true, jobNumber: true, status: true } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
@@ -68,7 +69,8 @@ router.get("/:id", async (req, res, next) => {
     const file = await getPrisma().movingFile.findUnique({
       where: { id: req.params.id },
       include: {
-        client:      true,
+        client:          true,
+        corporateClient: { select: { id: true, name: true } },
         job:         { select: { id: true, jobNumber: true, status: true, type: true, shipmentMode: true, volumeCbm: true, weightKg: true, serviceDate: true, originCity: true, originCountry: true, destCity: true, destCountry: true } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
@@ -83,7 +85,7 @@ router.get("/:id", async (req, res, next) => {
 // POST /api/files
 router.post("/", async (req, res, next) => {
   try {
-    const { category, clientId, notes, newClient,
+    const { category, clientId, corporateClientId, notes, newClient,
             serviceType, shipmentMode, volumeCbm, weightKg,
             bookerRole, originAgentId, destAgentId } = req.body
     if (!category) return res.status(400).json({ error: "category is required" })
@@ -110,6 +112,7 @@ router.post("/", async (req, res, next) => {
       data: {
         fileNumber, category, status: "OPEN",
         clientId: resolvedClientId,
+        corporateClientId: corporateClientId || null,
         notes: notes || null,
         serviceType: serviceType || null,
         shipmentMode: shipmentMode || null,
@@ -120,7 +123,8 @@ router.post("/", async (req, res, next) => {
         destAgentId:   destAgentId   || null,
       },
       include: {
-        client: { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+        client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+        corporateClient: { select: { id: true, name: true } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
       },
@@ -132,14 +136,15 @@ router.post("/", async (req, res, next) => {
 // PUT /api/files/:id
 router.put("/:id", async (req, res, next) => {
   try {
-    const { clientId, notes, status,
+    const { clientId, corporateClientId, notes, status,
             serviceType, shipmentMode, volumeCbm, weightKg,
             bookerRole, originAgentId, destAgentId } = req.body
     const file = await getPrisma().movingFile.update({
       where: { id: req.params.id },
       data: {
-        clientId:     clientId     !== undefined ? (clientId     || null) : undefined,
-        notes:        notes        !== undefined ? (notes        || null) : undefined,
+        clientId:          clientId          !== undefined ? (clientId          || null) : undefined,
+        corporateClientId: corporateClientId !== undefined ? (corporateClientId || null) : undefined,
+        notes:             notes             !== undefined ? (notes             || null) : undefined,
         status:       status       !== undefined ? status                 : undefined,
         serviceType:  serviceType  !== undefined ? (serviceType  || null) : undefined,
         shipmentMode: shipmentMode !== undefined ? (shipmentMode || null) : undefined,
@@ -150,7 +155,8 @@ router.put("/:id", async (req, res, next) => {
         destAgentId:   destAgentId   !== undefined ? (destAgentId   || null) : undefined,
       },
       include: {
-        client: { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+        client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+        corporateClient: { select: { id: true, name: true } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
       },
