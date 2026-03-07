@@ -42,6 +42,8 @@ router.get('/', async (req, res, next) => {
         client:           { select: { id: true, name: true } },
         corporateClient:  { select: { id: true, name: true } },
         assignedTo:       { select: { id: true, name: true, email: true } },
+        originAgent:      { select: { id: true, name: true } },
+        destAgent:        { select: { id: true, name: true } },
         quotes:           { select: { id: true, quoteNumber: true, status: true } },
       },
     })
@@ -58,6 +60,8 @@ router.get('/:id', async (req, res, next) => {
         client:          true,
         corporateClient: true,
         assignedTo:      true,
+        originAgent:     { select: { id: true, name: true } },
+        destAgent:       { select: { id: true, name: true } },
         quotes:          { include: { job: { select: { id: true, jobNumber: true } } } },
       },
     })
@@ -75,6 +79,7 @@ router.post('/', async (req, res, next) => {
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
       serviceType, scheduledDate, observations, language,
+      bookerRole, originAgentId, destAgentId,
     } = req.body
     const errs = []
     if (!serviceType)                         errs.push('Service type is required.')
@@ -102,6 +107,9 @@ router.post('/', async (req, res, next) => {
         scheduledDate: toDate(scheduledDate),
         observations: observations || null,
         language: language || 'EN',
+        bookerRole: bookerRole || null,
+        originAgentId: originAgentId || null,
+        destAgentId: destAgentId || null,
       },
     })
     res.status(201).json(visit)
@@ -117,6 +125,7 @@ router.put('/:id', async (req, res, next) => {
       originAddress, originCity, originCountry,
       destAddress, destCity, destCountry,
       serviceType, scheduledDate, observations, language,
+      bookerRole, originAgentId, destAgentId,
     } = req.body
     const visit = await getPrisma().visit.update({
       where: { id: req.params.id },
@@ -138,6 +147,9 @@ router.put('/:id', async (req, res, next) => {
         scheduledDate: toDate(scheduledDate),
         observations: observations || null,
         language: language || 'EN',
+        bookerRole: bookerRole !== undefined ? (bookerRole || null) : undefined,
+        originAgentId: originAgentId !== undefined ? (originAgentId || null) : undefined,
+        destAgentId: destAgentId !== undefined ? (destAgentId || null) : undefined,
       },
     })
     res.json(visit)

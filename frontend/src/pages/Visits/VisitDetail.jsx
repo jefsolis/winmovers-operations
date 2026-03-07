@@ -52,6 +52,9 @@ export default function VisitDetail() {
       scheduledDate:     visit.scheduledDate,
       observations:      visit.observations,
       language:          visit.language,
+      bookerRole:        visit.bookerRole,
+      originAgentId:     visit.originAgentId,
+      destAgentId:       visit.destAgentId,
     })
     setShowCreateClient(false)
     await load()

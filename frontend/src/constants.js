@@ -152,13 +152,29 @@ export function visitStatusMeta(value, t) {
 const SERVICE_TYPE_META = [
   { value: 'DOOR_TO_PORT' },
   { value: 'DOOR_TO_DOOR' },
-  { value: 'PACKING' },
   { value: 'LOCAL_MOVE' },
 ]
 
 export function getServiceTypes(t) {
   return SERVICE_TYPE_META.map(s => ({ ...s, label: t(`serviceTypes.${s.value}`) }))
 }
+
+// File service types (IMPORT/EXPORT/LOCAL files)
+const FILE_SERVICE_TYPE_META = [
+  { value: 'DOOR_TO_PORT' },
+  { value: 'DOOR_TO_DOOR' },
+]
+
+export function getFileServiceTypes(t) {
+  return FILE_SERVICE_TYPE_META.map(s => ({ ...s, label: t(`serviceTypes.${s.value}`) }))
+}
+
+// Booker role options (differ per context)
+const VISIT_BOOKER_ROLES = ['BOOKER', 'OA']
+const FILE_BOOKER_ROLES  = ['BOOKER', 'DA']
+
+export function getVisitBookerRoles() { return VISIT_BOOKER_ROLES }
+export function getFileBookerRoles()  { return FILE_BOOKER_ROLES  }
 
 // ── Quote ────────────────────────────────────────────────────────────────────
 const QUOTE_STATUS_META = [

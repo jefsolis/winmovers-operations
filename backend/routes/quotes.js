@@ -49,7 +49,7 @@ router.get('/:id', async (req, res, next) => {
     const quote = await getPrisma().quote.findUnique({
       where: { id: req.params.id },
       include: {
-        visit: { include: { client: true, contact: true } },
+        visit: { include: { client: true, corporateClient: true } },
         job:   { select: { id: true, jobNumber: true } },
       },
     })

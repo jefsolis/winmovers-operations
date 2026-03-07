@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
-import { getVisitStatuses, getServiceTypes } from '../../constants'
+import { getVisitStatuses, getServiceTypes, getVisitBookerRoles } from '../../constants'
 import { useLanguage } from '../../i18n'
 
 const EMPTY = {
@@ -11,6 +11,7 @@ const EMPTY = {
   serviceType: '',
   language: 'ES',
   scheduledDate: '',
+  bookerRole: '', originAgentId: '', destAgentId: '',
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '',   destCity: '',   destCountry: '',
   observations: '',
@@ -23,9 +24,11 @@ export default function VisitForm() {
   const { t } = useLanguage()
   const VISIT_STATUSES  = getVisitStatuses(t)
   const SERVICE_TYPES   = getServiceTypes(t)
+  const BOOKER_ROLES    = getVisitBookerRoles()
 
   const [form, setForm]       = useState(EMPTY)
   const [clients, setClients] = useState([])
+  const [agents, setAgents]   = useState([])
   const [staffMembers, setStaffMembers] = useState([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving]   = useState(false)
@@ -39,6 +42,7 @@ export default function VisitForm() {
   useEffect(() => {
     const tasks = [
       api.get('/clients').then(setClients).catch(() => {}),
+      api.get('/agents').then(setAgents).catch(() => {}),
       api.get('/staff').then(setStaffMembers).catch(() => {}),
     ]
     if (isEdit) {
@@ -53,8 +57,11 @@ export default function VisitForm() {
             corporateClientId:  v.corporateClientId  || '',
             assignedToId:       v.assignedToId       || '',
             serviceType:        v.serviceType        || '',
-            language:      v.language      || 'EN',
+            language:      v.language      || 'ES',
             scheduledDate: v.scheduledDate ? new Date(v.scheduledDate).toISOString().slice(0, 16) : '',
+            bookerRole:    v.bookerRole    || '',
+            originAgentId: v.originAgentId || '',
+            destAgentId:   v.destAgentId   || '',
             originAddress: v.originAddress || '',
             originCity:    v.originCity    || '',
             originCountry: v.originCountry || '',
@@ -212,6 +219,30 @@ export default function VisitForm() {
                 </select>
               </div>
             )}
+            <div className="form-group">
+              <label className="form-label">{t('visits.bookerRole')}</label>
+              <select className="form-control" value={form.bookerRole} onChange={e => {
+                const role = e.target.value
+                setForm(prev => ({ ...prev, bookerRole: role, ...(role === 'OA' ? { originAgentId: '' } : {}) }))
+              }}>
+                <option value="">{t('common.none')}</option>
+                {BOOKER_ROLES.map(r => <option key={r} value={r}>{t(`visits.bookerRoles.${r}`)}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('visits.originAgent')}</label>
+              <select className="form-control" value={form.originAgentId} onChange={e => set('originAgentId', e.target.value)}>
+                <option value="">{t('movingFiles.winmoversOption')}</option>
+                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('visits.destAgent')}</label>
+              <select className="form-control" value={form.destAgentId} onChange={e => set('destAgentId', e.target.value)}>
+                <option value="">{t('common.none')}</option>
+                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 

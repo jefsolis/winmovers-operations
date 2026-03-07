@@ -1,12 +1,12 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../api'
-import { getJobStatuses, getJobTypes, getShipmentModes } from '../../constants'
+import { getJobStatuses, getJobTypes } from '../../constants'
 import { useLanguage } from '../../i18n'
 import JobDocument from './JobDocument'
 
 const EMPTY = {
-  type: 'INTERNATIONAL', status: 'SURVEY', shipmentMode: '',
+  type: 'INTERNATIONAL', status: 'SURVEY',
   clientId: '',
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '', destCity: '', destCountry: '',
@@ -15,6 +15,7 @@ const EMPTY = {
   clientPhone: '', clientHomePhone: '',
   companyName: '', companyPhone: '',
   serviceDetails: '', materials: '',
+  volumeCbm: '', weightKg: '',
   quoteTo: '', creatorName: '',
 }
 
@@ -29,13 +30,13 @@ export default function JobForm() {
   const navigate = useNavigate()
   const isEdit = Boolean(id)
   const fromQuoteId = !isEdit ? searchParams.get('fromQuote') : null
+  const fromFileId  = !isEdit ? searchParams.get('fromFile')  : null
   const { t } = useLanguage()
   const JOB_STATUSES = getJobStatuses(t)
   const JOB_TYPES = getJobTypes(t)
-  const SHIPMENT_MODES = getShipmentModes(t)
 
   const [form, setForm] = useState(EMPTY)
-  const [language, setLanguage] = useState('EN')
+  const [language] = useState('ES')
   const [clients, setClients] = useState([])
   const [staffMembers, setStaffMembers] = useState([])
   const [linkedQuoteId, setLinkedQuoteId] = useState(null)
@@ -58,7 +59,7 @@ export default function JobForm() {
       tasks.push(
         api.get(`/jobs/${id}`).then(job => {
           setForm({
-            type: job.type, status: job.status, shipmentMode: job.shipmentMode || '',
+            type: job.type, status: job.status,
             clientId: job.clientId || '',
             originAddress: job.originAddress || '', originCity: job.originCity || '', originCountry: job.originCountry || '',
             destAddress: job.destAddress || '', destCity: job.destCity || '', destCountry: job.destCountry || '',
@@ -72,10 +73,11 @@ export default function JobForm() {
             companyPhone: job.companyPhone || '',
             serviceDetails: job.serviceDetails || '',
             materials: job.materials || '',
+            volumeCbm: job.volumeCbm ?? '',
+            weightKg: job.weightKg ?? '',
             quoteTo: job.quoteTo || '',
             creatorName: job.creatorName || '',
           })
-          setLanguage(job.language || 'EN')
         }).catch(e => setError(e.message)).finally(() => setLoading(false))
       )
     } else if (fromQuoteId) {
@@ -99,11 +101,10 @@ export default function JobForm() {
             clientPhone:   autoPhone   || prev.clientPhone,
             quoteTo:       autoQuoteTo || prev.quoteTo,
           }))
-          setLanguage(q.language || 'EN')
         }).catch(() => {})
       )
     }
-    if (!isEdit && !fromQuoteId) {
+    if (!isEdit && !fromQuoteId && !fromFileId) {
       tasks.push(
         api.get('/quotes').then(qs => {
           setAvailableQuotes(qs.filter(q => q.status === 'ACCEPTED' && !q.job))
@@ -162,7 +163,6 @@ export default function JobForm() {
       const payload = {
         ...form,
         clientId: form.clientId || null,
-        shipmentMode: form.shipmentMode || null,
         quoteId: !isEdit ? (quoteToLink || null) : undefined,
         language,
       }
@@ -193,7 +193,7 @@ export default function JobForm() {
       <div className="card card-body">
         <form onSubmit={handleSubmit}>
 
-          {!isEdit && !fromQuoteId && (
+          {!isEdit && !fromQuoteId && !fromFileId && (
             <div className="form-section">
               <div className="form-section-title">{t('jobs.linkToQuote')}</div>
               <div className="form-group">
@@ -212,16 +212,10 @@ export default function JobForm() {
           )}
 
           <div className="form-section">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <div className="form-section-title" style={{ marginBottom: 0 }}>{t('jobs.workOrderDetails')}</div>
-              <div className="lang-toggle">
-                <button type="button" className={`lang-toggle-btn${language === 'EN' ? ' active' : ''}`} onClick={() => setLanguage('EN')}>EN</button>
-                <button type="button" className={`lang-toggle-btn${language === 'ES' ? ' active' : ''}`} onClick={() => setLanguage('ES')}>ES</button>
-              </div>
-            </div>
+            <div className="form-section-title">{t('jobs.workOrderDetails')}</div>
             <JobDocument
               editMode
-              language={language}
+
               form={form}
               onFormChange={set}
               clients={clients}
@@ -252,13 +246,6 @@ export default function JobForm() {
                 <label className="form-label">{t('jobs.jobStatus')}</label>
                 <select className="form-control" value={form.status} onChange={e => set('status', e.target.value)}>
                   {JOB_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('jobs.shipmentMode')}</label>
-                <select className="form-control" value={form.shipmentMode} onChange={e => set('shipmentMode', e.target.value)}>
-                  <option value="">{t('common.select')}</option>
-                  {SHIPMENT_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
             </div>

@@ -39,6 +39,10 @@ model Agent {
   originJobs      Job[]    @relation("OriginAgent")
   destJobs        Job[]    @relation("DestAgent")
   customsJobs     Job[]    @relation("CustomsAgent")
+  originFiles     MovingFile[] @relation("FileOriginAgent")
+  destFiles       MovingFile[] @relation("FileDestAgent")
+  originVisits    Visit[]      @relation("VisitOriginAgent")
+  destVisits      Visit[]      @relation("VisitDestAgent")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -101,7 +105,16 @@ model MovingFile {
   status      String       @default("OPEN") // OPEN | CLOSED
   clientId    String?
   client      Client?      @relation(fields: [clientId], references: [id])
-  notes       String?
+  notes         String?
+  serviceType   String?
+  shipmentMode  String?
+  volumeCbm     Float?
+  weightKg      Float?
+  bookerRole    String?
+  originAgentId String?
+  originAgent   Agent?   @relation("FileOriginAgent", fields: [originAgentId], references: [id])
+  destAgentId   String?
+  destAgent     Agent?   @relation("FileDestAgent", fields: [destAgentId], references: [id])
   job         Job?         // back-relation; null for LOCAL files
   attachments Attachment[]
   createdAt   DateTime     @default(now())
@@ -159,6 +172,11 @@ model Visit {
   language      String    @default("EN")
   scheduledDate DateTime?
   observations  String?
+  bookerRole    String?
+  originAgentId String?
+  originAgent   Agent?   @relation("VisitOriginAgent", fields: [originAgentId], references: [id])
+  destAgentId   String?
+  destAgent     Agent?   @relation("VisitDestAgent", fields: [destAgentId], references: [id])
   quotes        Quote[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt

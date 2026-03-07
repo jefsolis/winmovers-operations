@@ -172,6 +172,13 @@ const translations = {
       allStatuses: 'All Statuses', searchPlaceholder: 'Search file #, client…',
       exportShort: 'Export', importShort: 'Import', localShort: 'Local',
       filesLabel: 'files',
+      serviceType: 'Service Type', shipmentMode: 'Shipment Mode',
+      volumeCbm: 'Volume (CBM)', weightKg: 'Weight (Kg)',
+      bookerRole: 'Role', originAgent: 'Origin Agent', destAgent: 'Destination Agent',
+      bookerRoles: { BOOKER: 'Booker', OA: 'OA', DA: 'DA' },
+      summaryTab: 'Summary', attachmentsTab: 'Attachments',
+      newClientInline: '+ New Client', winmoversOption: 'WinMovers',
+      newClientSection: 'New Client Details',
     },
     visitStatuses: {
       SCHEDULED: 'Scheduled', COMPLETED: 'Completed', QUOTED: 'Quoted', CLOSED: 'Closed (Lost)',
@@ -181,7 +188,7 @@ const translations = {
     },
     serviceTypes: {
       DOOR_TO_PORT: 'Door to Port', DOOR_TO_DOOR: 'Door to Door',
-      PACKING: 'Packing', LOCAL_MOVE: 'Local Move',
+      LOCAL_MOVE: 'Local Move',
     },
     visits: {
       title: 'Visits', subtitle: 'Schedule and manage pre-sale visits',
@@ -213,6 +220,8 @@ const translations = {
       quickCreateClient: 'New Client',
       clientCreated: 'Client created and linked.',
       requiredLegend: '* Required field',
+      bookerRole: 'Role', originAgent: 'Origin Agent', destAgent: 'Destination Agent',
+      bookerRoles: { BOOKER: 'Booker', OA: 'OA', DA: 'DA' },
       validation: {
         serviceType: 'Service type is required.',
         scheduledDate: 'Scheduled date is required.',
@@ -423,6 +432,13 @@ const translations = {
       allStatuses: 'Todos los Estados', searchPlaceholder: 'Buscar archivo #, cliente…',
       exportShort: 'Exportación', importShort: 'Importación', localShort: 'Local',
       filesLabel: 'files',
+      serviceType: 'Tipo de Servicio', shipmentMode: 'Modo de Envío',
+      volumeCbm: 'Volumen (CBM)', weightKg: 'Peso (Kg)',
+      bookerRole: 'Rol', originAgent: 'Agente de Origen', destAgent: 'Agente de Destino',
+      bookerRoles: { BOOKER: 'Booker', OA: 'OA', DA: 'DA' },
+      summaryTab: 'Resumen', attachmentsTab: 'Adjuntos',
+      newClientInline: '+ Nuevo Cliente', winmoversOption: 'WinMovers',
+      newClientSection: 'Datos del Nuevo Cliente',
     },
     visitStatuses: {
       SCHEDULED: 'Programada', COMPLETED: 'Completada', QUOTED: 'Cotizada', CLOSED: 'Cerrada (Perdida)',
@@ -432,7 +448,7 @@ const translations = {
     },
     serviceTypes: {
       DOOR_TO_PORT: 'Puerta a Puerto', DOOR_TO_DOOR: 'Puerta a Puerta',
-      PACKING: 'Empaque', LOCAL_MOVE: 'Mudanza Local',
+      LOCAL_MOVE: 'Mudanza Local',
     },
     visits: {
       title: 'Visitas', subtitle: 'Programar y gestionar visitas de preventa',
@@ -464,6 +480,8 @@ const translations = {
       quickCreateClient: 'Nuevo Cliente',
       clientCreated: 'Cliente creado y vinculado.',
       requiredLegend: '* Campo requerido',
+      bookerRole: 'Rol', originAgent: 'Agente de Origen', destAgent: 'Agente de Destino',
+      bookerRoles: { BOOKER: 'Booker', OA: 'OA', DA: 'DA' },
       validation: {
         serviceType: 'El tipo de servicio es requerido.',
         scheduledDate: 'La fecha programada es requerida.',

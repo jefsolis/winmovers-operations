@@ -9,42 +9,24 @@ const CONTACT_INFO = [
 ]
 
 const LABELS = {
-  EN: {
-    title:          'WORK ORDER',
-    serviceDate:    'Service Date',
-    ot:             'O.T.',
-    date:           'Date',
-    time:           'Time',
-    clientName:     'Client Name',
-    cellPhone:      'Phone Number',
-    homePhone:      'Home Phone Number',
-    company:        'Company',
-    companyPhone:   'Company Phone Number',
-    address:        'Address',
-    destAddress:    'Destiny Address',
-    serviceDetails: 'Service Details',
-    materials:      'Materials',
-    quoteTo:        'Quote To',
-    createdBy:      'Created By',
-  },
-  ES: {
-    title:          'ORDEN DE TRABAJO',
-    serviceDate:    'Fecha de Servicio',
-    ot:             'O.T.',
-    date:           'Fecha',
-    time:           'Hora',
-    clientName:     'Nombre del Cliente',
-    cellPhone:      'Tel. Celular',
-    homePhone:      'Tel. Residencia',
-    company:        'Compañía',
-    companyPhone:   'Tel. Empresa',
-    address:        'Direcci\u00f3n',
-    destAddress:    'Direcci\u00f3n de Destino',
-    serviceDetails: 'Detalle del Servicio',
-    materials:      'Materiales',
-    quoteTo:        'Facturar a Nombre de',
-    createdBy:      'Hecho por',
-  },
+  title:          'ORDEN DE TRABAJO',
+  serviceDate:    'Fecha de Servicio',
+  ot:             'O.T.',
+  date:           'Fecha',
+  time:           'Hora',
+  clientName:     'Nombre del Cliente',
+  cellPhone:      'Tel. Celular',
+  homePhone:      'Tel. Residencia',
+  company:        'Compañía',
+  companyPhone:   'Tel. Empresa',
+  address:        'Dirección',
+  destAddress:    'Dirección de Destino',
+  serviceDetails: 'Detalle del Servicio',
+  materials:      'Materiales',
+  volume:         'Volumen (CBM)',
+  weight:         'Peso (Kg)',
+  quoteTo:        'Facturar a Nombre de',
+  createdBy:      'Hecho por',
 }
 
 function fmtDate(v) {
@@ -97,7 +79,6 @@ function Cell({ label, value, editMode, onChange, inputType = 'text', flex, bord
 const JobDocument = forwardRef(function JobDocument(
   {
     job,
-    language = 'EN',
     editMode = false,
     form,
     onFormChange,
@@ -110,7 +91,7 @@ const JobDocument = forwardRef(function JobDocument(
   },
   ref
 ) {
-  const L = LABELS[language] || LABELS.EN
+  const L = LABELS
 
   // View-mode derived values
   const viewClientName = job?.client?.clientType === 'INDIVIDUAL'
@@ -251,7 +232,13 @@ const JobDocument = forwardRef(function JobDocument(
             <Cell label={L.materials} value={fv('materials')} editMode={editMode} onChange={ch('materials')} inputType="textarea" top />
           </Row>
 
-          {/* Row 10: Quote To */}
+          {/* Row 10: Volume | Weight */}
+          <Row>
+            <Cell label={L.volume} value={fv('volumeCbm')} editMode={editMode} onChange={ch('volumeCbm')} inputType="number" flex={1} borderRight />
+            <Cell label={L.weight} value={fv('weightKg')}  editMode={editMode} onChange={ch('weightKg')}  inputType="number" flex={1} />
+          </Row>
+
+          {/* Row 11: Quote To */}
           <Row>
             <Cell label={L.quoteTo}   value={fv('quoteTo')}    editMode={editMode} onChange={ch('quoteTo')} />
           </Row>
