@@ -31,6 +31,7 @@ export default function JobForm() {
   const isEdit = Boolean(id)
   const fromQuoteId = !isEdit ? searchParams.get('fromQuote') : null
   const fromFileId  = !isEdit ? searchParams.get('fromFile')  : null
+  const fromType    = !isEdit ? searchParams.get('type')      : null
   const { t } = useLanguage()
   const JOB_STATUSES = getJobStatuses(t)
   const JOB_TYPES = getJobTypes(t)
@@ -103,6 +104,28 @@ export default function JobForm() {
           }))
         }).catch(() => {})
       )
+    } else if (fromFileId) {
+      tasks.push(
+        api.get(`/files/${fromFileId}`).then(f => {
+          const indName = f.client
+            ? (f.client.clientType === 'INDIVIDUAL'
+                ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
+                : f.client.name)
+            : ''
+          const corpName = f.corporateClient?.name || ''
+          setForm(prev => ({
+            ...prev,
+            type:        fromType || 'IMPORT',
+            clientId:    f.clientId     || '',
+            companyName: corpName       || '',
+            clientPhone: f.client?.phone || '',
+            quoteTo:     indName || corpName,
+            volumeCbm:   f.volumeCbm ?? '',
+            weightKg:    f.weightKg  ?? '',
+            notes:       f.notes     || '',
+          }))
+        }).catch(() => {})
+      )
     }
     if (!isEdit && !fromQuoteId && !fromFileId) {
       tasks.push(
@@ -164,6 +187,7 @@ export default function JobForm() {
         ...form,
         clientId: form.clientId || null,
         quoteId: !isEdit ? (quoteToLink || null) : undefined,
+        movingFileId: (!isEdit && fromFileId) ? fromFileId : undefined,
         language,
       }
       if (isEdit) { await api.put(`/jobs/${id}`, payload) }
