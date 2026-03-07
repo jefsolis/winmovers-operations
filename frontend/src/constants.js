@@ -170,8 +170,8 @@ export function getFileServiceTypes(t) {
 }
 
 // Booker role options (differ per context)
-const VISIT_BOOKER_ROLES = ['BOOKER', 'OA']
-const FILE_BOOKER_ROLES  = ['BOOKER', 'DA']
+const VISIT_BOOKER_ROLES = ['BOOKER', 'OA', 'DA']
+const FILE_BOOKER_ROLES  = ['BOOKER', 'OA', 'DA']
 
 export function getVisitBookerRoles() { return VISIT_BOOKER_ROLES }
 export function getFileBookerRoles()  { return FILE_BOOKER_ROLES  }

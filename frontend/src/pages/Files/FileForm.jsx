@@ -73,7 +73,9 @@ export default function FileForm() {
     setForm(prev => ({
       ...prev,
       bookerRole: role,
-      ...(role === 'DA' ? { destAgentId: '' } : {}),
+      ...(role === 'BOOKER' ? { originAgentId: 'WINMOVERS', destAgentId: 'WINMOVERS' } :
+          role === 'OA'     ? { originAgentId: 'WINMOVERS' } :
+          role === 'DA'     ? { destAgentId:   'WINMOVERS' } : {}),
     }))
   }
 
@@ -89,8 +91,8 @@ export default function FileForm() {
         volumeCbm:     form.volumeCbm !== '' ? parseFloat(form.volumeCbm) : null,
         weightKg:      form.weightKg  !== '' ? parseFloat(form.weightKg)  : null,
         bookerRole:    form.bookerRole    || null,
-        originAgentId: form.originAgentId || null,
-        destAgentId:   form.destAgentId   || null,
+        originAgentId: (form.originAgentId === 'WINMOVERS' ? null : form.originAgentId) || null,
+        destAgentId:   (form.destAgentId   === 'WINMOVERS' ? null : form.destAgentId)   || null,
       }
       if (newClientMode) {
         payload.newClient = { ...form.newClient, clientType: 'INDIVIDUAL' }
@@ -216,7 +218,8 @@ export default function FileForm() {
               <div className="form-group">
                 <label className="form-label">{t('movingFiles.originAgent')}</label>
                 <select className="form-control" value={form.originAgentId} onChange={e => set('originAgentId', e.target.value)}>
-                  <option value="">{t('movingFiles.winmoversOption')}</option>
+                  <option value="">— {t('common.none')} —</option>
+                  <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
                   {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
@@ -225,7 +228,8 @@ export default function FileForm() {
               <div className="form-group">
                 <label className="form-label">{t('movingFiles.destAgent')}</label>
                 <select className="form-control" value={form.destAgentId} onChange={e => set('destAgentId', e.target.value)}>
-                  <option value="">{t('movingFiles.winmoversOption')}</option>
+                  <option value="">— {t('common.none')} —</option>
+                  <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
                   {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>

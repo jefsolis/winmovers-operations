@@ -104,6 +104,8 @@ export default function VisitForm() {
         corporateClientId:  form.corporateClientId  || null,
         assignedToId:       form.assignedToId       || null,
         scheduledDate: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
+        originAgentId: (form.originAgentId === 'WINMOVERS' ? null : form.originAgentId) || null,
+        destAgentId:   (form.destAgentId   === 'WINMOVERS' ? null : form.destAgentId)   || null,
       }
       if (isEdit) {
         await api.put(`/visits/${id}`, payload)
@@ -223,7 +225,12 @@ export default function VisitForm() {
               <label className="form-label">{t('visits.bookerRole')}</label>
               <select className="form-control" value={form.bookerRole} onChange={e => {
                 const role = e.target.value
-                setForm(prev => ({ ...prev, bookerRole: role, ...(role === 'OA' ? { originAgentId: '' } : {}) }))
+                setForm(prev => ({
+                  ...prev, bookerRole: role,
+                  ...(role === 'BOOKER' ? { originAgentId: 'WINMOVERS', destAgentId: 'WINMOVERS' } :
+                      role === 'OA'     ? { originAgentId: 'WINMOVERS' } :
+                      role === 'DA'     ? { destAgentId:   'WINMOVERS' } : {}),
+                }))
               }}>
                 <option value="">{t('common.none')}</option>
                 {BOOKER_ROLES.map(r => <option key={r} value={r}>{t(`visits.bookerRoles.${r}`)}</option>)}
@@ -232,14 +239,16 @@ export default function VisitForm() {
             <div className="form-group">
               <label className="form-label">{t('visits.originAgent')}</label>
               <select className="form-control" value={form.originAgentId} onChange={e => set('originAgentId', e.target.value)}>
-                <option value="">{t('movingFiles.winmoversOption')}</option>
+                <option value="">— {t('common.none')} —</option>
+                <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
                 {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.destAgent')}</label>
               <select className="form-control" value={form.destAgentId} onChange={e => set('destAgentId', e.target.value)}>
-                <option value="">{t('common.none')}</option>
+                <option value="">— {t('common.none')} —</option>
+                <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
                 {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>

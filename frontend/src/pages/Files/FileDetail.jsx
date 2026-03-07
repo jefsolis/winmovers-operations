@@ -81,8 +81,12 @@ export default function FileDetail() {
         : file.client.name)
     : '\u2014'
 
-  const originAgentName = file.originAgent?.name || t('movingFiles.winmoversOption')
-  const destAgentName   = file.destAgent?.name   || t('movingFiles.winmoversOption')
+  const fileBookerRole  = file.bookerRole
+  const winmovers       = t('movingFiles.winmoversOption')
+  const originAgentName = file.originAgent?.name
+    || (fileBookerRole === 'OA' || fileBookerRole === 'BOOKER' ? winmovers : '\u2014')
+  const destAgentName   = file.destAgent?.name
+    || (fileBookerRole === 'DA' || fileBookerRole === 'BOOKER' ? winmovers : '\u2014')
 
   const tabStyle = (tab) => ({
     padding: '8px 18px',
