@@ -163,6 +163,7 @@ export function getServiceTypes(t) {
 const FILE_SERVICE_TYPE_META = [
   { value: 'DOOR_TO_PORT' },
   { value: 'DOOR_TO_DOOR' },
+  { value: 'PORT_TO_DOOR' },
 ]
 
 export function getFileServiceTypes(t) {

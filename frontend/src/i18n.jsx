@@ -189,7 +189,7 @@ const translations = {
     },
     serviceTypes: {
       DOOR_TO_PORT: 'Door to Port', DOOR_TO_DOOR: 'Door to Door',
-      LOCAL_MOVE: 'Local Move',
+      LOCAL_MOVE: 'Local Move', PORT_TO_DOOR: 'Port to Door',
     },
     visits: {
       title: 'Visits', subtitle: 'Schedule and manage pre-sale visits',
@@ -450,7 +450,7 @@ const translations = {
     },
     serviceTypes: {
       DOOR_TO_PORT: 'Puerta a Puerto', DOOR_TO_DOOR: 'Puerta a Puerta',
-      LOCAL_MOVE: 'Mudanza Local',
+      LOCAL_MOVE: 'Mudanza Local', PORT_TO_DOOR: 'Puerto a Puerta',
     },
     visits: {
       title: 'Visitas', subtitle: 'Programar y gestionar visitas de preventa',
