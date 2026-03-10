@@ -21,6 +21,8 @@ import StaffForm from './pages/Staff/StaffForm'
 import FilesList from './pages/Files/FilesList'
 import FileDetail from './pages/Files/FileDetail'
 import FileForm from './pages/Files/FileForm'
+import SurveyForm from './pages/Surveys/SurveyForm'
+import SurveyDetail from './pages/Surveys/SurveyDetail'
 
 export default function App() {
   return (
@@ -63,6 +65,9 @@ export default function App() {
           <Route path="files/local/new"          element={<FileForm />} />
           <Route path="files/local/:id"          element={<FileDetail />} />
           <Route path="files/local/:id/edit"     element={<FileForm />} />
+          <Route path="surveys/new"              element={<SurveyForm />} />
+          <Route path="surveys/:id"              element={<SurveyDetail />} />
+          <Route path="surveys/:id/edit"         element={<SurveyForm />} />
         </Route>
       </Routes>
     </BrowserRouter>

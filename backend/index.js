@@ -21,6 +21,7 @@ app.use('/api/quotes',             require('./routes/quotes'))
 app.use('/api/files/:fileId/attachments', require('./routes/attachments'))  // must be before /api/files
 app.use('/api/files',                    require('./routes/movingFiles'))
 app.use('/api/jobs',                     require('./routes/jobs'))
+app.use('/api/surveys',                  require('./routes/surveys'))
 
 // Legacy health check
 app.get('/api/hello', (req, res) => {

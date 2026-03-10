@@ -181,8 +181,34 @@ model Visit {
   destAgentId   String?
   destAgent     Agent?   @relation("VisitDestAgent", fields: [destAgentId], references: [id])
   quotes        Quote[]
+  survey        SurveyCubicFeet?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+}
+
+model SurveyCubicFeet {
+  id           String       @id @default(cuid())
+  surveyNumber String       @unique
+  visitId      String       @unique
+  visit        Visit        @relation(fields: [visitId], references: [id])
+  surveyDate   DateTime?
+  surveyorName String?
+  totalCf      Float?
+  notes        String?
+  items        SurveyItem[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model SurveyItem {
+  id          String          @id @default(cuid())
+  surveyId    String
+  survey      SurveyCubicFeet @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  room        String
+  description String
+  qty         Int             @default(1)
+  cfPerItem   Float           @default(0)
+  totalCf     Float           @default(0)
 }
 
 model Quote {

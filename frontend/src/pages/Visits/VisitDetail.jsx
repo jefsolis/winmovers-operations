@@ -172,6 +172,12 @@ export default function VisitDetail() {
         {visit.status === 'COMPLETED' && visit.quotes.length === 0 && (
           <Link to={`/quotes/new?visitId=${id}`} className="btn btn-primary btn-sm">{t('visits.createQuote')}</Link>
         )}
+        {visit.status === 'COMPLETED' && !visit.survey && (
+          <Link to={`/surveys/new?visitId=${id}`} className="btn btn-primary btn-sm">{t('visits.fillSurvey')}</Link>
+        )}
+        {visit.status === 'COMPLETED' && visit.survey && (
+          <Link to={`/surveys/${visit.survey.id}`} className="btn btn-secondary btn-sm">{t('visits.viewSurvey')}</Link>
+        )}
         {(visit.status === 'QUOTED' || visit.status === 'CLOSED') && visit.quotes.length > 0 && (
           <Link to={`/quotes/${visit.quotes[0].id}`} className="btn btn-primary btn-sm">{t('visits.viewQuote')}</Link>
         )}
@@ -269,6 +275,31 @@ export default function VisitDetail() {
             </div>
         }
       </div>
+
+      {/* Survey Cubic Feet */}
+      <div className="card card-body" style={{ marginTop: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="section-label">{t('visits.survey')}</div>
+          {visit.status === 'COMPLETED' && !visit.survey && (
+            <Link to={`/surveys/new?visitId=${id}`} className="btn btn-primary btn-sm">{t('visits.fillSurvey')}</Link>
+          )}
+        </div>
+        {!visit.survey
+          ? <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('visits.noSurvey')}</p>
+          : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <strong style={{ fontSize: 14 }}>{visit.survey.surveyNumber}</strong>
+                {visit.survey.totalCf != null && (
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{visit.survey.totalCf.toFixed(1)} CF</span>
+                )}
+              </div>
+              <Link to={`/surveys/${visit.survey.id}`} className="btn btn-secondary btn-sm">{t('visits.viewSurvey')}</Link>
+            </div>
+          )
+        }
+      </div>
+
       <QuickCreateClientModal
         open={showCreateClient}
         onClose={() => setShowCreateClient(false)}
