@@ -86,6 +86,10 @@ model Job {
   materials       String?     @db.Text
   quoteTo         String?
   creatorName     String?
+  contacto        String?
+  bultos          Int?
+  personalCount   Int?
+  transbordo      Boolean?
   language        String      @default("EN")
   quoteId         String?     @unique
   quote           Quote?      @relation(fields: [quoteId], references: [id])
@@ -118,6 +122,8 @@ model MovingFile {
   originAgent   Agent?   @relation("FileOriginAgent", fields: [originAgentId], references: [id])
   destAgentId   String?
   destAgent     Agent?   @relation("FileDestAgent", fields: [destAgentId], references: [id])
+  damageReportData String?  @db.Text
+  evaluationData   String?  @db.Text
   job         Job?         // back-relation; null for LOCAL files
   attachments Attachment[]
   createdAt   DateTime     @default(now())

@@ -138,7 +138,8 @@ router.put("/:id", async (req, res, next) => {
   try {
     const { clientId, corporateClientId, notes, status,
             serviceType, shipmentMode, volumeCbm, weightKg,
-            bookerRole, originAgentId, destAgentId } = req.body
+            bookerRole, originAgentId, destAgentId,
+            damageReportData, evaluationData } = req.body
     const file = await getPrisma().movingFile.update({
       where: { id: req.params.id },
       data: {
@@ -153,6 +154,8 @@ router.put("/:id", async (req, res, next) => {
         bookerRole:   bookerRole   !== undefined ? (bookerRole   || null) : undefined,
         originAgentId: originAgentId !== undefined ? (originAgentId || null) : undefined,
         destAgentId:   destAgentId   !== undefined ? (destAgentId   || null) : undefined,
+        damageReportData: damageReportData !== undefined ? (damageReportData || null) : undefined,
+        evaluationData:   evaluationData   !== undefined ? (evaluationData   || null) : undefined,
       },
       include: {
         client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },

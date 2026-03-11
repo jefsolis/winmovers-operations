@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import { SECTION_KEYS, SECTION_UI_LABELS } from './quoteTemplates'
 
+
 const CONTACT_INFO = {
   EN: [
     'Phone: (506) 2215-3536',
@@ -37,7 +38,7 @@ function autoResize(el) {
 }
 
 const QuoteDocument = forwardRef(function QuoteDocument(
-  { sections = {}, editMode = false, onChange, language = 'EN', quoteNumber, headerRef },
+  { sections = {}, editMode = false, onChange, language = 'EN', quoteNumber, headerRef, sectionKeys = SECTION_KEYS },
   ref
 ) {
   const labels = SECTION_UI_LABELS[language] || SECTION_UI_LABELS.EN
@@ -58,7 +59,7 @@ const QuoteDocument = forwardRef(function QuoteDocument(
       <div className="quote-document" ref={ref}>
 
         {/* Sections */}
-        {SECTION_KEYS.map(key => (
+        {sectionKeys.map(key => (
           <div key={key} className="qd-section">
             {editMode && (
               <div className="qd-section-edit-label">{labels[key]}</div>

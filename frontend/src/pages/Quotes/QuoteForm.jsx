@@ -4,7 +4,7 @@ import { api } from '../../api'
 import { CURRENCIES } from '../../constants'
 import { useLanguage } from '../../i18n'
 import QuoteDocument from './QuoteDocument'
-import { buildDefaultSections, SERVICE_TYPE_LABELS } from './quoteTemplates'
+import { buildDefaultSections, SERVICE_TYPE_LABELS, SECTION_KEYS, LOCAL_SECTION_KEYS, priceToWords } from './quoteTemplates'
 
 const daysFromNow = (n) => {
   const d = new Date()
@@ -38,17 +38,18 @@ export default function QuoteForm() {
   const isEdit = Boolean(id)
   const { t } = useLanguage()
 
-  const [language, setLanguage]       = useState('EN')
-  const [meta, setMeta]               = useState({ ...EMPTY_META, validUntil: daysFromNow(30) })
-  const [vars, setVars]               = useState({ ...EMPTY_VARS })
-  const [sections, setSections]       = useState({})
-  const [visitId, setVisitId]         = useState(searchParams.get('visitId') || '')
-  const [visit, setVisit]             = useState(null)
-  const [quoteNumber, setQuoteNumber] = useState('')
-  const [loading, setLoading]         = useState(true)
-  const [saving, setSaving]           = useState(false)
-  const [error, setError]             = useState(null)
-  const [staffMembers, setStaffMembers] = useState([])
+  const [language, setLanguage]           = useState('EN')
+  const [meta, setMeta]                   = useState({ ...EMPTY_META, validUntil: daysFromNow(30) })
+  const [vars, setVars]                   = useState({ ...EMPTY_VARS })
+  const [sections, setSections]           = useState({})
+  const [visitId, setVisitId]             = useState(searchParams.get('visitId') || '')
+  const [visit, setVisit]                 = useState(null)
+  const [rawServiceType, setRawServiceType] = useState('')
+  const [quoteNumber, setQuoteNumber]     = useState('')
+  const [loading, setLoading]             = useState(true)
+  const [saving, setSaving]               = useState(false)
+  const [error, setError]                 = useState(null)
+  const [staffMembers, setStaffMembers]   = useState([])
   const errorRef = useRef(null)
 
   useEffect(() => { api.get('/staff').then(setStaffMembers).catch(() => {}) }, [])
@@ -59,13 +60,13 @@ export default function QuoteForm() {
 
   const buildTplVars = (lang, currentVars, currentMeta) => {
     const l = lang === 'ES' ? 'ES' : 'EN'
+    const locale = l === 'ES' ? 'es-CR' : 'en-GB'
+    const dateOpts = { day: '2-digit', month: 'long', year: 'numeric' }
     const validUntilStr = currentMeta?.validUntil
-      ? new Date(currentMeta.validUntil).toLocaleDateString(
-          l === 'ES' ? 'es-CR' : 'en-GB',
-          { day: '2-digit', month: 'long', year: 'numeric' }
-        )
+      ? new Date(currentMeta.validUntil).toLocaleDateString(locale, dateOpts)
       : ''
     return {
+      date:        new Date().toLocaleDateString(locale, dateOpts),
       clientName:  currentVars?.clientName  || '',
       company:     currentVars?.company     || '',
       origin:      currentVars?.origin      || '',
@@ -73,13 +74,14 @@ export default function QuoteForm() {
       serviceType: currentVars?.serviceType || '',
       currency:    currentMeta?.currency    || 'USD',
       price:       currentMeta?.totalAmount || '',
+      priceInWords: priceToWords(currentMeta?.totalAmount, l, currentMeta?.currency),
       validUntil:  validUntilStr,
       creatorName: currentMeta?.creatorName || '',
     }
   }
 
-  const rebuildSections = (lang, currentVars, currentMeta) => {
-    setSections(buildDefaultSections(lang, buildTplVars(lang, currentVars, currentMeta)))
+  const rebuildSections = (lang, currentVars, currentMeta, rawST) => {
+    setSections(buildDefaultSections(lang, buildTplVars(lang, currentVars, currentMeta), rawST))
   }
 
   useEffect(() => {
@@ -101,10 +103,12 @@ export default function QuoteForm() {
           const v = extractVarsFromVisit(q.visit, lang)
           setVars(v)
           if (q.visit) setVisit(q.visit)
+          const rawST = q.visit?.serviceType || ''
+          setRawServiceType(rawST)
           if (q.content) {
-            try { setSections(JSON.parse(q.content)) } catch { rebuildSections(lang, v, m) }
+            try { setSections(JSON.parse(q.content)) } catch { rebuildSections(lang, v, m, rawST) }
           } else {
-            rebuildSections(lang, v, m)
+            rebuildSections(lang, v, m, rawST)
           }
         })
         .catch(e => setError(e.message))
@@ -118,14 +122,18 @@ export default function QuoteForm() {
             setVisit(v)
             const lang = v.language || 'EN'
             setLanguage(lang)
+            const rawST = v.serviceType || ''
+            setRawServiceType(rawST)
             const initVars = extractVarsFromVisit(v, lang)
             setVars(initVars)
-            rebuildSections(lang, initVars, initMeta)
+            const metaWithCreator = { ...initMeta, creatorName: v.assignedTo?.name || '' }
+            setMeta(metaWithCreator)
+            rebuildSections(lang, initVars, metaWithCreator, rawST)
           })
           .catch(() => {})
           .finally(() => setLoading(false))
       } else {
-        rebuildSections('EN', vars, meta)
+        rebuildSections('EN', vars, meta, '')
         setLoading(false)
       }
     }
@@ -141,7 +149,7 @@ export default function QuoteForm() {
       newVars.serviceType = SERVICE_TYPE_LABELS[lang]?.[visit.serviceType] || vars.serviceType
     }
     setVars(newVars)
-    if (!isEdit) rebuildSections(lang, newVars, meta)
+    if (!isEdit) rebuildSections(lang, newVars, meta, rawServiceType)
   }
 
   const handleSubmit = async () => {
@@ -291,7 +299,7 @@ export default function QuoteForm() {
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <button type="button" className="btn btn-secondary btn-sm"
             title={t('quotes.refreshTemplate')}
-            onClick={() => rebuildSections(language, vars, meta)}>
+            onClick={() => rebuildSections(language, vars, meta, rawServiceType)}>
             ↺ {t('quotes.refreshTemplate')}
           </button>
         </div>
@@ -305,6 +313,7 @@ export default function QuoteForm() {
           onChange={(key, val) => setSections(prev => ({ ...prev, [key]: val }))}
           language={language}
           quoteNumber={quoteNumber || t('quotes.newQuoteTitle')}
+          sectionKeys={rawServiceType === 'LOCAL_MOVE' ? LOCAL_SECTION_KEYS : SECTION_KEYS}
         />
       </div>
     </div>

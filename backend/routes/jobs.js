@@ -79,6 +79,7 @@ router.post("/", async (req, res, next) => {
       volumeCbm, weightKg, shipmentMode, notes, quoteId,
       serviceDate, serviceTime, clientPhone, clientHomePhone,
       companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language,
+      contacto, bultos, personalCount, transbordo,
       movingFileId: manualMovingFileId,
     } = req.body
     if (!type) return res.status(400).json({ error: "type is required" })
@@ -139,6 +140,10 @@ router.post("/", async (req, res, next) => {
       quoteTo:        quoteTo        || null,
       creatorName:    creatorName    || null,
       language:       language       || "EN",
+      contacto:       contacto       || null,
+      bultos:         bultos         != null ? parseInt(bultos)        : null,
+      personalCount:  personalCount  != null ? parseInt(personalCount) : null,
+      transbordo:     transbordo     !== undefined ? transbordo        : null,
       quoteId:        quoteId        || null,
       movingFileId,
     }
@@ -160,6 +165,7 @@ router.put("/:id", async (req, res, next) => {
       volumeCbm, weightKg, shipmentMode, notes, quoteId,
       serviceDate, serviceTime, clientPhone, clientHomePhone,
       companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language,
+      contacto, bultos, personalCount, transbordo,
       movingFileId,
     } = req.body
 
@@ -190,10 +196,14 @@ router.put("/:id", async (req, res, next) => {
         serviceDetails: serviceDetails  !== undefined ? (serviceDetails  || null) : undefined,
         materials:      materials       !== undefined ? (materials       || null) : undefined,
         quoteTo:        quoteTo         !== undefined ? (quoteTo         || null) : undefined,
-        creatorName:    creatorName     !== undefined ? (creatorName     || null) : undefined,
-        language:       language        !== undefined ? (language        || "EN") : undefined,
-        quoteId:        quoteId         !== undefined ? (quoteId         || null) : undefined,
-        movingFileId:   movingFileId    !== undefined ? (movingFileId    || null) : undefined,
+        creatorName:    creatorName     !== undefined ? (creatorName     || null)                                        : undefined,
+        language:       language        !== undefined ? (language        || "EN")                                        : undefined,
+        contacto:       contacto        !== undefined ? (contacto        || null)                                        : undefined,
+        bultos:         bultos          !== undefined ? (bultos != null ? parseInt(bultos) : null)                        : undefined,
+        personalCount:  personalCount   !== undefined ? (personalCount != null ? parseInt(personalCount) : null)          : undefined,
+        transbordo:     transbordo      !== undefined ? transbordo                                                        : undefined,
+        quoteId:        quoteId         !== undefined ? (quoteId         || null)                                        : undefined,
+        movingFileId:   movingFileId    !== undefined ? (movingFileId    || null)                                        : undefined,
       },
     })
     res.json(job)

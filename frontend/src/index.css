@@ -658,6 +658,68 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 .jd-cell-textarea:focus { background: #fffbe6; }
 
+/* ── Damage Report ─────────────────────────────────────────────── */
+.dr-title {
+  font-family: 'Times New Roman', Times, serif;
+  text-align: center;
+  font-size: 13pt;
+  font-weight: 700;
+  text-decoration: underline;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.dr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 10.5pt;
+}
+.dr-table td { border: 1px solid #000; padding: 4px 7px; vertical-align: top; }
+.dr-lbl { font-weight: 700; white-space: nowrap; width: 20%; }
+.dr-sec-hdr { font-weight: 700; font-size: 10.5pt; padding: 7px; }
+.dr-col-hdr { font-style: italic; font-weight: 700; text-align: center; padding: 5px 7px; }
+.dr-data-row td { height: 22px; }
+.dr-unpack-td { padding: 10px 16px; }
+.dr-unpack-row { display: flex; align-items: center; gap: 14px; padding: 3px 0; }
+.dr-circle { display: inline-block; width: 16px; height: 16px; border: 1.5px solid #444; border-radius: 50%; flex-shrink: 0; }
+.dr-blue  { color: #1565c0; font-weight: 600; }
+.dr-amber { color: #b85c00; font-weight: 600; }
+.dr-sig-flex { display: flex; align-items: flex-end; gap: 8px; padding: 6px 8px 8px; }
+.dr-sig-lbl  { font-weight: 700; font-size: 9.5pt; white-space: nowrap; }
+.dr-sig-line { border-bottom: 1px solid #000; min-width: 40px; height: 20px; display: inline-block; }
+.dr-footer-td { text-align: center; font-weight: 700; font-style: italic; padding: 8px; }
+
+/* ── Service Evaluation ────────────────────────────────────────── */
+.se-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 10pt;
+}
+.se-table td { border: 1px solid #000; }
+.se-title { text-align: center; font-weight: 700; font-size: 12pt; padding: 7px 4px; }
+.se-hdr-cell { padding: 4px 7px; vertical-align: top; }
+.se-center { text-align: center; }
+.se-lbl    { font-size: 8.5pt; font-weight: 700; color: #333; }
+.se-sublbl { font-size: 7.5pt; color: #555; }
+.se-val    { font-style: italic; color: #1565c0; font-size: 10.5pt; padding-top: 2px; }
+.se-rtg-hdr { text-align: center; font-weight: 700; font-size: 8.5pt; padding: 5px 3px; vertical-align: middle; }
+.se-q-row td { vertical-align: top; }
+.se-q-num  { text-align: center; padding: 5px 4px; font-weight: 700; white-space: nowrap; }
+.se-q-txt  { padding: 5px 7px; }
+.se-q-es   { color: #1565c0; font-size: 9.5pt; }
+.se-q-en   { font-size: 9.5pt; }
+.se-rtg-cell { text-align: center; min-height: 28px; }
+.se-overall-td { padding: 7px 8px; }
+.se-yn-hdr  { text-align: center; font-weight: 700; font-size: 9.5pt; padding: 4px 6px; }
+.se-yn-q    { padding: 6px 8px; vertical-align: middle; }
+.se-yn-cell { text-align: center; padding: 8px 6px; vertical-align: middle; }
+.se-yn-box  { display: inline-block; width: 22px; height: 22px; border: 1.5px solid #000; }
+.se-comments-td { padding: 6px 8px; height: 20px; }
+.se-sig-td  { padding: 18px 8px 6px; text-align: center; }
+.se-sig-line-wrap { border-top: 1px solid #000; width: 55%; margin: 0 auto; padding-top: 3px; font-size: 10pt; }
+.se-footer-td { text-align: center; font-weight: 700; padding: 8px; font-size: 10pt; }
+
 /* Print / PDF export — hide chrome, show only the document */
 @media print {
   body * { visibility: hidden; }

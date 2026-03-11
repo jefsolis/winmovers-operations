@@ -27,6 +27,13 @@ const LABELS = {
   weight:         'Peso (Kg)',
   quoteTo:        'Facturar a Nombre de',
   createdBy:      'Hecho por',
+  // Import-only
+  contacto:       'Contacto',
+  bultos:         'Cantidad de Bultos',
+  weightCarga:    'Peso de la Carga (Kg)',
+  personalCount:  'Cantidad de Personal',
+  transbordo:     'Transbordo',
+  paisOrigen:     'País de Origen',
 }
 
 function fmtDate(v) {
@@ -106,6 +113,7 @@ const JobDocument = forwardRef(function JobDocument(
 
   const ch = field => (editMode && onFormChange) ? (v => onFormChange(field, v)) : undefined
   const fv = field => editMode ? (form?.[field] ?? '') : (job?.[field] ?? '')
+  const isImport = editMode ? form?.type === 'IMPORT' : job?.type === 'IMPORT'
 
   // Inline select style for edit mode pickers
   const selectStyle = {
@@ -186,6 +194,13 @@ const JobDocument = forwardRef(function JobDocument(
             <Cell label={L.companyPhone} value={fv('companyPhone')} flex={2}             editMode={editMode} onChange={ch('companyPhone')} />
           </Row>
 
+          {/* Contacto — Import only */}
+          {isImport && (
+            <Row>
+              <Cell label={L.contacto} value={fv('contacto')} editMode={editMode} onChange={ch('contacto')} />
+            </Row>
+          )}
+
           {/* Row 6: Origin Address */}
           <Row>
             <div className="jd-cell jd-cell-top" style={{ flex: 1 }}>
@@ -222,6 +237,44 @@ const JobDocument = forwardRef(function JobDocument(
             </div>
           </Row>
 
+          {/* Bultos / Peso / Personal / Transbordo — Import only */}
+          {isImport && (
+            <>
+              <Row>
+                <Cell label={L.bultos}        value={fv('bultos')}        editMode={editMode} onChange={ch('bultos')}        inputType="number" flex={1} borderRight />
+                <Cell label={L.personalCount} value={fv('personalCount')} editMode={editMode} onChange={ch('personalCount')} inputType="number" flex={1} />
+              </Row>
+              <Row>
+                <Cell label={L.weightCarga} value={fv('weightKg')} editMode={editMode} onChange={ch('weightKg')} inputType="number" />
+              </Row>
+              <Row>
+                <div className="jd-cell" style={{ flex: 1 }}>
+                  <span className="jd-cell-label">{L.transbordo}</span>
+                  <div style={{ display: 'flex', gap: 24, padding: '5px 8px', alignItems: 'center' }}>
+                    <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: editMode ? 'pointer' : 'default' }}>
+                      <input
+                        type="checkbox"
+                        checked={editMode ? form?.transbordo === true : job?.transbordo === true}
+                        onChange={editMode ? () => onFormChange?.('transbordo', form?.transbordo === true ? null : true) : undefined}
+                        readOnly={!editMode}
+                      />
+                      Sí
+                    </label>
+                    <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: editMode ? 'pointer' : 'default' }}>
+                      <input
+                        type="checkbox"
+                        checked={editMode ? form?.transbordo === false : job?.transbordo === false}
+                        onChange={editMode ? () => onFormChange?.('transbordo', form?.transbordo === false ? null : false) : undefined}
+                        readOnly={!editMode}
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
+              </Row>
+            </>
+          )}
+
           {/* Row 8: Service Details */}
           <Row tall>
             <Cell label={L.serviceDetails} value={fv('serviceDetails')} editMode={editMode} onChange={ch('serviceDetails')} inputType="textarea" top />
@@ -232,16 +285,18 @@ const JobDocument = forwardRef(function JobDocument(
             <Cell label={L.materials} value={fv('materials')} editMode={editMode} onChange={ch('materials')} inputType="textarea" top />
           </Row>
 
-          {/* Row 10: Volume | Weight */}
-          <Row>
-            <Cell label={L.volume} value={fv('volumeCbm')} editMode={editMode} onChange={ch('volumeCbm')} inputType="number" flex={1} borderRight />
-            <Cell label={L.weight} value={fv('weightKg')}  editMode={editMode} onChange={ch('weightKg')}  inputType="number" flex={1} />
-          </Row>
-
-          {/* Row 11: Quote To */}
-          <Row>
-            <Cell label={L.quoteTo}   value={fv('quoteTo')}    editMode={editMode} onChange={ch('quoteTo')} />
-          </Row>
+          {/* Volume | Weight | Quote To — Export / non-Import only */}
+          {!isImport && (
+            <>
+              <Row>
+                <Cell label={L.volume} value={fv('volumeCbm')} editMode={editMode} onChange={ch('volumeCbm')} inputType="number" flex={1} borderRight />
+                <Cell label={L.weight} value={fv('weightKg')}  editMode={editMode} onChange={ch('weightKg')}  inputType="number" flex={1} />
+              </Row>
+              <Row>
+                <Cell label={L.quoteTo} value={fv('quoteTo')} editMode={editMode} onChange={ch('quoteTo')} />
+              </Row>
+            </>
+          )}
 
           {/* Row 11: Created By */}
           <Row>
@@ -261,6 +316,13 @@ const JobDocument = forwardRef(function JobDocument(
               <Cell label={L.createdBy} value={fv('creatorName')} editMode={editMode} onChange={ch('creatorName')} />
             )}
           </Row>
+
+          {/* País de Origen — Import only */}
+          {isImport && (
+            <Row>
+              <Cell label={L.paisOrigen} value={fv('originCountry')} editMode={editMode} onChange={ch('originCountry')} />
+            </Row>
+          )}
 
         </div>
         <div style={{ height: 40 }} />

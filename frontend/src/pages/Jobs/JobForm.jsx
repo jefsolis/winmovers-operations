@@ -17,6 +17,7 @@ const EMPTY = {
   serviceDetails: '', materials: '',
   volumeCbm: '', weightKg: '',
   quoteTo: '', creatorName: '',
+  contacto: '', bultos: '', personalCount: '', transbordo: null,
 }
 
 function toInputDate(v) {
@@ -78,6 +79,10 @@ export default function JobForm() {
             weightKg: job.weightKg ?? '',
             quoteTo: job.quoteTo || '',
             creatorName: job.creatorName || '',
+            contacto:      job.contacto      || '',
+            bultos:        job.bultos        ?? '',
+            personalCount: job.personalCount ?? '',
+            transbordo:    job.transbordo    ?? null,
           })
         }).catch(e => setError(e.message)).finally(() => setLoading(false))
       )

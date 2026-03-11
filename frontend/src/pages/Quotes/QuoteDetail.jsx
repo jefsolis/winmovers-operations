@@ -5,7 +5,7 @@ import { quoteStatusMeta, visitStatusMeta, formatDate } from '../../constants'
 import { useLanguage } from '../../i18n'
 import QuickCreateClientModal from '../../components/QuickCreateClientModal'
 import QuoteDocument from './QuoteDocument'
-import { buildDefaultSections, buildVarsFromVisit } from './quoteTemplates'
+import { buildDefaultSections, buildVarsFromVisit, SECTION_KEYS, LOCAL_SECTION_KEYS } from './quoteTemplates'
 
 export default function QuoteDetail() {
   const { id } = useParams()
@@ -37,7 +37,7 @@ export default function QuoteDetail() {
   const buildFallback = (q) => {
     const lang = q.language || 'EN'
     const m = { totalAmount: q.totalAmount, currency: q.currency, validUntil: q.validUntil ? new Date(q.validUntil).toISOString().slice(0, 10) : '', creatorName: q.creatorName }
-    setSections(buildDefaultSections(lang, buildVarsFromVisit(q.visit, m, lang)))
+    setSections(buildDefaultSections(lang, buildVarsFromVisit(q.visit, m, lang), q.visit?.serviceType))
   }
 
   useEffect(() => { load() }, [id]) // eslint-disable-line
@@ -235,6 +235,7 @@ export default function QuoteDetail() {
           editMode={false}
           language={quote.language || 'EN'}
           quoteNumber={quote.quoteNumber}
+          sectionKeys={visit?.serviceType === 'LOCAL_MOVE' ? LOCAL_SECTION_KEYS : SECTION_KEYS}
         />
       </div>
 

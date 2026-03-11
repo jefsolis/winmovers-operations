@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { fileStatusMeta, statusMeta } from '../../constants'
 import FileAttachments from './FileAttachments'
+import DamageReport, { EMPTY_DR } from './DamageReport'
+import ServiceEvaluation, { EMPTY_SE } from './ServiceEvaluation'
 
 const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
 
@@ -28,11 +30,29 @@ export default function FileDetail() {
   const [closing, setClosing]         = useState(false)
   const [allRequiredDone, setAllRequiredDone] = useState(false)
   const [activeTab, setActiveTab] = useState('summary')
+  const [exporting, setExporting] = useState(false)
+  const [drData, setDrData] = useState(EMPTY_DR)
+  const [seData, setSeData] = useState(EMPTY_SE)
+  const [saving,  setSaving] = useState(false)
+  const docRef    = useRef(null)
+  const headerRef = useRef(null)
 
   const load = () => {
     setLoading(true)
     api.get(`/files/${id}`)
-      .then(setFile)
+      .then(f => {
+        setFile(f)
+        if (f.damageReportData) {
+          try { setDrData(JSON.parse(f.damageReportData)) } catch {}
+        } else {
+          setDrData(EMPTY_DR)
+        }
+        if (f.evaluationData) {
+          try { setSeData(JSON.parse(f.evaluationData)) } catch {}
+        } else {
+          setSeData(EMPTY_SE)
+        }
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }
@@ -67,6 +87,68 @@ export default function FileDetail() {
       const updated = await api.put(`/files/${id}`, { status: 'OPEN' })
       setFile(updated)
     } catch (e) { alert(e.message) } finally { setClosing(false) }
+  }
+
+  const saveDR = async () => {
+    setSaving(true)
+    try { await api.put(`/files/${id}`, { damageReportData: JSON.stringify(drData) }) }
+    catch (e) { alert(e.message) }
+    finally { setSaving(false) }
+  }
+
+  const saveSE = async () => {
+    setSaving(true)
+    try { await api.put(`/files/${id}`, { evaluationData: JSON.stringify(seData) }) }
+    catch (e) { alert(e.message) }
+    finally { setSaving(false) }
+  }
+
+  const exportPDF = async () => {
+    if (!docRef.current || !headerRef.current) return
+    setExporting(true)
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+      const captureOpts = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }
+      const [headerCanvas, docCanvas] = await Promise.all([
+        html2canvas(headerRef.current, captureOpts),
+        html2canvas(docRef.current,    captureOpts),
+      ])
+      const pdf   = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const mTop = 30, mSide = 28, mBottom = 30, gap = 8
+      const contentW    = pageW - mSide * 2
+      const headerPt    = (headerCanvas.height / headerCanvas.width) * contentW
+      const contentStartY = mTop + headerPt + gap
+      const slicePtH    = pageH - contentStartY - mBottom
+      const docPxW      = docCanvas.width
+      const docPxH      = docCanvas.height
+      const slicePxH    = Math.round((slicePtH / contentW) * docPxW)
+      const headerDataUrl = headerCanvas.toDataURL('image/jpeg', 0.95)
+      let page = 0, offsetPx = 0
+      while (offsetPx < docPxH) {
+        if (page > 0) pdf.addPage()
+        pdf.addImage(headerDataUrl, 'JPEG', mSide, mTop, contentW, headerPt)
+        const thisSlicePx = Math.min(slicePxH, docPxH - offsetPx)
+        const sliceCanvas = document.createElement('canvas')
+        sliceCanvas.width  = docPxW
+        sliceCanvas.height = thisSlicePx
+        const ctx = sliceCanvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, docPxW, thisSlicePx)
+        ctx.drawImage(docCanvas, 0, offsetPx, docPxW, thisSlicePx, 0, 0, docPxW, thisSlicePx)
+        const slicePtActual = (thisSlicePx / slicePxH) * slicePtH
+        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', mSide, contentStartY, contentW, slicePtActual)
+        offsetPx += thisSlicePx
+        page++
+      }
+      const suffix = activeTab === 'damage' ? 'damage' : 'evaluation'
+      pdf.save(`${file?.fileNumber || 'doc'}-${suffix}.pdf`)
+    } catch (e) { console.error(e) }
+    finally { setExporting(false) }
   }
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
@@ -116,6 +198,26 @@ export default function FileDetail() {
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to={back} className="btn btn-ghost">{t('movingFiles.backToFiles')}</Link>
           <Link to={`${back}/${id}/edit`} className="btn btn-primary">{t('common.edit')}</Link>
+          {activeTab === 'damage' && (
+            <>
+              <button className="btn btn-primary" onClick={saveDR} disabled={saving}>
+                {saving ? t('common.saving') : t('common.save')}
+              </button>
+              <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
+                {exporting ? '…' : `📥 ${t('jobs.exportPDF')}`}
+              </button>
+            </>
+          )}
+          {activeTab === 'evaluation' && (
+            <>
+              <button className="btn btn-primary" onClick={saveSE} disabled={saving}>
+                {saving ? t('common.saving') : t('common.save')}
+              </button>
+              <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
+                {exporting ? '…' : `📥 ${t('jobs.exportPDF')}`}
+              </button>
+            </>
+          )}
           {file.status !== 'CLOSED' ? (
             <button
               onClick={handleClose}
@@ -149,6 +251,16 @@ export default function FileDetail() {
         <button style={tabStyle('attachments')} onClick={() => setActiveTab('attachments')}>
           {t('movingFiles.attachmentsTab')}
         </button>
+        {file.category === 'IMPORT' && (
+          <>
+            <button style={tabStyle('damage')} onClick={() => setActiveTab('damage')}>
+              {t('movingFiles.damageReportTab')}
+            </button>
+            <button style={tabStyle('evaluation')} onClick={() => setActiveTab('evaluation')}>
+              {t('movingFiles.evaluationTab')}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Summary Tab */}
@@ -192,7 +304,7 @@ export default function FileDetail() {
 
               {file.shipmentMode && (
                 <InfoRow label={t('movingFiles.shipmentMode')}>
-                  {t(`shipmentModes.${file.shipmentMode}`) || file.shipmentMode}
+                  {t(`modes.${file.shipmentMode}`) || file.shipmentMode}
                 </InfoRow>
               )}
 
@@ -243,6 +355,22 @@ export default function FileDetail() {
           <FileAttachments fileId={id} fileCategory={file.category} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} />
         </div>
       </div>
+
+      {/* Damage Report tab */}
+      {activeTab === 'damage' && (
+        <DamageReport
+          ref={docRef} headerRef={headerRef} file={file}
+          editMode data={drData} onChange={setDrData}
+        />
+      )}
+
+      {/* Evaluation tab */}
+      {activeTab === 'evaluation' && (
+        <ServiceEvaluation
+          ref={docRef} headerRef={headerRef} file={file}
+          editMode data={seData} onChange={setSeData}
+        />
+      )}
     </>
   )
 }

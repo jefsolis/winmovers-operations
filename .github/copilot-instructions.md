@@ -1,5 +1,11 @@
 # WinMovers Operations — Copilot Instructions
 
+## General Rules
+
+- **Never run `git commit` or `git push` automatically.** Only perform git commits or pushes when the user explicitly asks for it.
+
+---
+
 ## Project Overview
 Operations management system for an international moving company. Features: Jobs, Clients, Agents, Visits (pre-sale), Quotes, Moving Files (export/import/local), and file Attachments stored in Azure Blob Storage.
 

@@ -11,6 +11,15 @@ export const SECTION_KEYS = [
   'goodbye',
 ]
 
+export const LOCAL_SECTION_KEYS = [
+  'clientInfo',
+  'salutation',
+  'originPackingServices',
+  'price',
+  'exclusions',
+  'goodbye',
+]
+
 export const SECTION_UI_LABELS = {
   EN: {
     clientInfo:             'Client Information',
@@ -99,6 +108,69 @@ export const TEMPLATES = {
   },
 }
 
+// ─── Number → Words ────────────────────────────────────────────────────────────
+
+const ONES_EN = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE',
+  'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN']
+const TENS_EN = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY']
+const ONES_ES = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE',
+  'DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISÉIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE']
+const TENS_ES = ['', '', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA']
+const VEINTI_ES = ['', 'VEINTIÚN', 'VEINTIDÓS', 'VEINTITRÉS', 'VEINTICUATRO', 'VEINTICINCO', 'VEINTISÉIS', 'VEINTISIETE', 'VEINTIOCHO', 'VEINTINUEVE']
+const HUNDREDS_ES = ['', 'CIEN', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS']
+
+function _belowHundred(n, isES) {
+  if (n < 20) return isES ? ONES_ES[n] : ONES_EN[n]
+  if (isES && n <= 29) return VEINTI_ES[n - 20]
+  const tens = isES ? TENS_ES[Math.floor(n / 10)] : TENS_EN[Math.floor(n / 10)]
+  const ones = isES ? ONES_ES[n % 10] : ONES_EN[n % 10]
+  if (n % 10 === 0) return tens
+  return isES ? `${tens} Y ${ones}` : `${tens}-${ones}`
+}
+
+function _belowThousand(n, isES) {
+  if (n < 100) return _belowHundred(n, isES)
+  const h    = Math.floor(n / 100)
+  const rest = n % 100
+  if (isES) {
+    const hw = (h === 1 && rest > 0) ? 'CIENTO' : HUNDREDS_ES[h]
+    return rest > 0 ? `${hw} ${_belowHundred(rest, isES)}` : hw
+  }
+  return rest > 0 ? `${ONES_EN[h]} HUNDRED ${_belowHundred(rest, isES)}` : `${ONES_EN[h]} HUNDRED`
+}
+
+function _intToWords(n, isES) {
+  if (n === 0) return isES ? 'CERO' : 'ZERO'
+  if (n < 1000) return _belowThousand(n, isES)
+  if (n < 1_000_000) {
+    const th   = Math.floor(n / 1000)
+    const rest = n % 1000
+    const tw   = isES ? (th === 1 ? 'MIL' : `${_belowThousand(th, isES)} MIL`) : `${_belowThousand(th, isES)} THOUSAND`
+    return rest > 0 ? `${tw} ${_belowThousand(rest, isES)}` : tw
+  }
+  const mil   = Math.floor(n / 1_000_000)
+  const rest  = n % 1_000_000
+  const mw    = isES ? (mil === 1 ? 'UN MILLÓN' : `${_belowThousand(mil, isES)} MILLONES`) : `${_belowThousand(mil, isES)} MILLION`
+  return rest > 0 ? `${mw} ${_intToWords(rest, isES)}` : mw
+}
+
+const CURRENCY_NAMES = {
+  EN: { USD: 'Dollars', EUR: 'Euros', GBP: 'Pounds Sterling', CRC: 'Colons', COP: 'Colombian Pesos', MXN: 'Mexican Pesos', PEN: 'Soles', CLP: 'Chilean Pesos', ARS: 'Argentine Pesos' },
+  ES: { USD: 'Dólares', EUR: 'Euros', GBP: 'Libras Esterlinas', CRC: 'Colones', COP: 'Pesos Colombianos', MXN: 'Pesos Mexicanos', PEN: 'Soles', CLP: 'Pesos Chilenos', ARS: 'Pesos Argentinos' },
+}
+
+export function priceToWords(amount, language, currency) {
+  const num = parseFloat(amount)
+  if (!amount || isNaN(num) || num < 0) return ''
+  const isES    = language === 'ES'
+  const lang    = isES ? 'ES' : 'EN'
+  const intPart = Math.floor(num)
+  const cents   = Math.round((num - intPart) * 100)
+  const words   = _intToWords(intPart, isES)
+  const ccyName = currency ? ` ${CURRENCY_NAMES[lang][currency] || currency}` : ''
+  return `${words} ${String(cents).padStart(2, '0')}/100${ccyName}`
+}
+
 export function substitutePlaceholders(text, vars) {
   if (!text) return ''
   const date = vars.date ||
@@ -115,15 +187,48 @@ export function substitutePlaceholders(text, vars) {
     .replace(/\[Service Type\]/g,    vars.serviceType || '___')
     .replace(/\[Currency\]/g,        vars.currency ? vars.currency + ' ' : '')
     .replace(/\[Price\]/g,           priceStr)
-    .replace(/\[Quote Valid Days\]/g, vars.validUntil || '30 days')
+    .replace(/\[Quote Valid Days\]/g, vars.validUntil  || '30 days')
     .replace(/\[Quote Creator\]/g,   vars.creatorName || '___')
+    .replace(/\[Price In Words\]/g,  vars.priceInWords || '___')
 }
 
-export function buildDefaultSections(language, vars) {
+export const LOCAL_TEMPLATES = {
+  EN: {
+    clientInfo: `Date: [Date]\n\nMr. (s) [Client Name]\n[Company]`,
+
+    salutation: `Dear Mr./Mrs. [Client Name],\nWe are pleased to present our service offer for the local move of your household goods and personal effects from your current location in [Origin] to your new residence in [Destiny].`,
+
+    originPackingServices: `**Detail of the services we will provide:**\n-Boxes and packing materials will be provided for the packing of smaller items such as decorations, glassware, kitchen items, etc., that you prefer to pack yourself.\n-Wardrobe boxes for hanging clothes.\n-Loading and unloading services will be carried out by our professional staff.\n-1 truck trip will be made on the indicated days.\n-Furniture will be wrapped in the truck with special blankets for proper protection during transport.\n-We have an insurance policy for loading and unloading operations primarily for furniture as well as for walls or floors both at origin and destination, and for boxes packed by our staff.\n-Arrangement of household goods in the new residence according to your instructions.\n-In the case of the bed and any other furniture that needs to be disassembled, it will be properly reassembled at the destination in the location you indicate.\n-Removal of boxes and materials generated after the move, once the client indicates.\n-Return transport of refrigerator to the house of origin.`,
+
+    price: `**Price & Conditions**\n\nThe rate for the aforementioned services is [Currency][Price] plus 13% VAT ([Price In Words]).`,
+
+    exclusions: `Should you require the packing of smaller items such as glassware, dishes, decorations, toys, books, clothing, etc. by our collaborators, this has an additional cost of $5 per packed box, and this service would be carried out one day before the move. The cost per unpacked box after the transfer is $2.50.`,
+
+    goodbye: `Thank you for considering us for your move.\n\n\n\nSincerely,\n[Quote Creator]`,
+  },
+
+  ES: {
+    clientInfo: `Fecha: [Date]\n\nSeñor (a) [Client Name]\n[Company]`,
+
+    salutation: `Con mucho gusto le brindamos nuestra oferta de servicios para el traslado local del menaje de casa y efectos personales desde su actual ubicación en [Origin] hasta su nueva residencia en [Destiny].`,
+
+    originPackingServices: `**Detalle de los servicios que le prestaremos:**\n-Se le suministraran cajas y los materiales de empaque necesarios para el empaque de las partidas menores tales como adornos, cristalería, artículos de cocina, etc. Que prefiera empacar por su cuenta.\n-Cajas tipo ropero para la ropa de colgar.\n-El servicio de carga y descarga será realizado por nuestro personal profesional.\n-Se realizaran 1 viajes de camión en los días indicados\n-Se embalaran los muebles en el camión con cobertores especiales para su debida protección durante el traslado.\n-Contamos con póliza de seguros para maniobras de carga y descarga principalmente para los muebles así como para las paredes o pisos tanto en origen como en destino y de las cajas que hayan sido empacadas por nuestro personal.\n-Acondicionamiento del menaje de casa en la nueva residencia de acuerdo a sus instrucciones.\n-En el caso de la cama y algún otro mueble que sea necesario desarmar, quedara en el destino debidamente armado en el lugar que usted nos indique.\n-Retiro de cajas y material que se genere después de la mudanza, una vez que el cliente lo indique.\n-Traslado de vuelta de refrigeradora a la casa de origen.`,
+
+    price: `**Costos y Condiciones**\n\nLa tarifa por los servicios antes mencionados es de [Currency][Price] más 13% IVA ([Price In Words]).`,
+
+    exclusions: `En caso de requerir el empaque de las partidas menores como la cristalería, loza, adornos, juguetes, libros, ropa, etc. por parte de nuestros colaboradores este tiene un costo adicional de $5 por cada caja empacada y este servicio se realizaría un día antes al de la mudanza y el costo por caja desempacada después del traslado es de $ 2.5.`,
+
+    goodbye: `Agradeciendo el habernos tomado en cuenta me suscribo de usted,\n\n\n\nMuy atentamente\n[Quote Creator]`,
+  },
+}
+
+export function buildDefaultSections(language, vars, serviceType) {
   const lang = language === 'ES' ? 'ES' : 'EN'
-  const template = TEMPLATES[lang]
+  const isLocal = serviceType === 'LOCAL_MOVE'
+  const template = isLocal ? LOCAL_TEMPLATES[lang] : TEMPLATES[lang]
+  const keys = isLocal ? LOCAL_SECTION_KEYS : SECTION_KEYS
   const result = {}
-  SECTION_KEYS.forEach(key => {
+  keys.forEach(key => {
     result[key] = substitutePlaceholders(template[key] || '', vars)
   })
   return result
@@ -137,10 +242,13 @@ export function buildVarsFromVisit(visit, meta, language) {
   const destiny = [visit?.destCity,   visit?.destCountry  ].filter(Boolean).join(', ')
   const rawServiceType = visit?.serviceType || ''
   const serviceType = SERVICE_TYPE_LABELS[lang]?.[rawServiceType] || rawServiceType
+  const locale = lang === 'ES' ? 'es-CR' : 'en-GB'
+  const dateOpts = { day: '2-digit', month: 'long', year: 'numeric' }
   const validUntilStr = meta?.validUntil
-    ? new Date(meta.validUntil).toLocaleDateString(lang === 'ES' ? 'es-CR' : 'en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+    ? new Date(meta.validUntil).toLocaleDateString(locale, dateOpts)
     : ''
   return {
+    date:         new Date().toLocaleDateString(locale, dateOpts),
     clientName,
     company,
     origin,
@@ -148,6 +256,7 @@ export function buildVarsFromVisit(visit, meta, language) {
     serviceType,
     currency:     meta?.currency    || 'USD',
     price:        meta?.totalAmount || '',
+    priceInWords: priceToWords(meta?.totalAmount, lang, meta?.currency),
     validUntil:   validUntilStr,
     creatorName:  meta?.creatorName || '',
   }
