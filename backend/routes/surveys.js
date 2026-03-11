@@ -67,7 +67,7 @@ router.get('/:id', async (req, res, next) => {
 // POST create
 router.post('/', async (req, res, next) => {
   try {
-    const { visitId, surveyDate, surveyorName, notes, items = [] } = req.body
+    const { visitId, surveyDate, surveyorName, notes, items = [], cubeWeightFactor } = req.body
     if (!visitId) return res.status(400).json({ error: 'visitId is required' })
 
     const surveyNumber = await generateSurveyNumber()
@@ -83,10 +83,11 @@ router.post('/', async (req, res, next) => {
       data: {
         surveyNumber,
         visitId,
-        surveyDate:   toDate(surveyDate),
-        surveyorName: surveyorName || null,
+        surveyDate:        toDate(surveyDate),
+        surveyorName:      surveyorName || null,
         totalCf,
-        notes:        notes || null,
+        cubeWeightFactor:  cubeWeightFactor != null ? parseFloat(cubeWeightFactor) : 6,
+        notes:             notes || null,
         items: {
           create: items.map(item => ({
             room:        item.room || 'OTHER',
@@ -108,7 +109,7 @@ router.post('/', async (req, res, next) => {
 // PUT update (replaces all items)
 router.put('/:id', async (req, res, next) => {
   try {
-    const { surveyDate, surveyorName, notes, items = [] } = req.body
+    const { surveyDate, surveyorName, notes, items = [], cubeWeightFactor } = req.body
 
     const totalCf = items.reduce((sum, item) => {
       const qty = parseInt(item.qty) || 1
@@ -122,10 +123,11 @@ router.put('/:id', async (req, res, next) => {
     const survey = await getPrisma().surveyCubicFeet.update({
       where: { id: req.params.id },
       data: {
-        surveyDate:   toDate(surveyDate),
-        surveyorName: surveyorName || null,
+        surveyDate:        toDate(surveyDate),
+        surveyorName:      surveyorName || null,
         totalCf,
-        notes:        notes || null,
+        cubeWeightFactor:  cubeWeightFactor != null ? parseFloat(cubeWeightFactor) : undefined,
+        notes:             notes || null,
         items: {
           create: items.map(item => ({
             room:        item.room || 'OTHER',

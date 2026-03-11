@@ -1,17 +1,11 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
+import { SURVEY_ROOM_ITEMS, SURVEY_CARTON_ITEMS, SURVEY_COLUMN_ROOMS } from '../../constants'
 
-const ROOM_OPTIONS = [
-  'LIVING_ROOM', 'DINING_ROOM', 'KITCHEN',
-  'MASTER_BEDROOM', 'BEDROOM_2', 'BEDROOM_3',
-  'STUDY_OFFICE', 'GARAGE', 'GARDEN', 'OTHER',
-]
-
-function newItem(room = 'LIVING_ROOM') {
-  return { _key: Math.random(), room, description: '', qty: 1, cfPerItem: 0, totalCf: 0 }
-}
+const ALL_ROOMS = Object.keys(SURVEY_ROOM_ITEMS)
+const sk = (room, desc) => `${room}::${desc}`
 
 export default function SurveyForm() {
   const { id } = useParams()
@@ -25,11 +19,13 @@ export default function SurveyForm() {
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
 
-  // Form state
-  const [surveyDate, setSurveyDate]       = useState('')
-  const [surveyorName, setSurveyorName]   = useState('')
-  const [notes, setNotes]                 = useState('')
-  const [items, setItems]                 = useState([newItem()])
+  const [surveyDate, setSurveyDate]     = useState('')
+  const [surveyorName, setSurveyorName] = useState('')
+  const [notes, setNotes]               = useState('')
+  const [weightFactor, setWeightFactor] = useState('6')
+
+  const [qtys, setQtys] = useState({})
+  const [cfs,  setCfs]  = useState({})
 
   useEffect(() => {
     const load = async () => {
@@ -39,8 +35,16 @@ export default function SurveyForm() {
           setSurveyDate(survey.surveyDate ? survey.surveyDate.slice(0, 10) : '')
           setSurveyorName(survey.surveyorName || '')
           setNotes(survey.notes || '')
-          setItems(survey.items.map(i => ({ ...i, _key: Math.random() })))
+          setWeightFactor(String(survey.cubeWeightFactor ?? 6))
           setVisit(survey.visit)
+          const savedQtys = {}, savedCfs = {}
+          for (const item of survey.items) {
+            const key = sk(item.room, item.description)
+            savedQtys[key] = String(item.qty)
+            savedCfs[key]  = String(item.cfPerItem)
+          }
+          setQtys(savedQtys)
+          setCfs(savedCfs)
         } else {
           const visitId = searchParams.get('visitId')
           if (visitId) {
@@ -60,22 +64,25 @@ export default function SurveyForm() {
 
   const visitId = visit?.id || searchParams.get('visitId')
 
-  const updateItem = (key, field, value) => {
-    setItems(prev => prev.map(item => {
-      if (item._key !== key) return item
-      const updated = { ...item, [field]: value }
-      const qty = field === 'qty'       ? parseFloat(value) || 0 : parseFloat(item.qty) || 0
-      const cf  = field === 'cfPerItem' ? parseFloat(value) || 0 : parseFloat(item.cfPerItem) || 0
-      updated.totalCf = qty * cf
-      return updated
-    }))
+  const getQty = (room, desc) => Math.max(0, parseInt(qtys[sk(room, desc)]) || 0)
+  const getCf  = (room, desc) => {
+    const override = cfs[sk(room, desc)]
+    if (override !== undefined) return parseFloat(override) || 0
+    const master = room === 'CARTONS'
+      ? SURVEY_CARTON_ITEMS.find(i => i.description === desc)
+      : SURVEY_ROOM_ITEMS[room]?.find(i => i.description === desc)
+    return master?.cfPerItem ?? 0
   }
 
-  const addItem = (room) => setItems(prev => [...prev, newItem(room)])
+  const setQty = (room, desc, val) => setQtys(p => ({ ...p, [sk(room, desc)]: val }))
+  const setCf  = (room, desc, val) => setCfs(p =>  ({ ...p, [sk(room, desc)]: val }))
 
-  const removeItem = (key) => setItems(prev => prev.filter(i => i._key !== key))
-
-  const grandTotal = items.reduce((s, i) => s + ((parseFloat(i.qty) || 0) * (parseFloat(i.cfPerItem) || 0)), 0)
+  const roomTotal    = (room) => (room === 'CARTONS' ? SURVEY_CARTON_ITEMS : SURVEY_ROOM_ITEMS[room] || [])
+    .reduce((s, i) => s + getQty(room, i.description) * getCf(room, i.description), 0)
+  const colTotal     = (idx) => SURVEY_COLUMN_ROOMS[idx].reduce((s, r) => s + roomTotal(r), 0)
+  const cartonsTotal = roomTotal('CARTONS')
+  const grandTotal   = ALL_ROOMS.reduce((s, r) => s + roomTotal(r), 0) + cartonsTotal
+  const estWeight    = grandTotal * (parseFloat(weightFactor) || 6)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -83,16 +90,23 @@ export default function SurveyForm() {
     setSaving(true)
     setError(null)
     try {
+      const items = []
+      for (const room of [...ALL_ROOMS, 'CARTONS']) {
+        const masterList = room === 'CARTONS' ? SURVEY_CARTON_ITEMS : SURVEY_ROOM_ITEMS[room]
+        for (const master of masterList) {
+          const qty = getQty(room, master.description)
+          if (qty > 0) {
+            items.push({ room, description: master.description, qty, cfPerItem: getCf(room, master.description) })
+          }
+        }
+      }
       const payload = {
         visitId,
-        surveyDate: surveyDate || null,
-        surveyorName,
-        notes,
-        items: items.map(({ room, description, qty, cfPerItem }) => ({
-          room, description,
-          qty: parseInt(qty) || 1,
-          cfPerItem: parseFloat(cfPerItem) || 0,
-        })),
+        surveyDate:       surveyDate || null,
+        surveyorName:     surveyorName || null,
+        notes:            notes || null,
+        cubeWeightFactor: parseFloat(weightFactor) || 6,
+        items,
       }
       if (isEdit) {
         await api.put(`/surveys/${id}`, payload)
@@ -110,14 +124,32 @@ export default function SurveyForm() {
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
 
   const clientName = visit?.client?.name || visit?.corporateClient?.name || visit?.prospectName
-  const phone      = visit?.prospectPhone || visit?.client?.phone
-  const origin     = [visit?.originAddress, visit?.originCity, visit?.originCountry].filter(Boolean).join(', ')
-  const dest       = [visit?.destCity, visit?.destCountry].filter(Boolean).join(', ')
-  const oa         = visit?.originAgent?.name
-  const da         = visit?.destAgent?.name
+  const origin        = [visit?.originAddress, visit?.originCity, visit?.originCountry].filter(Boolean).join(', ')
+  const dest          = [visit?.destCity, visit?.destCountry].filter(Boolean).join(', ')
+  const originCountry = visit?.originCountry || ''
+  const destCountry   = visit?.destCountry   || ''
+  const assignedToName = visit?.assignedTo?.name || ''
 
-  // Group items by room for display
-  const roomsUsed = [...new Set(items.map(i => i.room))]
+  // Shared micro-styles
+  const hdrCell = (align = 'left') => ({
+    fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+    color: 'var(--text-muted)', textAlign: align, padding: '3px 4px', letterSpacing: '.04em',
+  })
+  const dataCell = (align = 'left', extra = {}) => ({
+    fontSize: 12, padding: '2px 4px', textAlign: align,
+    borderBottom: '1px solid var(--border)', ...extra,
+  })
+  const numInput = (bg = 'var(--surface)') => ({
+    width: '100%', textAlign: 'center', padding: '1px 2px',
+    border: '1px solid var(--border)', borderRadius: 3, fontSize: 12,
+    background: bg, color: 'var(--text)',
+  })
+  const COL_GRID = { display: 'grid', gridTemplateColumns: '1fr 46px 46px 54px' }
+  const CART_GRID = { display: 'grid', gridTemplateColumns: '1fr 54px 54px 62px' }
+  const roomHdr = {
+    background: '#1c1c1c', color: '#fff', padding: '3px 6px',
+    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em',
+  }
 
   return (
     <>
@@ -134,170 +166,231 @@ export default function SurveyForm() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Survey Info */}
-        <div className="card card-body" style={{ marginBottom: 16 }}>
-          <div className="section-label" style={{ marginBottom: 12 }}>{t('surveys.surveyInfo')}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} className="chart-grid">
-            <div className="form-group">
-              <label className="form-label">{t('surveys.surveyDate')}</label>
-              <input className="form-control" type="date" value={surveyDate} onChange={e => setSurveyDate(e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('surveys.surveyorName')}</label>
-              <input className="form-control" type="text" value={surveyorName}
-                placeholder={t('surveys.surveyorPlaceholder')}
-                onChange={e => setSurveyorName(e.target.value)} />
+
+        {/*  Letterhead  */}
+        <div className="card card-body" style={{ marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: 'none' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+            <img src="/winmovers-logo.jpg" alt="WinMovers" style={{ height: 64, objectFit: 'contain' }} />
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text)' }}>Non-Binding Estimate</div>
+              <div style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)' }}>Table of Measurements in Cubic Feet</div>
             </div>
           </div>
         </div>
 
-        {/* Client Info (read-only prefill from visit) */}
-        <div className="card card-body" style={{ marginBottom: 16 }}>
-          <div className="section-label" style={{ marginBottom: 12 }}>{t('surveys.clientInfo')}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} className="chart-grid">
-            <div className="form-group">
-              <label className="form-label">{t('surveys.clientName')}</label>
+        {/*  Shipper info  */}
+        <div className="card card-body" style={{ marginBottom: 10, borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }} className="chart-grid">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Name of Shipper</label>
               <input className="form-control" type="text" value={clientName || ''} readOnly
                 style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }} />
             </div>
-            <div className="form-group">
-              <label className="form-label">{t('surveys.phone')}</label>
-              <input className="form-control" type="text" value={phone || ''} readOnly
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">{t('surveys.surveyDate')}</label>
+              <input className="form-control" type="date" value={surveyDate}
+                onChange={e => setSurveyDate(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Shipping From</label>
+              <input className="form-control" type="text" value={originCountry} readOnly
                 style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }} />
             </div>
-            <div className="form-group">
-              <label className="form-label">{t('surveys.origin')}</label>
-              <input className="form-control" type="text" value={origin || ''} readOnly
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Shipping To</label>
+              <input className="form-control" type="text" value={destCountry} readOnly
                 style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }} />
             </div>
-            <div className="form-group">
-              <label className="form-label">{t('surveys.destination')}</label>
-              <input className="form-control" type="text" value={dest || ''} readOnly
-                style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('surveys.oa')}</label>
-              <input className="form-control" type="text" value={oa || ''} readOnly
-                style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('surveys.da')}</label>
-              <input className="form-control" type="text" value={da || ''} readOnly
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Created by</label>
+              <input className="form-control" type="text" value={assignedToName} readOnly
                 style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }} />
             </div>
           </div>
         </div>
 
-        {/* Item Inventory */}
-        <div className="card card-body" style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div className="section-label">{t('surveys.itemInventory')}</div>
-          </div>
+        {/*  4-column inventory grid  */}
+        <div style={{ overflowX: 'auto', marginBottom: 10 }}>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(4, minmax(200px, 1fr))',
+            border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', minWidth: 800,
+          }}>
+            {SURVEY_COLUMN_ROOMS.map((colRooms, colIdx) => (
+              <div key={colIdx} style={{ borderRight: colIdx < 3 ? '1px solid var(--border)' : 'none' }}>
 
-          {roomsUsed.map(room => {
-            const roomItems = items.filter(i => i.room === room)
-            return (
-              <div key={room} style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)', padding: '4px 10px', background: 'var(--surface-2)', borderRadius: 6 }}>
-                    {t(`surveys.rooms.${room}`)}
-                  </div>
-                  <button type="button" className="btn btn-secondary btn-sm"
-                    onClick={() => addItem(room)}>
-                    {t('surveys.addItem')}
-                  </button>
+                {/* Column sub-header */}
+                <div style={{ ...COL_GRID, background: 'var(--surface-2)', borderBottom: '2px solid var(--border)' }}>
+                  <div style={hdrCell()}>Article</div>
+                  <div style={hdrCell('center')}>No. Pcs</div>
+                  <div style={hdrCell('center')}>Cube</div>
+                  <div style={hdrCell('right')}>Total</div>
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ textAlign: 'left', padding: '4px 6px', fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase' }}>
-                        {t('surveys.description')}
-                      </th>
-                      <th style={{ textAlign: 'center', padding: '4px 6px', width: 70, fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase' }}>
-                        {t('surveys.qty')}
-                      </th>
-                      <th style={{ textAlign: 'center', padding: '4px 6px', width: 100, fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase' }}>
-                        {t('surveys.cfPerItem')}
-                      </th>
-                      <th style={{ textAlign: 'center', padding: '4px 6px', width: 90, fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase' }}>
-                        {t('surveys.totalCfCol')}
-                      </th>
-                      <th style={{ width: 36 }} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {roomItems.map(item => (
-                      <tr key={item._key} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '4px 6px' }}>
-                          <input className="form-control" style={{ height: 32, fontSize: 13 }}
-                            type="text" value={item.description}
-                            onChange={e => updateItem(item._key, 'description', e.target.value)} />
-                        </td>
-                        <td style={{ padding: '4px 6px' }}>
-                          <input className="form-control" style={{ height: 32, fontSize: 13, textAlign: 'center' }}
-                            type="number" min="1" value={item.qty}
-                            onChange={e => updateItem(item._key, 'qty', e.target.value)} />
-                        </td>
-                        <td style={{ padding: '4px 6px' }}>
-                          <input className="form-control" style={{ height: 32, fontSize: 13, textAlign: 'center' }}
-                            type="number" min="0" step="0.5" value={item.cfPerItem}
-                            onChange={e => updateItem(item._key, 'cfPerItem', e.target.value)} />
-                        </td>
-                        <td style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 600 }}>
-                          {((parseFloat(item.qty) || 0) * (parseFloat(item.cfPerItem) || 0)).toFixed(1)}
-                        </td>
-                        <td style={{ padding: '4px 6px', textAlign: 'center' }}>
-                          <button type="button"
-                            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
-                            onClick={() => removeItem(item._key)}>×</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          })}
 
-          {/* Add Room Section */}
-          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('surveys.addRoom')}:</span>
-            {ROOM_OPTIONS.filter(r => !roomsUsed.includes(r)).map(room => (
-              <button key={room} type="button" className="btn btn-secondary btn-sm"
-                onClick={() => addItem(room)}>
-                + {t(`surveys.rooms.${room}`)}
-              </button>
+                {/* Rooms */}
+                {colRooms.map(room => (
+                  <div key={room}>
+                    <div style={roomHdr}>{t(`surveys.rooms.${room}`)}</div>
+                    {SURVEY_ROOM_ITEMS[room].map(item => {
+                      const qty = getQty(room, item.description)
+                      const cf  = getCf(room, item.description)
+                      const tot = qty * cf
+                      return (
+                        <div key={item.description} style={{ ...COL_GRID, opacity: qty === 0 ? 0.45 : 1 }}>
+                          <div style={dataCell()}>{item.description}</div>
+                          <div style={dataCell('center', { padding: '1px 2px' })}>
+                            <input type="number" min="0"
+                              value={qtys[sk(room, item.description)] ?? ''}
+                              placeholder="0"
+                              onChange={e => setQty(room, item.description, e.target.value)}
+                              style={numInput()}
+                            />
+                          </div>
+                          <div style={dataCell('center', { padding: '1px 2px' })}>
+                            <input type="number" min="0" step="0.5"
+                              value={cfs[sk(room, item.description)] ?? item.cfPerItem}
+                              onChange={e => setCf(room, item.description, e.target.value)}
+                              style={numInput('var(--surface-2)')}
+                            />
+                          </div>
+                          <div style={dataCell('right', {
+                            fontWeight: qty > 0 ? 600 : 400,
+                            color: qty > 0 ? 'var(--text)' : 'var(--text-muted)',
+                          })}>
+                            {tot > 0 ? tot.toFixed(1) : ''}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+
+                {/* Column total row */}
+                <div style={{ ...COL_GRID, background: 'var(--surface-2)', borderTop: '2px solid var(--border)' }}>
+                  <div style={{ padding: '3px 6px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', gridColumn: '1 / 4', color: 'var(--text-muted)', letterSpacing: '.04em' }}>
+                    {t(`surveys.col${colIdx + 1}Total`)}
+                  </div>
+                  <div style={{ padding: '3px 6px', fontSize: 12, fontWeight: 700, color: 'var(--primary)', textAlign: 'right' }}>
+                    {colTotal(colIdx).toFixed(1)}
+                  </div>
+                </div>
+
+              </div>
             ))}
           </div>
-
-          {/* Grand Total */}
-          <div style={{ marginTop: 20, padding: '12px 16px', background: 'var(--surface-2)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>{t('surveys.grandTotal')}</span>
-            <span style={{ fontWeight: 700, fontSize: 20, color: 'var(--primary)' }}>{grandTotal.toFixed(1)} CF</span>
-          </div>
         </div>
 
-        {/* Notes */}
-        <div className="card card-body" style={{ marginBottom: 16 }}>
-          <div className="form-group">
+        {/*  Cartons + Totals  */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10, alignItems: 'start' }}>
+
+          {/* Cartons */}
+          <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={roomHdr}>{t('surveys.rooms.CARTONS')}</div>
+            <div style={{ ...CART_GRID, background: 'var(--surface-2)', borderBottom: '2px solid var(--border)' }}>
+              <div style={hdrCell()}>Carton</div>
+              <div style={hdrCell('center')}>No. Pcs</div>
+              <div style={hdrCell('center')}>Cube</div>
+              <div style={hdrCell('right')}>Total</div>
+            </div>
+            {SURVEY_CARTON_ITEMS.map(item => {
+              const qty = getQty('CARTONS', item.description)
+              const cf  = getCf('CARTONS', item.description)
+              const tot = qty * cf
+              return (
+                <div key={item.description} style={{ ...CART_GRID, opacity: qty === 0 ? 0.45 : 1 }}>
+                  <div style={dataCell()}>{item.description}</div>
+                  <div style={dataCell('center', { padding: '1px 2px' })}>
+                    <input type="number" min="0"
+                      value={qtys[sk('CARTONS', item.description)] ?? ''}
+                      placeholder="0"
+                      onChange={e => setQty('CARTONS', item.description, e.target.value)}
+                      style={numInput()}
+                    />
+                  </div>
+                  <div style={dataCell('center', { padding: '1px 2px' })}>
+                    <input type="number" min="0" step="0.5"
+                      value={cfs[sk('CARTONS', item.description)] ?? item.cfPerItem}
+                      onChange={e => setCf('CARTONS', item.description, e.target.value)}
+                      style={numInput('var(--surface-2)')}
+                    />
+                  </div>
+                  <div style={dataCell('right', {
+                    fontWeight: qty > 0 ? 600 : 400,
+                    color: qty > 0 ? 'var(--text)' : 'var(--text-muted)',
+                  })}>
+                    {tot > 0 ? tot.toFixed(1) : ''}
+                  </div>
+                </div>
+              )
+            })}
+            <div style={{ ...CART_GRID, background: 'var(--surface-2)', borderTop: '2px solid var(--border)' }}>
+              <div style={{ padding: '3px 6px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', gridColumn: '1 / 4', color: 'var(--text-muted)', letterSpacing: '.04em' }}>
+                {t('surveys.totalCartons')}
+              </div>
+              <div style={{ padding: '3px 6px', fontSize: 12, fontWeight: 700, color: 'var(--primary)', textAlign: 'right' }}>
+                {cartonsTotal.toFixed(1)}
+              </div>
+            </div>
+          </div>
+
+          {/* Totals */}
+          <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', background: 'var(--surface-2)', borderBottom: '2px solid var(--border)', padding: '4px 8px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '.04em' }}>Totals</div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '.04em' }}>Total Cube</div>
+            </div>
+            {[0, 1, 2, 3].map(idx => (
+              <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '5px 8px', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                <span style={{ color: 'var(--text-muted)' }}>{t(`surveys.col${idx + 1}Total`)}</span>
+                <strong>{colTotal(idx).toFixed(1)}</strong>
+              </div>
+            ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '5px 8px', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{t('surveys.totalCartons')}</span>
+              <strong>{cartonsTotal.toFixed(1)}</strong>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '5px 8px', borderBottom: '2px solid var(--border)', fontSize: 13 }}>
+              <strong>Total Cube</strong>
+              <strong style={{ color: 'var(--primary)' }}>{grandTotal.toFixed(1)}</strong>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '5px 8px', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{t('surveys.cubeWeightFactor')}</span>
+              <strong>{parseFloat(weightFactor) || 6}</strong>
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr auto', padding: '8px 10px',
+              background: '#1c1c1c', borderRadius: '0 0 8px 8px',
+            }}>
+              <strong style={{ color: '#fff', fontSize: 13, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                {t('surveys.estimatedWeight')}
+              </strong>
+              <strong style={{ color: '#fff', fontSize: 16 }}>
+                {estWeight.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} lbs
+              </strong>
+            </div>
+          </div>
+
+        </div>
+
+        {/*  Notes  */}
+        <div className="card card-body" style={{ marginBottom: 12 }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">{t('common.notes')}</label>
-            <textarea className="form-control" rows={3} value={notes}
+            <textarea className="form-control" rows={2} value={notes}
               onChange={e => setNotes(e.target.value)} />
           </div>
         </div>
 
-        {error && <div className="alert alert-danger" style={{ marginBottom: 12 }}>{error}</div>}
+        {error && <div style={{ color: 'var(--danger)', marginBottom: 12, fontSize: 13 }}>{error}</div>}
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 32 }}>
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? t('common.saving') : isEdit ? t('common.save') : t('surveys.createSurvey')}
           </button>
-          {visitId && (
-            <Link to={isEdit ? `/surveys/${id}` : `/visits/${visitId}`} className="btn btn-secondary">
-              {t('common.cancel')}
-            </Link>
-          )}
+          <Link to={isEdit ? `/surveys/${id}` : (visitId ? `/visits/${visitId}` : '/visits')} className="btn btn-secondary">
+            {t('common.cancel')}
+          </Link>
         </div>
+
       </form>
     </>
   )
