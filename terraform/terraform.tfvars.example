@@ -1,0 +1,44 @@
+# -----------------------------------------------------------------------
+# terraform.tfvars.example
+# Copy this file to terraform.tfvars and fill in the values.
+# NEVER commit terraform.tfvars — it contains sensitive credentials.
+# -----------------------------------------------------------------------
+
+# Azure region
+location = "centralus"
+
+# Resource group
+resource_group_name = "winmovers-rg"
+
+# Azure Container Registry — must be globally unique, lowercase, alphanumeric
+acr_name = "winmoversacr"       # e.g., "mycompanywinmoversacr"
+acr_sku  = "Basic"
+
+# App Service Plan
+app_service_plan_name = "winmovers-rg-plan"
+app_service_plan_sku  = "B1"    # B1 = Basic, cheapest Linux plan that supports containers
+
+# App Service — must be globally unique (becomes <app_name>.azurewebsites.net)
+app_name          = "winmovers-ops-2026"
+docker_image_name = "winmovers-ops:latest"
+
+# Storage Account — must be globally unique, 3-24 lowercase alphanumeric chars
+storage_account_name   = "winmoversfiles"  # e.g., "winmoversfiles2026"
+storage_container_name = "job-files"
+
+# PostgreSQL Flexible Server
+postgres_server_name    = "winmovers-db"     # must be globally unique
+postgres_admin_login    = "winmoversadmin"   # avoid "admin" or "postgres" (reserved)
+postgres_admin_password = "CHANGE_ME_Strong$Password123!"
+postgres_db_name        = "winmovers"
+postgres_sku_name       = "B_Standard_B1ms" # Burstable B1ms — cheapest option
+postgres_storage_mb     = 32768             # 32 GB minimum
+postgres_version        = "16"
+postgres_zone           = "1"              # availability zone (1, 2, or 3) — check region support
+# postgres_public_network_access = false   # uncomment to disable public firewall rule (use VNet instead)
+
+# Application Insights (set to false to skip creating AI + Log Analytics)
+enable_app_insights          = true
+log_analytics_workspace_name = "winmovers-logs"
+log_analytics_retention_days = 30  # 30–730 days; increase for compliance requirements
+app_insights_name            = "winmovers-ops-ai"
