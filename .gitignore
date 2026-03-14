@@ -11,3 +11,10 @@ npm-debug.log*
 app-logs/
 app-logs.zip
 run*.log
+
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfvars
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfplan
