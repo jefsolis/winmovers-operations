@@ -26,7 +26,6 @@ WORKDIR /app
 COPY --from=backend-builder /app/backend ./
 ENV PORT=8080
 EXPOSE 8080
-# Run prisma db push on startup to create/sync tables, then start the server.
-# timeout 60 prevents a hung DB connection from blocking startup past 60s.
-# ; (not &&) ensures node always starts even if db push fails.
-CMD ["sh", "-c", "timeout 60 npx prisma db push --accept-data-loss; node index.js"]
+# Retry prisma db push up to 3 times (10s apart) in case of a slow DB connection,
+# then start the server. Using || true on the loop so node always starts.
+CMD ["sh", "-c", "for i in 1 2 3; do timeout 120 npx prisma db push --accept-data-loss --skip-generate && break; echo 'db push attempt failed, retrying in 10s...'; sleep 10; done; node index.js"]
