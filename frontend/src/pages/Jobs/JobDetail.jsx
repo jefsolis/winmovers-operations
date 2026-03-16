@@ -4,6 +4,8 @@ import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { statusMeta, typeMeta, formatDate } from '../../constants'
 import JobDocument from './JobDocument'
+import DamageReport, { EMPTY_DR } from '../Files/DamageReport'
+import ServiceEvaluation, { EMPTY_SE } from '../Files/ServiceEvaluation'
 
 export default function JobDetail() {
   const { id } = useParams()
@@ -14,17 +16,28 @@ export default function JobDetail() {
   const [job, setJob]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [tab, setTab]          = useState('overview') // 'overview' | 'workorder'
+  const [tab, setTab]          = useState('overview') // 'overview' | 'workorder' | 'damage' | 'evaluation'
   const [closing, setClosing]           = useState(false)
   const [exporting, setExporting]       = useState(false)
   const [importFiles, setImportFiles]   = useState(null)  // null = not loaded
   const [selectedFileId, setSelectedFileId] = useState('')
   const [linkingSaving, setLinkingSaving]   = useState(false)
+  const [drData, setDrData]   = useState(EMPTY_DR)
+  const [seData, setSeData]   = useState(EMPTY_SE)
+  const [saving, setSaving]   = useState(false)
 
   useEffect(() => {
     setLoading(true)
     api.get(`/jobs/${id}`)
-      .then(j => setJob(j))
+      .then(j => {
+        setJob(j)
+        if (j.movingFile?.damageReportData) {
+          try { setDrData(JSON.parse(j.movingFile.damageReportData)) } catch {}
+        }
+        if (j.movingFile?.evaluationData) {
+          try { setSeData(JSON.parse(j.movingFile.evaluationData)) } catch {}
+        }
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [id])
@@ -34,6 +47,24 @@ export default function JobDetail() {
   const loadImportFiles = () => {
     if (importFiles !== null) return
     api.get('/files?category=IMPORT').then(setImportFiles).catch(() => setImportFiles([]))
+  }
+
+  const saveDR = async () => {
+    if (!job?.movingFile?.id) return
+    setSaving(true)
+    try {
+      await api.put(`/files/${job.movingFile.id}`, { damageReportData: JSON.stringify(drData) })
+    } catch (e) { alert(e.message) }
+    finally { setSaving(false) }
+  }
+
+  const saveSE = async () => {
+    if (!job?.movingFile?.id) return
+    setSaving(true)
+    try {
+      await api.put(`/files/${job.movingFile.id}`, { evaluationData: JSON.stringify(seData) })
+    } catch (e) { alert(e.message) }
+    finally { setSaving(false) }
   }
 
   const handleLinkFile = async () => {
@@ -176,8 +207,12 @@ export default function JobDetail() {
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', marginBottom: 20 }}>
         {[
-          { key: 'overview',   label: t('files.overview') },
-          { key: 'workorder',  label: t('jobs.workOrder') },
+          { key: 'overview',    label: t('files.overview') },
+          { key: 'workorder',   label: t('jobs.workOrder') },
+          ...(job.type === 'IMPORT' ? [
+            { key: 'damage',     label: t('movingFiles.damageReportTab') },
+            { key: 'evaluation', label: t('movingFiles.evaluationTab') },
+          ] : []),
         ].map(tb => (
           <button
             key={tb.key}
@@ -202,6 +237,56 @@ export default function JobDetail() {
       {/* Work Order tab */}
       {tab === 'workorder' && (
         <JobDocument ref={docRef} headerRef={headerRef} job={job} language={job.language || 'EN'} />
+      )}
+
+      {/* Damage Report tab (IMPORT only) */}
+      {tab === 'damage' && (
+        <>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
+            <button className="btn btn-secondary" onClick={() => setDrData(EMPTY_DR)}>
+              {t('common.reset')}
+            </button>
+            <button className="btn btn-primary" onClick={saveDR} disabled={saving}>
+              {saving ? t('common.saving') : t('common.save')}
+            </button>
+            <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
+              {exporting ? '…' : t('jobs.exportPDF')}
+            </button>
+          </div>
+          <DamageReport
+            ref={docRef}
+            headerRef={headerRef}
+            file={{ job, client: job.client }}
+            editMode
+            data={drData}
+            onChange={setDrData}
+          />
+        </>
+      )}
+
+      {/* Service Evaluation tab (IMPORT only) */}
+      {tab === 'evaluation' && (
+        <>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
+            <button className="btn btn-secondary" onClick={() => setSeData(EMPTY_SE)}>
+              {t('common.reset')}
+            </button>
+            <button className="btn btn-primary" onClick={saveSE} disabled={saving}>
+              {saving ? t('common.saving') : t('common.save')}
+            </button>
+            <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
+              {exporting ? '…' : t('jobs.exportPDF')}
+            </button>
+          </div>
+          <ServiceEvaluation
+            ref={docRef}
+            headerRef={headerRef}
+            file={{ job, client: job.client }}
+            editMode
+            data={seData}
+            onChange={setSeData}
+          />
+        </>
       )}
 
       {/* Overview tab */}
@@ -287,8 +372,8 @@ export default function JobDetail() {
           <Section title={t('jobs.parties')}>
             <Field label={t('jobs.corporateClient')} value={clientName} />
             <Field label={t('jobs.shipperContact')} value={job.contact ? `${job.contact.firstName} ${job.contact.lastName}` : null} />
-            <Field label={t('jobs.originAgent')} value={job.originAgent?.name} />
-            <Field label={t('jobs.destAgent')} value={job.destAgent?.name} />
+            <Field label={t('jobs.originAgent')} value={job.type === 'IMPORT' ? (job.movingFile?.originAgent?.name || job.originAgent?.name) : job.originAgent?.name} />
+            <Field label={t('jobs.destAgent')} value={job.type === 'IMPORT' ? (job.movingFile?.destAgent?.name || job.destAgent?.name) : job.destAgent?.name} />
             <Field label={t('jobs.customsAgent')} value={job.customsAgent?.name} />
           </Section>
 
@@ -300,14 +385,6 @@ export default function JobDetail() {
             <Field label={t('jobs.destCity')} value={job.destCity} />
             <Field label={t('jobs.destCountry')} value={job.destCountry} />
             <Field label={t('jobs.shipmentMode')} value={job.shipmentMode ? t(`modes.${job.shipmentMode}`) : null} />
-          </Section>
-
-          <Section title={t('jobs.dates')}>
-            <Field label={t('jobs.callDate')} value={formatDate(job.callDate)} />
-            <Field label={t('jobs.surveyDate')} value={job.surveyDate ? new Date(job.surveyDate).toLocaleString('en-GB') : null} />
-            <Field label={t('jobs.packDate')} value={formatDate(job.packDate)} />
-            <Field label={t('jobs.moveDate_label')} value={formatDate(job.moveDate)} />
-            <Field label={t('jobs.deliveryDate')} value={formatDate(job.deliveryDate)} />
           </Section>
 
           <Section title={t('jobs.cargo')}>

@@ -124,6 +124,26 @@ model MovingFile {
   destAgent     Agent?   @relation("FileDestAgent", fields: [destAgentId], references: [id])
   damageReportData String?  @db.Text
   evaluationData   String?  @db.Text
+  etd                 DateTime?
+  eta                 DateTime?
+  navieraAerolinea    String?
+  vaporVuelo          String?
+  guiaObl             String?
+  puertoSalida        String?
+  puertoLlegada       String?
+  destPhone           String?
+  originAddress String?
+  originCity    String?
+  originCountry String?
+  destAddress   String?
+  destCity      String?
+  destCountry   String?
+  puertoEntrada       String?
+  oblHastaCiudad      String?
+  fechaLlegada        DateTime?
+  fechaTrasladoBodega DateTime?
+  fechaTraslado       DateTime?
+  fechaEntrega        DateTime?
   job         Job?         // back-relation; null for LOCAL files
   attachments Attachment[]
   createdAt   DateTime     @default(now())
@@ -196,7 +216,7 @@ model SurveyCubicFeet {
   id                String       @id @default(cuid())
   surveyNumber      String       @unique
   visitId           String       @unique
-  visit             Visit        @relation(fields: [visitId], references: [id])
+  visit             Visit        @relation(fields: [visitId], references: [id], onDelete: Cascade)
   surveyDate        DateTime?
   surveyorName      String?
   totalCf           Float?

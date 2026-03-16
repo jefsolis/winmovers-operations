@@ -10,7 +10,7 @@ import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMEN
  *   fileCategory String   EXPORT | IMPORT | LOCAL
  *   onStatusChange fn(status)   called when file auto-closes or re-opens
  */
-export default function FileAttachments({ fileId, fileCategory, onStatusChange, onAllRequiredDone }) {
+export default function FileAttachments({ fileId, fileCategory, onStatusChange, onAllRequiredDone, onPctChange }) {
   const { t } = useLanguage()
   const FILE_CATS   = getFileCategories(t)
   const requiredCats = REQUIRED_ATTACHMENTS[fileCategory] || []
@@ -25,9 +25,15 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange, 
   // Notify parent when all required docs are uploaded
   const allRequiredDone = requiredCats.length === 0 ||
     requiredCats.every(cat => attachments.some(a => a.category === cat))
+  const _requiredDoneCount = requiredCats.filter(cat => attachments.some(a => a.category === cat)).length
+  const _requiredTotal     = requiredCats.length
+  const _pct = _requiredTotal > 0 ? Math.round((_requiredDoneCount / _requiredTotal) * 100) : 100
   useEffect(() => {
-    if (!loading) onAllRequiredDone?.(allRequiredDone)
-  }, [allRequiredDone, loading]) // eslint-disable-line
+    if (!loading) {
+      onAllRequiredDone?.(allRequiredDone)
+      onPctChange?.(_pct)
+    }
+  }, [allRequiredDone, _pct, loading]) // eslint-disable-line
 
   const load = () => {
     setLoading(true)

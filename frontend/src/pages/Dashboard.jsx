@@ -5,15 +5,16 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts'
 import { api } from '../api'
-import { statusMeta, formatDate } from '../constants'
+import { formatDate } from '../constants'
 import { useLanguage } from '../i18n'
 
 const MODE_COLORS  = { ROAD: '#6366f1', SEA: '#0ea5e9', AIR: '#f59e0b', COMBINED: '#10b981' }
-const TYPE_COLORS  = { INTERNATIONAL: '#2563eb', DOMESTIC: '#16a34a' }
-const STATUS_COLORS = {
-  SURVEY: '#94a3b8', QUOTATION: '#3b82f6', BOOKING: '#8b5cf6',
-  PRE_MOVE: '#f59e0b', IN_TRANSIT: '#eab308', DELIVERED: '#22c55e',
-  CLOSED: '#10b981', CANCELLED: '#ef4444',
+const TYPE_COLORS  = { EXPORT: '#0ea5e9', IMPORT: '#8b5cf6', INTERNATIONAL: '#2563eb', DOMESTIC: '#16a34a' }
+const COMPLETION_COLORS = {
+  none:     '#ef4444',
+  low:      '#f97316',
+  mid:      '#eab308',
+  complete: '#16a34a',
 }
 
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -74,10 +75,10 @@ export default function Dashboard() {
     jobsByStatus, jobsByType, jobsByMode, jobsByMonth, recentJobs,
     openVisits, pendingQuotes, conversionRate,
     pipeline, upcomingVisits, pendingQuotesList,
+    filesByCompletion,
   } = data
 
   const monthData  = (jobsByMonth || []).map(d => ({ ...d, month: fmtMonth(d.month) }))
-  const statusData = jobsByStatus.map(s => ({ name: statusMeta(s.status, t).label, value: s.count, key: s.status }))
   const modeData   = (jobsByMode || []).map(m => ({ name: t(`modes.${m.mode}`), value: m.count, key: m.mode }))
   const typeData   = jobsByType.map(tp => ({ name: t(`types.${tp.type}`), value: tp.count, key: tp.type }))
 
@@ -295,38 +296,35 @@ export default function Dashboard() {
       {/* Status + Mode + Type row */}
       <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: hasModeData ? '1fr 1fr 1fr' : '1fr 1fr', gap: 16, marginBottom: 20 }}>
 
-        {/* Status donut */}
+        {/* Files completion chart */}
         <div className="card card-body">
-          <div className="section-label" style={{ marginBottom: 8 }}>{t('dashboard.byStatus')}</div>
-          {jobsByStatus.length === 0
-            ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('dashboard.noJobs')}</p>
-            : <>
-                <ResponsiveContainer width="100%" height={180}>
-                  <PieChart>
-                    <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                         innerRadius={50} outerRadius={78} paddingAngle={2}>
-                      {statusData.map(d => (
-                        <Cell key={d.key} fill={STATUS_COLORS[d.key] || '#94a3b8'} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={PieTooltip} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="status-list" style={{ marginTop: 4 }}>
-                  {jobsByStatus.map(({ status, count }) => {
-                    const m = statusMeta(status, t)
-                    return (
-                      <Link key={status} to={`/jobs?status=${status}`} className="status-row status-row-link">
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLORS[status] || '#94a3b8', flexShrink: 0 }} />
-                          <span className="badge" style={{ background: m.bg, color: m.color }}>{m.label}</span>
-                        </span>
-                        <span className="status-count">{count}</span>
-                      </Link>
-                    )
-                  })}
+          <div className="section-label" style={{ marginBottom: 12 }}>{t('dashboard.filesByCompletion') || 'Files Completion'}</div>
+          {(!filesByCompletion || filesByCompletion.every(b => b.count === 0))
+            ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('dashboard.noFiles') || 'No open files'}</p>
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+                {filesByCompletion.map(b => {
+                  const total = filesByCompletion.reduce((s, x) => s + x.count, 0)
+                  const pct = total > 0 ? Math.round((b.count / total) * 100) : 0
+                  const color = COMPLETION_COLORS[b.bucket]
+                  const labels = { none: t('dashboard.completion0') || '0% — Not started', low: t('dashboard.completion1to50') || '1–50%', mid: t('dashboard.completion51to99') || '51–99%', complete: t('dashboard.completion100') || '100% — Ready to close' }
+                  return (
+                    <div key={b.bucket}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{labels[b.bucket]}</span>
+                        <span style={{ fontWeight: 700, color }}>{b.count} files</span>
+                      </div>
+                      <div style={{ height: 8, borderRadius: 6, background: 'var(--surface-2, #e2e8f0)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 6, transition: 'width 0.4s' }} />
+                      </div>
+                    </div>
+                  )
+                })}
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                  {filesByCompletion.reduce((s, x) => s + x.count, 0)} {t('dashboard.openFilesTotal') || 'open files'}
                 </div>
-              </>
+              </div>
+            )
           }
         </div>
 
@@ -381,7 +379,7 @@ export default function Dashboard() {
                     <Link key={d.key} to={`/jobs?type=${d.key}`} className="status-row status-row-link">
                       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: TYPE_COLORS[d.key] || '#94a3b8', flexShrink: 0 }} />
-                        <span>{d.key === 'INTERNATIONAL' ? `🌍 ${d.name}` : `🏠 ${d.name}`}</span>
+                        <span>{d.key === 'EXPORT' ? `📦 ${d.name}` : d.key === 'IMPORT' ? `🚢 ${d.name}` : d.key === 'INTERNATIONAL' ? `🌍 ${d.name}` : `🏠 ${d.name}`}</span>
                       </span>
                       <span className="status-count">{d.value}</span>
                     </Link>
@@ -406,19 +404,18 @@ export default function Dashboard() {
                   <th>{t('dashboard.jobNumber')}</th>
                   <th>{t('dashboard.shipper')}</th>
                   <th>{t('dashboard.route')}</th>
-                  <th>{t('jobs.status')}</th>
+                  <th>{t('jobs.type')}</th>
                   <th>{t('dashboard.moveDate')}</th>
                 </tr>
               </thead>
               <tbody>
                 {recentJobs.map(job => {
-                  const m = statusMeta(job.status, t)
                   return (
                     <tr key={job.id} className="recent-job-row">
                       <td><Link to={`/jobs/${job.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.jobNumber}</Link></td>
                       <td>{job.client ? (job.client.clientType === 'INDIVIDUAL' ? [`${job.client.firstName || ''}`, `${job.client.lastName || ''}`].filter(Boolean).join(' ') || job.client.name : job.client.name) : '—'}</td>
                       <td style={{ color: 'var(--text-muted)' }}>{[job.originCity, job.destCity].filter(Boolean).join(' → ') || '—'}</td>
-                      <td><span className="badge" style={{ background: m.bg, color: m.color }}>{m.label}</span></td>
+                      <td><span style={{ fontSize: 13 }}>{job.type === 'EXPORT' ? `📦 ${t('types.EXPORT')}` : job.type === 'IMPORT' ? `🚢 ${t('types.IMPORT')}` : job.type === 'INTERNATIONAL' ? `🌍 ${t('types.INTERNATIONAL')}` : `🏠 ${t('types.DOMESTIC')}`}</span></td>
                       <td style={{ color: 'var(--text-muted)' }}>{formatDate(job.moveDate)}</td>
                     </tr>
                   )

@@ -52,7 +52,6 @@ export default function JobsList() {
           <div className="page-title">{t('jobs.title')}</div>
           <div className="page-subtitle">{jobs.length === 1 ? t('jobs.subtitle_one') : t('jobs.subtitle_other', { n: jobs.length })}</div>
         </div>
-        <Link to="/jobs/new" className="btn btn-primary">{t('jobs.newJob')}</Link>
       </div>
 
       <div className="toolbar">

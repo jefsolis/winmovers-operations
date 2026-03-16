@@ -59,7 +59,14 @@ router.get("/:id", async (req, res, next) => {
         client: true,
         originAgent: true, destAgent: true, customsAgent: true,
         quote: { select: { id: true, quoteNumber: true, visit: { select: { id: true, visitNumber: true, serviceType: true, scheduledDate: true } } } },
-        movingFile: { select: { id: true, fileNumber: true, status: true, category: true } },
+        movingFile: {
+          select: {
+            id: true, fileNumber: true, status: true, category: true,
+            damageReportData: true, evaluationData: true,
+            originAgent: { select: { id: true, name: true } },
+            destAgent:   { select: { id: true, name: true } },
+          },
+        },
       },
     })
     if (!job) return res.status(404).json({ error: "Not found" })
@@ -99,15 +106,35 @@ router.post("/", async (req, res, next) => {
     let movingFileId = null
 
     if (isExport) {
-      // Export: Job number = File number (E-####), file auto-created
+      // Export: Job number = File number (E-####-YYYY), file auto-created
       const fileNumber = await generateFileNumber("EXPORT")
       const mf = await getPrisma().movingFile.create({
-        data: { fileNumber, category: "EXPORT", status: "OPEN", clientId: clientId || null },
+        data: { fileNumber, category: "EXPORT", status: "OPEN", clientId: clientId || null,
+                volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
+                weightKg:  weightKg  ? parseFloat(weightKg)  : null },
       })
       jobNumber    = fileNumber
       movingFileId = mf.id
+    } else if (type === "DOMESTIC") {
+      // Domestic/Local: Job number = File number (M-####-YYYY), LOCAL file auto-created
+      const fileNumber = await generateFileNumber("LOCAL")
+      const mf = await getPrisma().movingFile.create({
+        data: { fileNumber, category: "LOCAL", status: "OPEN", clientId: clientId || null,
+                volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
+                weightKg:  weightKg  ? parseFloat(weightKg)  : null },
+      })
+      jobNumber    = fileNumber
+      movingFileId = mf.id
+    } else if (type === "IMPORT" && manualMovingFileId) {
+      // Import job linked to existing file: use file's number as job number
+      const linkedFile = await getPrisma().movingFile.findUnique({
+        where: { id: manualMovingFileId },
+        select: { fileNumber: true },
+      })
+      jobNumber    = linkedFile?.fileNumber || await generateJobNumber()
+      movingFileId = manualMovingFileId
     } else {
-      // Import / other: standard WM-YYYY-#### number; file can be linked manually later
+      // Import standalone or International: standard WM-YYYY-#### number
       jobNumber    = await generateJobNumber()
       movingFileId = manualMovingFileId || null
     }

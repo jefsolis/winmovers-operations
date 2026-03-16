@@ -15,6 +15,7 @@ router.get('/', async (req, res, next) => {
       totalVisits, visitsByStatus,
       quotesByStatus,
       upcomingVisits, pendingQuotesList,
+      openFilesWithAttachments,
     ] = await Promise.all([
       p.job.count(),
       p.client.count(),
@@ -67,6 +68,15 @@ router.get('/', async (req, res, next) => {
           visit: { select: { prospectName: true, client: { select: { name: true, firstName: true, lastName: true, clientType: true } } } },
         },
       }),
+      // Open files with their attachment categories for completion calculation
+      p.movingFile.findMany({
+        where: { status: 'OPEN' },
+        select: {
+          id: true,
+          category: true,
+          attachments: { select: { category: true } },
+        },
+      }),
     ])
 
     const activeStatuses = ['SURVEY', 'QUOTATION', 'BOOKING', 'PRE_MOVE', 'IN_TRANSIT']
@@ -113,6 +123,30 @@ router.get('/', async (req, res, next) => {
     }))
     const jobsByMonth = activityByMonth // keep backward-compat key name
 
+    // Files completion buckets
+    const REQUIRED_DOCS = {
+      EXPORT: ['SURVEY_REPORT','QUOTATION','INSURANCE_INVENTORY','SIGNED_QUOTATION','WORK_ORDER','PRE_ADVICE','SHIPPING_INSTRUCTIONS','TRANSPORT_DOCUMENT','INSURANCE_CERTIFICATE','SIGNED_PACKING_LIST','INVOICE','DELIVERY_CONFIRMATION'],
+      IMPORT: ['QUOTATION','INSURANCE_INVENTORY','SIGNED_QUOTATION','WORK_ORDER','SHIPPING_INSTRUCTIONS','TRANSPORT_DOCUMENT','INSURANCE_CERTIFICATE','SIGNED_PACKING_LIST','INVOICE','DELIVERY_CONFIRMATION'],
+      LOCAL:  ['INVOICE'],
+    }
+    const completionBuckets = { none: 0, low: 0, mid: 0, high: 0, complete: 0 }
+    for (const file of openFilesWithAttachments) {
+      const required = REQUIRED_DOCS[file.category] || []
+      if (required.length === 0) continue
+      const attached = new Set(file.attachments.map(a => a.category))
+      const pct = Math.round((required.filter(r => attached.has(r)).length / required.length) * 100)
+      if      (pct === 0)   completionBuckets.none++
+      else if (pct <= 50)   completionBuckets.low++
+      else if (pct <= 99)   completionBuckets.mid++
+      else                  completionBuckets.complete++
+    }
+    const filesByCompletion = [
+      { bucket: 'none',     label: '0%',        count: completionBuckets.none },
+      { bucket: 'low',      label: '1–50%',     count: completionBuckets.low },
+      { bucket: 'mid',      label: '51–99%',    count: completionBuckets.mid },
+      { bucket: 'complete', label: '100%',      count: completionBuckets.complete },
+    ]
+
     res.json({
       totalJobs,
       activeJobs,
@@ -138,6 +172,7 @@ router.get('/', async (req, res, next) => {
       },
       upcomingVisits,
       pendingQuotesList,
+      filesByCompletion,
     })
   } catch (err) { next(err) }
 })

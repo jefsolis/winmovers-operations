@@ -172,10 +172,10 @@ export default function VisitDetail() {
         {visit.status === 'COMPLETED' && visit.quotes.length === 0 && (
           <Link to={`/quotes/new?visitId=${id}`} className="btn btn-primary btn-sm">{t('visits.createQuote')}</Link>
         )}
-        {visit.status === 'COMPLETED' && !visit.survey && (
+        {visit.serviceType !== 'LOCAL_MOVE' && visit.status === 'COMPLETED' && !visit.survey && (
           <Link to={`/surveys/new?visitId=${id}`} className="btn btn-primary btn-sm">{t('visits.fillSurvey')}</Link>
         )}
-        {visit.status === 'COMPLETED' && visit.survey && (
+        {visit.serviceType !== 'LOCAL_MOVE' && visit.status === 'COMPLETED' && visit.survey && (
           <Link to={`/surveys/${visit.survey.id}`} className="btn btn-secondary btn-sm">{t('visits.viewSurvey')}</Link>
         )}
         {(visit.status === 'QUOTED' || visit.status === 'CLOSED') && visit.quotes.length > 0 && (
@@ -277,6 +277,7 @@ export default function VisitDetail() {
       </div>
 
       {/* Survey Cubic Feet */}
+      {visit.serviceType !== 'LOCAL_MOVE' && (
       <div className="card card-body" style={{ marginTop: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div className="section-label">{t('visits.survey')}</div>
@@ -299,6 +300,7 @@ export default function VisitDetail() {
           )
         }
       </div>
+      )}
 
       <QuickCreateClientModal
         open={showCreateClient}

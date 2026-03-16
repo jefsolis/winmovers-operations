@@ -1,7 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../api'
-import { getJobStatuses, getJobTypes } from '../../constants'
 import { useLanguage } from '../../i18n'
 import JobDocument from './JobDocument'
 
@@ -34,8 +33,6 @@ export default function JobForm() {
   const fromFileId  = !isEdit ? searchParams.get('fromFile')  : null
   const fromType    = !isEdit ? searchParams.get('type')      : null
   const { t } = useLanguage()
-  const JOB_STATUSES = getJobStatuses(t)
-  const JOB_TYPES = getJobTypes(t)
 
   const [form, setForm] = useState(EMPTY)
   const [language] = useState('ES')
@@ -94,8 +91,13 @@ export default function JobForm() {
           const autoQuoteTo = v?.client?.name
             || (v?.client ? `${v.client.firstName || ''} ${v.client.lastName || ''}`.trim() : '')
             || v?.prospectName || ''
+          let jobType = 'INTERNATIONAL'
+          if (v?.serviceType === 'LOCAL_MOVE') jobType = 'DOMESTIC'
+          else if (['DOOR_TO_PORT', 'DOOR_TO_DOOR'].includes(v?.serviceType)) jobType = 'EXPORT'
+          else if (v?.serviceType === 'PORT_TO_DOOR') jobType = 'IMPORT'
           setForm(prev => ({
             ...prev,
+            type:          jobType,
             clientId:      v?.clientId      || '',
             originAddress: v?.originAddress || '',
             originCity:    v?.originCity    || '',
@@ -128,6 +130,12 @@ export default function JobForm() {
             volumeCbm:   f.volumeCbm ?? '',
             weightKg:    f.weightKg  ?? '',
             notes:       f.notes     || '',
+            originAddress: f.originAddress || '',
+            originCity:    f.originCity    || '',
+            originCountry: f.originCountry || '',
+            destAddress:   f.destAddress   || '',
+            destCity:      f.destCity      || '',
+            destCountry:   f.destCountry   || '',
           }))
         }).catch(() => {})
       )
@@ -259,24 +267,6 @@ export default function JobForm() {
             <div className="form-section-title">{t('common.notes')}</div>
             <div className="form-group">
               <textarea className="form-control" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder={t('common.notes') + '...'} />
-            </div>
-          </div>
-
-          <div className="form-section">
-            <div className="form-section-title" style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('jobs.basicInfo')}</div>
-            <div className="form-grid">
-              <div className="form-group">
-                <label className="form-label">{t('jobs.jobType')}</label>
-                <select className="form-control" value={form.type} onChange={e => set('type', e.target.value)} required>
-                  {JOB_TYPES.map(jt => <option key={jt.value} value={jt.value}>{jt.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('jobs.jobStatus')}</label>
-                <select className="form-control" value={form.status} onChange={e => set('status', e.target.value)}>
-                  {JOB_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
             </div>
           </div>
 

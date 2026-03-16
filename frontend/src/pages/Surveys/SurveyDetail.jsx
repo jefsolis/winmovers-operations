@@ -4,8 +4,6 @@ import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { formatDate, SURVEY_ROOM_ITEMS, SURVEY_CARTON_ITEMS, SURVEY_COLUMN_ROOMS } from '../../constants'
 
-const ALL_ROOMS = Object.keys(SURVEY_ROOM_ITEMS)
-
 function Field({ label, value }) {
   return (
     <div className="form-group" style={{ marginBottom: 10 }}>
@@ -68,67 +66,18 @@ export default function SurveyDetail() {
 
   const colTotal = (idx) => SURVEY_COLUMN_ROOMS[idx].reduce((s, r) => s + roomTotal(r) + roomCustomTotal(r), 0)
   const cartonsTotal = roomTotal('CARTONS') + roomCustomTotal('CARTONS')
+  const ALL_ROOMS    = Object.keys(SURVEY_ROOM_ITEMS)
   const itemsTotal   = ALL_ROOMS.reduce((s, r) => s + roomTotal(r) + roomCustomTotal(r), 0)
   const grandTotal   = itemsTotal + cartonsTotal
   const weightFactor = survey.cubeWeightFactor ?? 6
   const estWeight    = grandTotal * weightFactor
 
-  const cellStyle = { padding: '4px 8px', borderBottom: '1px solid var(--border)', fontSize: 13 }
-  const thStyle   = (align = 'left', w) => ({ textAlign: align, padding: '5px 8px', fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', width: w, borderBottom: '2px solid var(--border)' })
-
-  const renderRoomTable = (room) => {
-    const master = room === 'CARTONS' ? SURVEY_CARTON_ITEMS : (SURVEY_ROOM_ITEMS[room] || [])
-    const filledItems = master.filter(i => (itemMap[room]?.[i.description]?.qty || 0) > 0)
-    // Custom items not in master
-    const masterDescs = new Set(master.map(i => i.description))
-    const customItems = Object.values(itemMap[room] || {}).filter(i => !masterDescs.has(i.description) && (i.qty || 0) > 0)
-
-    if (filledItems.length === 0 && customItems.length === 0) return null
-
-    const rTotal = (room === 'CARTONS' ? cartonsTotal : roomTotal(room) + roomCustomTotal(room))
-
-    return (
-      <div key={room} style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, padding: '3px 10px', background: 'var(--surface-2)', borderRadius: 6 }}>
-            {t(`surveys.rooms.${room}`)}
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>{rTotal.toFixed(1)} CF</span>
-        </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={thStyle('left')}>{t('surveys.article')}</th>
-              <th style={thStyle('center', 80)}>{t('surveys.qty')}</th>
-              <th style={thStyle('center', 80)}>{t('surveys.cfPerItem')}</th>
-              <th style={thStyle('right', 90)}>{t('surveys.totalCfCol')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filledItems.map(masterItem => {
-              const saved = itemMap[room][masterItem.description]
-              return (
-                <tr key={masterItem.description}>
-                  <td style={cellStyle}>{masterItem.description}</td>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>{saved.qty}</td>
-                  <td style={{ ...cellStyle, textAlign: 'center', color: 'var(--text-muted)' }}>{saved.cfPerItem.toFixed(1)}</td>
-                  <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 600 }}>{(saved.totalCf || 0).toFixed(1)}</td>
-                </tr>
-              )
-            })}
-            {customItems.map(item => (
-              <tr key={item.description}>
-                <td style={cellStyle}>{item.description}</td>
-                <td style={{ ...cellStyle, textAlign: 'center' }}>{item.qty}</td>
-                <td style={{ ...cellStyle, textAlign: 'center', color: 'var(--text-muted)' }}>{item.cfPerItem.toFixed(1)}</td>
-                <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 600 }}>{(item.totalCf || 0).toFixed(1)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
-  }
+  // Grid layout styles (mirrors SurveyForm)
+  const COL_GRID  = { display: 'grid', gridTemplateColumns: '1fr 46px 46px 54px' }
+  const CART_GRID = { display: 'grid', gridTemplateColumns: '1fr 54px 54px 62px' }
+  const roomHdr   = { background: '#1c1c1c', color: '#fff', padding: '3px 6px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }
+  const hdrCell   = (align = 'left') => ({ padding: '4px 6px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: align, borderBottom: '1px solid var(--border)' })
+  const dataCell  = (align = 'left', extra = {}) => ({ padding: '3px 6px', fontSize: 12, textAlign: align, borderBottom: '1px solid var(--border)', ...extra })
 
   return (
     <>
@@ -168,44 +117,136 @@ export default function SurveyDetail() {
         </div>
       </div>
 
-      {/* Item Inventory */}
-      <div className="card card-body" style={{ marginBottom: 16 }}>
-        <div className="section-label" style={{ marginBottom: 16 }}>{t('surveys.itemInventory')}</div>
+      {/* Item Inventory — 4-column grid matching SurveyForm layout */}
+      <div className="card card-body" style={{ padding: '12px 12px 0', marginBottom: 16, overflow: 'hidden' }}>
+        <div className="section-label" style={{ marginBottom: 12 }}>{t('surveys.itemInventory')}</div>
         {survey.items.length === 0
-          ? <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('surveys.noItems')}</p>
+          ? <p style={{ fontSize: 13, color: 'var(--text-muted)', paddingBottom: 12 }}>{t('surveys.noItems')}</p>
           : (
             <>
-              {ALL_ROOMS.map(room => renderRoomTable(room))}
-              {renderRoomTable('CARTONS')}
+              {/* 4-column room grid */}
+              <div style={{ overflowX: 'auto', marginBottom: 12 }}>
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(4, minmax(200px, 1fr))',
+                  border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', minWidth: 800,
+                }}>
+                  {SURVEY_COLUMN_ROOMS.map((colRooms, colIdx) => (
+                    <div key={colIdx} style={{ borderRight: colIdx < 3 ? '1px solid var(--border)' : 'none' }}>
+                      {/* Sub-header */}
+                      <div style={{ ...COL_GRID, background: 'var(--surface-2)', borderBottom: '2px solid var(--border)' }}>
+                        <div style={hdrCell()}>{t('surveys.article')}</div>
+                        <div style={hdrCell('center')}>{t('surveys.qty')}</div>
+                        <div style={hdrCell('center')}>{t('surveys.cfPerItem')}</div>
+                        <div style={hdrCell('right')}>{t('surveys.totalCfCol')}</div>
+                      </div>
+                      {/* Rooms */}
+                      {colRooms.map(room => {
+                        const masterDescs = new Set(SURVEY_ROOM_ITEMS[room].map(i => i.description))
+                        const customItems = Object.values(itemMap[room] || {}).filter(i => !masterDescs.has(i.description))
+                        return (
+                          <div key={room}>
+                            <div style={roomHdr}>{t(`surveys.rooms.${room}`)}</div>
+                            {SURVEY_ROOM_ITEMS[room].map(item => {
+                              const saved = itemMap[room]?.[item.description]
+                              const qty = saved?.qty || 0
+                              const cf  = saved?.cfPerItem ?? item.cfPerItem
+                              const tot = qty * cf
+                              return (
+                                <div key={item.description} style={{ ...COL_GRID, opacity: qty === 0 ? 0.45 : 1 }}>
+                                  <div style={dataCell()}>{item.description}</div>
+                                  <div style={dataCell('center')}>{qty || ''}</div>
+                                  <div style={dataCell('center', { color: 'var(--text-muted)' })}>{cf.toFixed(1)}</div>
+                                  <div style={dataCell('right', { fontWeight: qty > 0 ? 600 : 400, color: qty > 0 ? 'var(--text)' : 'var(--text-muted)' })}>
+                                    {tot > 0 ? tot.toFixed(1) : ''}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            {customItems.map(item => {
+                              const qty = item.qty || 0
+                              return (
+                                <div key={item.description} style={{ ...COL_GRID, opacity: qty === 0 ? 0.45 : 1 }}>
+                                  <div style={dataCell()}>{item.description}</div>
+                                  <div style={dataCell('center')}>{qty || ''}</div>
+                                  <div style={dataCell('center', { color: 'var(--text-muted)' })}>{(item.cfPerItem || 0).toFixed(1)}</div>
+                                  <div style={dataCell('right', { fontWeight: qty > 0 ? 600 : 400 })}>
+                                    {(item.totalCf || 0) > 0 ? (item.totalCf || 0).toFixed(1) : ''}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })}
+                      {/* Column total */}
+                      <div style={{ ...COL_GRID, background: 'var(--surface-2)', borderTop: '2px solid var(--border)' }}>
+                        <div style={{ padding: '3px 6px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', gridColumn: '1 / 4', color: 'var(--text-muted)', letterSpacing: '.04em' }}>
+                          {t(`surveys.col${colIdx + 1}Total`)}
+                        </div>
+                        <div style={{ padding: '3px 6px', fontSize: 12, fontWeight: 700, color: 'var(--primary)', textAlign: 'right' }}>
+                          {colTotal(colIdx).toFixed(1)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cartons */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12, alignItems: 'start' }}>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                  <div style={roomHdr}>{t('surveys.rooms.CARTONS')}</div>
+                  <div style={{ ...CART_GRID, background: 'var(--surface-2)', borderBottom: '2px solid var(--border)' }}>
+                    <div style={hdrCell()}>{t('surveys.article')}</div>
+                    <div style={hdrCell('center')}>{t('surveys.qty')}</div>
+                    <div style={hdrCell('center')}>{t('surveys.cfPerItem')}</div>
+                    <div style={hdrCell('right')}>{t('surveys.totalCfCol')}</div>
+                  </div>
+                  {SURVEY_CARTON_ITEMS.map(item => {
+                    const saved = itemMap['CARTONS']?.[item.description]
+                    const qty = saved?.qty || 0
+                    const cf  = saved?.cfPerItem ?? item.cfPerItem
+                    const tot = qty * cf
+                    return (
+                      <div key={item.description} style={{ ...CART_GRID, opacity: qty === 0 ? 0.45 : 1 }}>
+                        <div style={dataCell()}>{item.description}</div>
+                        <div style={dataCell('center')}>{qty || ''}</div>
+                        <div style={dataCell('center', { color: 'var(--text-muted)' })}>{cf.toFixed(1)}</div>
+                        <div style={dataCell('right', { fontWeight: qty > 0 ? 600 : 400 })}>
+                          {tot > 0 ? tot.toFixed(1) : ''}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {/* carton total */}
+                  <div style={{ ...CART_GRID, background: 'var(--surface-2)', borderTop: '2px solid var(--border)' }}>
+                    <div style={{ padding: '3px 6px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', gridColumn: '1 / 4', color: 'var(--text-muted)', letterSpacing: '.04em' }}>
+                      {t('surveys.totalCartons')}
+                    </div>
+                    <div style={{ padding: '3px 6px', fontSize: 12, fontWeight: 700, color: 'var(--primary)', textAlign: 'right' }}>
+                      {cartonsTotal.toFixed(1)}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </>
           )
         }
       </div>
 
-      {/* Totals */}
+      {/* Totals summary */}
       <div className="card card-body" style={{ marginBottom: 16 }}>
         <div className="section-label" style={{ marginBottom: 12 }}>{t('surveys.totalsSection')}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 13, maxWidth: 360 }}>
-          {[0, 1, 2, 3].map(idx => (
-            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ color: 'var(--text-muted)' }}>{t(`surveys.col${idx + 1}Total`)}</span>
-              <strong>{colTotal(idx).toFixed(1)}</strong>
-            </div>
-          ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>{t('surveys.totalCartons')}</span>
-            <strong>{cartonsTotal.toFixed(1)}</strong>
-          </div>
-          <div />
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '2px solid var(--border)', gridColumn: '1 / -1' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, maxWidth: 360 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '2px solid var(--border)' }}>
             <strong>{t('surveys.grandTotal')}</strong>
             <strong style={{ color: 'var(--primary)', fontSize: 15 }}>{grandTotal.toFixed(1)} CF</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', gridColumn: '1 / -1' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
             <span style={{ color: 'var(--text-muted)' }}>{t('surveys.cubeWeightFactor')}</span>
             <strong>{weightFactor}</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)', gridColumn: '1 / -1', marginTop: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)', marginTop: 4 }}>
             <strong style={{ fontSize: 14 }}>{t('surveys.estimatedWeight')}</strong>
             <strong style={{ fontSize: 16, color: 'var(--primary)' }}>{estWeight.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} lbs</strong>
           </div>

@@ -51,7 +51,7 @@ export default function FilesList({ category }) {
           <div className="page-title">{t(`movingFiles.${category.toLowerCase()}Title`)}</div>
           <div className="page-subtitle">{files.length > 0 ? `${files.length} ${t('movingFiles.filesLabel')}` : ''}</div>
         </div>
-        {category !== 'EXPORT' && (
+        {category !== 'EXPORT' && category !== 'LOCAL' && (
           <Link to={`${prefix[category]}/new`} className="btn btn-primary">{t('movingFiles.newFile')}</Link>
         )}
       </div>

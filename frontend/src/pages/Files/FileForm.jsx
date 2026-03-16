@@ -32,6 +32,22 @@ export default function FileForm() {
     bookerRole: '',
     originAgentId: '',
     destAgentId: '',
+    // Shipping fields
+    originAddress: '', originCity: '', originCountry: '',
+    destAddress: '', destCity: '', destCountry: '',
+    etd: '', eta: '',
+    navieraAerolinea: '',
+    vaporVuelo: '',
+    guiaObl: '',
+    puertoSalida: '',
+    puertoLlegada: '',
+    destPhone: '',
+    puertoEntrada: '',
+    oblHastaCiudad: '',
+    fechaLlegada: '',
+    fechaTrasladoBodega: '',
+    fechaTraslado: '',
+    fechaEntrega: '',
   })
   const [clients, setClients] = useState([])
   const [agents, setAgents]   = useState([])
@@ -51,20 +67,43 @@ export default function FileForm() {
     api.get('/agents').then(setAgents).catch(() => {})
     if (isEdit) {
       api.get(`/files/${id}`)
-        .then(f => setForm(prev => ({
-          ...prev,
-          category:      f.category,
-          clientId:           f.clientId           || '',
-          corporateClientId:  f.corporateClientId  || '',
-          notes:              f.notes              || '',
-          serviceType:   f.serviceType   || '',
-          shipmentMode:  f.shipmentMode  || '',
-          volumeCbm:     f.volumeCbm     ?? '',
-          weightKg:      f.weightKg      ?? '',
-          bookerRole:    f.bookerRole    || '',
-          originAgentId: f.originAgentId || '',
-          destAgentId:   f.destAgentId   || '',
-        })))
+        .then(f => {
+          const toDate = (v) => v ? new Date(v).toISOString().substring(0, 10) : ''
+          setForm(prev => ({
+            ...prev,
+            category:      f.category,
+            clientId:           f.clientId           || '',
+            corporateClientId:  f.corporateClientId  || '',
+            notes:              f.notes              || '',
+            serviceType:   f.serviceType   || '',
+            shipmentMode:  f.shipmentMode  || '',
+            volumeCbm:     f.volumeCbm     ?? '',
+            weightKg:      f.weightKg      ?? '',
+            bookerRole:    f.bookerRole    || '',
+            originAgentId: f.originAgentId || '',
+            destAgentId:   f.destAgentId   || '',
+            originAddress: f.originAddress || '',
+            originCity:    f.originCity    || '',
+            originCountry: f.originCountry || '',
+            destAddress:   f.destAddress   || '',
+            destCity:      f.destCity      || '',
+            destCountry:   f.destCountry   || '',
+            etd:              toDate(f.etd),
+            eta:              toDate(f.eta),
+            navieraAerolinea: f.navieraAerolinea    || '',
+            vaporVuelo:       f.vaporVuelo           || '',
+            guiaObl:          f.guiaObl              || '',
+            puertoSalida:     f.puertoSalida         || '',
+            puertoLlegada:    f.puertoLlegada        || '',
+            destPhone:        f.destPhone            || '',
+            puertoEntrada:    f.puertoEntrada        || '',
+            oblHastaCiudad:   f.oblHastaCiudad       || '',
+            fechaLlegada:         toDate(f.fechaLlegada),
+            fechaTrasladoBodega:  toDate(f.fechaTrasladoBodega),
+            fechaTraslado:        toDate(f.fechaTraslado),
+            fechaEntrega:         toDate(f.fechaEntrega),
+          }))
+        })
         .catch(e => setError(e.message))
         .finally(() => setLoading(false))
     }
@@ -98,6 +137,26 @@ export default function FileForm() {
         bookerRole:    form.bookerRole    || null,
         originAgentId: (form.originAgentId === 'WINMOVERS' ? null : form.originAgentId) || null,
         destAgentId:   (form.destAgentId   === 'WINMOVERS' ? null : form.destAgentId)   || null,
+        originAddress: form.originAddress || null,
+        originCity:    form.originCity    || null,
+        originCountry: form.originCountry || null,
+        destAddress:   form.destAddress   || null,
+        destCity:      form.destCity      || null,
+        destCountry:   form.destCountry   || null,
+        etd:              form.etd              || null,
+        eta:              form.eta              || null,
+        navieraAerolinea: form.navieraAerolinea || null,
+        vaporVuelo:       form.vaporVuelo       || null,
+        guiaObl:          form.guiaObl          || null,
+        puertoSalida:     form.puertoSalida     || null,
+        puertoLlegada:    form.puertoLlegada    || null,
+        destPhone:        form.destPhone        || null,
+        puertoEntrada:    form.puertoEntrada    || null,
+        oblHastaCiudad:   form.oblHastaCiudad   || null,
+        fechaLlegada:         form.fechaLlegada         || null,
+        fechaTrasladoBodega:  form.fechaTrasladoBodega  || null,
+        fechaTraslado:        form.fechaTraslado        || null,
+        fechaEntrega:         form.fechaEntrega         || null,
       }
       if (newClientMode) {
         payload.newClient = { ...form.newClient, clientType: 'INDIVIDUAL' }
@@ -262,6 +321,127 @@ export default function FileForm() {
 
             </div>
           </div>
+
+          {/* Address fields — IMPORT/EXPORT only */}
+          {(category === 'IMPORT' || category === 'EXPORT') && (
+            <div className="form-section" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <div className="section-label" style={{ marginBottom: 12 }}>{t('movingFiles.addressSection') || 'Addresses'}</div>
+              <div className="form-grid">
+
+                <div className="form-group">
+                  <label className="form-label">{t('jobs.originAddress')}</label>
+                  <input className="form-control" value={form.originAddress} onChange={e => set('originAddress', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('jobs.originCity')}</label>
+                  <input className="form-control" value={form.originCity} onChange={e => set('originCity', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('jobs.originCountry')}</label>
+                  <input className="form-control" value={form.originCountry} onChange={e => set('originCountry', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('movingFiles.destAddress')}</label>
+                  <input className="form-control" value={form.destAddress} onChange={e => set('destAddress', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('jobs.destCity')}</label>
+                  <input className="form-control" value={form.destCity} onChange={e => set('destCity', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('jobs.destCountry')}</label>
+                  <input className="form-control" value={form.destCountry} onChange={e => set('destCountry', e.target.value)} />
+                </div>
+
+              </div>
+            </div>
+          )}
+          {(category === 'IMPORT' || category === 'EXPORT') && (
+            <div className="form-section" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <div className="section-label" style={{ marginBottom: 12 }}>{t('movingFiles.shippingDetails') || 'Shipping Details'}</div>
+              <div className="form-grid">
+
+                <div className="form-group">
+                  <label className="form-label">{t('movingFiles.etd')}</label>
+                  <input className="form-control" type="date" value={form.etd} onChange={e => set('etd', e.target.value)} />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t('movingFiles.eta')}</label>
+                  <input className="form-control" type="date" value={form.eta} onChange={e => set('eta', e.target.value)} />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t('movingFiles.naviera')} / {t('movingFiles.aerolinea')}</label>
+                  <input className="form-control" value={form.navieraAerolinea} onChange={e => set('navieraAerolinea', e.target.value)} />
+                </div>
+
+                {category === 'EXPORT' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.vapor')} / {t('movingFiles.vuelo')}</label>
+                      <input className="form-control" value={form.vaporVuelo} onChange={e => set('vaporVuelo', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.guiaObl')}</label>
+                      <input className="form-control" value={form.guiaObl} onChange={e => set('guiaObl', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.puertoSalida')}</label>
+                      <input className="form-control" value={form.puertoSalida} onChange={e => set('puertoSalida', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.puertoLlegada')}</label>
+                      <input className="form-control" value={form.puertoLlegada} onChange={e => set('puertoLlegada', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.destPhone')}</label>
+                      <input className="form-control" value={form.destPhone} onChange={e => set('destPhone', e.target.value)} />
+                    </div>
+                  </>
+                )}
+
+                {category === 'IMPORT' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.puertoEntrada')}</label>
+                      <input className="form-control" value={form.puertoEntrada} onChange={e => set('puertoEntrada', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.oblHastaCiudad')}</label>
+                      <input className="form-control" value={form.oblHastaCiudad} onChange={e => set('oblHastaCiudad', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.fechaLlegada')}</label>
+                      <input className="form-control" type="date" value={form.fechaLlegada} onChange={e => set('fechaLlegada', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.trasladoBodega')}</label>
+                      <input className="form-control" type="date" value={form.fechaTrasladoBodega} onChange={e => set('fechaTrasladoBodega', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.fechaTraslado')}</label>
+                      <input className="form-control" type="date" value={form.fechaTraslado} onChange={e => set('fechaTraslado', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('movingFiles.fechaEntrega')}</label>
+                      <input className="form-control" type="date" value={form.fechaEntrega} onChange={e => set('fechaEntrega', e.target.value)} />
+                    </div>
+                  </>
+                )}
+
+              </div>
+            </div>
+          )}
 
           {/* Inline new client fields */}
           {newClientMode && (

@@ -19,7 +19,7 @@ const LABELS = {
   homePhone:      'Tel. Residencia',
   company:        'Compañía',
   companyPhone:   'Tel. Empresa',
-  address:        'Dirección',
+  address:        'Dirección de Origen',
   destAddress:    'Dirección de Destino',
   serviceDetails: 'Detalle del Servicio',
   materials:      'Materiales',

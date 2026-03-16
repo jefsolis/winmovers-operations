@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { fileStatusMeta, statusMeta } from '../../constants'
+import { fileStatusMeta } from '../../constants'
 import FileAttachments from './FileAttachments'
-import DamageReport, { EMPTY_DR } from './DamageReport'
-import ServiceEvaluation, { EMPTY_SE } from './ServiceEvaluation'
 
 const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
 
@@ -29,29 +27,16 @@ export default function FileDetail() {
   const [deleting, setDeleting]       = useState(false)
   const [closing, setClosing]         = useState(false)
   const [allRequiredDone, setAllRequiredDone] = useState(false)
+  const [attachmentPct, setAttachmentPct]     = useState(null)
   const [activeTab, setActiveTab] = useState('summary')
-  const [exporting, setExporting] = useState(false)
-  const [drData, setDrData] = useState(EMPTY_DR)
-  const [seData, setSeData] = useState(EMPTY_SE)
-  const [saving,  setSaving] = useState(false)
-  const docRef    = useRef(null)
-  const headerRef = useRef(null)
+  const [exceptionModalOpen, setExceptionModalOpen] = useState(false)
+  const [exceptionNote, setExceptionNote] = useState('')
 
   const load = () => {
     setLoading(true)
     api.get(`/files/${id}`)
       .then(f => {
         setFile(f)
-        if (f.damageReportData) {
-          try { setDrData(JSON.parse(f.damageReportData)) } catch {}
-        } else {
-          setDrData(EMPTY_DR)
-        }
-        if (f.evaluationData) {
-          try { setSeData(JSON.parse(f.evaluationData)) } catch {}
-        } else {
-          setSeData(EMPTY_SE)
-        }
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
@@ -89,66 +74,16 @@ export default function FileDetail() {
     } catch (e) { alert(e.message) } finally { setClosing(false) }
   }
 
-  const saveDR = async () => {
-    setSaving(true)
-    try { await api.put(`/files/${id}`, { damageReportData: JSON.stringify(drData) }) }
-    catch (e) { alert(e.message) }
-    finally { setSaving(false) }
-  }
-
-  const saveSE = async () => {
-    setSaving(true)
-    try { await api.put(`/files/${id}`, { evaluationData: JSON.stringify(seData) }) }
-    catch (e) { alert(e.message) }
-    finally { setSaving(false) }
-  }
-
-  const exportPDF = async () => {
-    if (!docRef.current || !headerRef.current) return
-    setExporting(true)
+  const handleExceptionClose = async () => {
+    if (!exceptionNote.trim()) return
+    setClosing(true)
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ])
-      const captureOpts = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }
-      const [headerCanvas, docCanvas] = await Promise.all([
-        html2canvas(headerRef.current, captureOpts),
-        html2canvas(docRef.current,    captureOpts),
-      ])
-      const pdf   = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
-      const pageW = pdf.internal.pageSize.getWidth()
-      const pageH = pdf.internal.pageSize.getHeight()
-      const mTop = 30, mSide = 28, mBottom = 30, gap = 8
-      const contentW    = pageW - mSide * 2
-      const headerPt    = (headerCanvas.height / headerCanvas.width) * contentW
-      const contentStartY = mTop + headerPt + gap
-      const slicePtH    = pageH - contentStartY - mBottom
-      const docPxW      = docCanvas.width
-      const docPxH      = docCanvas.height
-      const slicePxH    = Math.round((slicePtH / contentW) * docPxW)
-      const headerDataUrl = headerCanvas.toDataURL('image/jpeg', 0.95)
-      let page = 0, offsetPx = 0
-      while (offsetPx < docPxH) {
-        if (page > 0) pdf.addPage()
-        pdf.addImage(headerDataUrl, 'JPEG', mSide, mTop, contentW, headerPt)
-        const thisSlicePx = Math.min(slicePxH, docPxH - offsetPx)
-        const sliceCanvas = document.createElement('canvas')
-        sliceCanvas.width  = docPxW
-        sliceCanvas.height = thisSlicePx
-        const ctx = sliceCanvas.getContext('2d')
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, docPxW, thisSlicePx)
-        ctx.drawImage(docCanvas, 0, offsetPx, docPxW, thisSlicePx, 0, 0, docPxW, thisSlicePx)
-        const slicePtActual = (thisSlicePx / slicePxH) * slicePtH
-        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', mSide, contentStartY, contentW, slicePtActual)
-        offsetPx += thisSlicePx
-        page++
-      }
-      const suffix = activeTab === 'damage' ? 'damage' : 'evaluation'
-      pdf.save(`${file?.fileNumber || 'doc'}-${suffix}.pdf`)
-    } catch (e) { console.error(e) }
-    finally { setExporting(false) }
+      const appendedNotes = (file.notes ? file.notes + '\n---\n' : '') + t('movingFiles.exceptionClose') + ': ' + exceptionNote.trim()
+      const updated = await api.put(`/files/${id}`, { status: 'CLOSED', notes: appendedNotes })
+      setFile(updated)
+      setExceptionModalOpen(false)
+      setExceptionNote('')
+    } catch (e) { alert(e.message) } finally { setClosing(false) }
   }
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
@@ -156,6 +91,9 @@ export default function FileDetail() {
   if (!file)   return null
 
   const sm    = fileStatusMeta(file.status, t)
+  const statusLabel = file.status === 'OPEN' && attachmentPct !== null
+    ? `${sm.label} (${attachmentPct}%)`
+    : sm.label
   const back  = CATEGORY_ROUTES[file.category] || '/files/export'
   const clientName = file.client
     ? (file.client.clientType === 'INDIVIDUAL'
@@ -188,7 +126,7 @@ export default function FileDetail() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div className="page-title">{file.fileNumber}</div>
-            <span className="badge" style={{ background: sm.bg, color: sm.color, fontSize: 13 }}>{sm.label}</span>
+            <span className="badge" style={{ background: sm.bg, color: sm.color, fontSize: 13 }}>{statusLabel}</span>
             <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: 13 }}>
               {t(`movingFiles.${file.category.toLowerCase()}Title`)}
             </span>
@@ -198,40 +136,31 @@ export default function FileDetail() {
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to={back} className="btn btn-ghost">{t('movingFiles.backToFiles')}</Link>
           <Link to={`${back}/${id}/edit`} className="btn btn-primary">{t('common.edit')}</Link>
-          {activeTab === 'damage' && (
-            <>
-              <button className="btn btn-primary" onClick={saveDR} disabled={saving}>
-                {saving ? t('common.saving') : t('common.save')}
-              </button>
-              <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
-                {exporting ? '…' : `📥 ${t('jobs.exportPDF')}`}
-              </button>
-            </>
-          )}
-          {activeTab === 'evaluation' && (
-            <>
-              <button className="btn btn-primary" onClick={saveSE} disabled={saving}>
-                {saving ? t('common.saving') : t('common.save')}
-              </button>
-              <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
-                {exporting ? '…' : `📥 ${t('jobs.exportPDF')}`}
-              </button>
-            </>
-          )}
           {file.status !== 'CLOSED' ? (
-            <button
-              onClick={handleClose}
-              disabled={closing || !allRequiredDone}
-              style={{
-                padding: '6px 14px', borderRadius: 6, border: 'none', cursor: allRequiredDone ? 'pointer' : 'not-allowed',
-                background: allRequiredDone ? '#16a34a' : 'var(--surface-2, #e2e8f0)',
-                color: allRequiredDone ? '#fff' : 'var(--text-muted)',
-                fontWeight: 600, fontSize: 13, transition: 'background 0.2s',
-              }}
-              title={allRequiredDone ? '' : t('movingFiles.closeDisabledHint')}
-            >
-              {closing ? t('common.saving') : t('movingFiles.closeFile')}
-            </button>
+            <>
+              {file.category === 'LOCAL' && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setExceptionModalOpen(true)}
+                  disabled={closing}
+                >
+                  {t('movingFiles.exceptionCloseTitle')}
+                </button>
+              )}
+              <button
+                onClick={handleClose}
+                disabled={closing || !allRequiredDone}
+                style={{
+                  padding: '6px 14px', borderRadius: 6, border: 'none', cursor: allRequiredDone ? 'pointer' : 'not-allowed',
+                  background: allRequiredDone ? '#16a34a' : 'var(--surface-2, #e2e8f0)',
+                  color: allRequiredDone ? '#fff' : 'var(--text-muted)',
+                  fontWeight: 600, fontSize: 13, transition: 'background 0.2s',
+                }}
+                title={allRequiredDone ? '' : t('movingFiles.closeDisabledHint')}
+              >
+                {closing ? t('common.saving') : t('movingFiles.closeFile')}
+              </button>
+            </>
           ) : (
             <button className="btn btn-ghost" onClick={handleReopen} disabled={closing}>
               {closing ? t('common.saving') : t('movingFiles.reopenFile')}
@@ -251,16 +180,6 @@ export default function FileDetail() {
         <button style={tabStyle('attachments')} onClick={() => setActiveTab('attachments')}>
           {t('movingFiles.attachmentsTab')}
         </button>
-        {file.category === 'IMPORT' && (
-          <>
-            <button style={tabStyle('damage')} onClick={() => setActiveTab('damage')}>
-              {t('movingFiles.damageReportTab')}
-            </button>
-            <button style={tabStyle('evaluation')} onClick={() => setActiveTab('evaluation')}>
-              {t('movingFiles.evaluationTab')}
-            </button>
-          </>
-        )}
       </div>
 
       {/* Summary Tab */}
@@ -273,58 +192,105 @@ export default function FileDetail() {
                 <span style={{ fontSize: 16, fontWeight: 700 }}>{file.fileNumber}</span>
               </InfoRow>
 
-              <InfoRow label={t('movingFiles.category')}>
-                {t(`movingFiles.${file.category.toLowerCase()}Title`)}
-              </InfoRow>
-
               <InfoRow label={t('movingFiles.status')}>
-                <span className="badge" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
+                <span className="badge" style={{ background: sm.bg, color: sm.color }}>{statusLabel}</span>
               </InfoRow>
 
-              <InfoRow label={t('common.name')}>{clientName}</InfoRow>
+              {/* IMPORT-specific layout */}
+              {file.category === 'IMPORT' && (() => {
+                const job = file.job
+                const company = file.corporateClient?.name || job?.companyName || null
+                const clientPhone = file.client?.phone || file.client?.homePhone || job?.clientPhone || null
+                const shipMode = file.shipmentMode || job?.shipmentMode
+                const isAir = shipMode === 'AIR'
+                const isSea = shipMode === 'SEA'
+                const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '\u2014'
+                const destAddr = [file.destAddress || job?.destAddress, file.destCity || job?.destCity, file.destCountry || job?.destCountry].filter(Boolean).join(', ') || '\u2014'
+                const origAddr = [file.originAddress || job?.originAddress, file.originCity || job?.originCity, file.originCountry || job?.originCountry].filter(Boolean).join(', ') || '\u2014'
+                const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
+                return (<>
+                  <InfoRow label={t('common.name')}>{clientName}</InfoRow>
+                  <InfoRow label={t('movingFiles.destAddress')}>{destAddr}</InfoRow>
+                  <InfoRow label={t('movingFiles.company')}>{company || '\u2014'}</InfoRow>
+                  <InfoRow label={t('jobs.originAddress')}>{origAddr}</InfoRow>
+                  <InfoRow label={t('movingFiles.originAgent')}>{originAgentName}</InfoRow>
+                  <InfoRow label={t('movingFiles.clientPhone')}>{clientPhone || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.shipmentMode')}>{shipMode ? t(`modes.${shipMode}`) : '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.serviceType')}>{file.serviceType ? t(`serviceTypes.${file.serviceType}`) : '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.etd')}>{fmt(file.etd)}</InfoRow>
+                  <InfoRow label={t('movingFiles.eta')}>{fmt(file.eta)}</InfoRow>
+                  <InfoRow label={navieraLabel}>{file.navieraAerolinea || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.puertoEntrada')}>{file.puertoEntrada || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.oblHastaCiudad')}>{file.oblHastaCiudad || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.fechaLlegada')}>{fmt(file.fechaLlegada)}</InfoRow>
+                  <InfoRow label={t('movingFiles.trasladoBodega')}>{fmt(file.fechaTrasladoBodega)}</InfoRow>
+                  <InfoRow label={t('movingFiles.fechaTraslado')}>{fmt(file.fechaTraslado)}</InfoRow>
+                  <InfoRow label={t('movingFiles.fechaEntrega')}>{fmt(file.fechaEntrega)}</InfoRow>
+                </>)
+              })()}
 
-              {file.corporateClient && (
-                <InfoRow label={t('movingFiles.corporateClient')}>{file.corporateClient.name}</InfoRow>
+              {/* EXPORT-specific layout */}
+              {file.category === 'EXPORT' && (() => {
+                const job = file.job
+                const company = file.corporateClient?.name || job?.companyName || null
+                const clientPhone = file.client?.phone || file.client?.homePhone || job?.clientPhone || null
+                const shipMode = file.shipmentMode || job?.shipmentMode
+                const isAir = shipMode === 'AIR'
+                const isSea = shipMode === 'SEA'
+                const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '\u2014'
+                const origAddr = [file.originAddress || job?.originAddress, file.originCity || job?.originCity, file.originCountry || job?.originCountry].filter(Boolean).join(', ') || '\u2014'
+                const destAddr = [file.destAddress || job?.destAddress, file.destCity || job?.destCity, file.destCountry || job?.destCountry].filter(Boolean).join(', ') || '\u2014'
+                const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
+                const vaporLabel = isAir ? t('movingFiles.vuelo') : isSea ? t('movingFiles.vapor') : `${t('movingFiles.vapor')} / ${t('movingFiles.vuelo')}`
+                return (<>
+                  <InfoRow label={t('common.name')}>{clientName}</InfoRow>
+                  <InfoRow label={t('jobs.originAddress')}>{origAddr}</InfoRow>
+                  <InfoRow label={t('movingFiles.clientPhone')}>{clientPhone || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.company')}>{company || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.destAddress')}>{destAddr}</InfoRow>
+                  <InfoRow label={t('movingFiles.destAgent')}>{destAgentName}</InfoRow>
+                  <InfoRow label={t('movingFiles.shipmentMode')}>{shipMode ? t(`modes.${shipMode}`) : '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.serviceType')}>{file.serviceType ? t(`serviceTypes.${file.serviceType}`) : '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.etd')}>{fmt(file.etd)}</InfoRow>
+                  <InfoRow label={t('movingFiles.eta')}>{fmt(file.eta)}</InfoRow>
+                  <InfoRow label={navieraLabel}>{file.navieraAerolinea || '\u2014'}</InfoRow>
+                  <InfoRow label={vaporLabel}>{file.vaporVuelo || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.guiaObl')}>{file.guiaObl || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.puertoSalida')}>{file.puertoSalida || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.puertoLlegada')}>{file.puertoLlegada || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.destPhone')}>{file.destPhone || '\u2014'}</InfoRow>
+                </>)
+              })()}
+
+              {/* LOCAL-specific layout */}
+              {file.category === 'LOCAL' && (
+                <>
+                  <InfoRow label={t('common.name')}>{clientName}</InfoRow>
+                  {file.serviceType && (
+                    <InfoRow label={t('movingFiles.serviceType')}>
+                      {t(`serviceTypes.${file.serviceType}`) || file.serviceType}
+                    </InfoRow>
+                  )}
+                  {file.shipmentMode && (
+                    <InfoRow label={t('movingFiles.shipmentMode')}>
+                      {t(`modes.${file.shipmentMode}`) || file.shipmentMode}
+                    </InfoRow>
+                  )}
+                  {file.volumeCbm != null && (
+                    <InfoRow label={t('movingFiles.volumeCbm')}>{file.volumeCbm} CBM</InfoRow>
+                  )}
+                  {file.weightKg != null && (
+                    <InfoRow label={t('movingFiles.weightKg')}>{file.weightKg} Kg</InfoRow>
+                  )}
+                </>
               )}
 
-              {file.bookerRole && (
-                <InfoRow label={t('movingFiles.bookerRole')}>
-                  {t(`movingFiles.bookerRoles.${file.bookerRole}`) || file.bookerRole}
-                </InfoRow>
-              )}
-
-              <InfoRow label={t('movingFiles.originAgent')}>{originAgentName}</InfoRow>
-              <InfoRow label={t('movingFiles.destAgent')}>{destAgentName}</InfoRow>
-
-              {file.serviceType && (
-                <InfoRow label={t('movingFiles.serviceType')}>
-                  {t(`serviceTypes.${file.serviceType}`) || file.serviceType}
-                </InfoRow>
-              )}
-
-              {file.shipmentMode && (
-                <InfoRow label={t('movingFiles.shipmentMode')}>
-                  {t(`modes.${file.shipmentMode}`) || file.shipmentMode}
-                </InfoRow>
-              )}
-
-              {(file.volumeCbm != null) && (
-                <InfoRow label={t('movingFiles.volumeCbm')}>{file.volumeCbm} CBM</InfoRow>
-              )}
-
-              {(file.weightKg != null) && (
-                <InfoRow label={t('movingFiles.weightKg')}>{file.weightKg} Kg</InfoRow>
-              )}
-
+              {/* Linked Job */}
               {file.job ? (
                 <InfoRow label={t('movingFiles.linkedJob')}>
                   <Link to={`/jobs/${file.job.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
                     {file.job.jobNumber}
                   </Link>
-                  {' '}
-                  <span className="badge" style={{ ...statusMeta(file.job.status, t), fontSize: 11 }}>
-                    {statusMeta(file.job.status, t).label}
-                  </span>
                 </InfoRow>
               ) : file.category !== 'LOCAL' ? (
                 <InfoRow label={t('movingFiles.linkedJob')}>
@@ -352,24 +318,40 @@ export default function FileDetail() {
           <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 16 }}>
             {t('files.title')}
           </div>
-          <FileAttachments fileId={id} fileCategory={file.category} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} />
+          <FileAttachments fileId={id} fileCategory={file.category} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} onPctChange={setAttachmentPct} />
         </div>
       </div>
 
-      {/* Damage Report tab */}
-      {activeTab === 'damage' && (
-        <DamageReport
-          ref={docRef} headerRef={headerRef} file={file}
-          editMode data={drData} onChange={setDrData}
-        />
-      )}
-
-      {/* Evaluation tab */}
-      {activeTab === 'evaluation' && (
-        <ServiceEvaluation
-          ref={docRef} headerRef={headerRef} file={file}
-          editMode data={seData} onChange={setSeData}
-        />
+      {/* Exception Close Modal */}
+      {exceptionModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="card card-body" style={{ width: 420, padding: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{t('movingFiles.exceptionCloseTitle')}</div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>{t('movingFiles.exceptionCloseHint')}</p>
+            <label style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>
+              {t('movingFiles.exceptionCloseNotes')}
+            </label>
+            <textarea
+              className="form-control"
+              rows={3}
+              value={exceptionNote}
+              onChange={e => setExceptionNote(e.target.value)}
+              style={{ marginBottom: 16, width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => { setExceptionModalOpen(false); setExceptionNote('') }} disabled={closing}>
+                {t('common.cancel')}
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleExceptionClose}
+                disabled={closing || !exceptionNote.trim()}
+              >
+                {closing ? t('common.saving') : t('movingFiles.exceptionCloseConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
