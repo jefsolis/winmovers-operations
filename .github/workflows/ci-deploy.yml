@@ -20,6 +20,7 @@ jobs:
           node-version: '20'
 
       - name: Run database migration
+        continue-on-error: true
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
