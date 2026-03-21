@@ -52,7 +52,7 @@ export default function QuoteForm() {
   const [staffMembers, setStaffMembers]   = useState([])
   const errorRef = useRef(null)
 
-  useEffect(() => { api.get('/staff').then(setStaffMembers).catch(() => {}) }, [])
+  useEffect(() => { api.get('/staff?canCreateQuotes=true').then(setStaffMembers).catch(() => {}) }, [])
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })

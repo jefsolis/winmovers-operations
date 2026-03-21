@@ -108,6 +108,34 @@ export default function FileDetail() {
   const destAgentName   = file.destAgent?.name
     || (fileBookerRole === 'DA' || fileBookerRole === 'BOOKER' ? winmovers : '\u2014')
 
+  const _shipMode = file.shipmentMode
+  const _isAir    = _shipMode === 'AIR'
+  const _isSea    = _shipMode === 'SEA'
+  const _navLabel = _isAir ? t('movingFiles.aerolinea') : _isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
+  const _vapLabel = _isAir ? t('movingFiles.vuelo')     : _isSea ? t('movingFiles.vapor')   : `${t('movingFiles.vapor')} / ${t('movingFiles.vuelo')}`
+
+  const requiredFieldsList = file.category === 'IMPORT' ? [
+    { label: t('movingFiles.etd'),           done: Boolean(file.etd) },
+    { label: t('movingFiles.eta'),           done: Boolean(file.eta) },
+    { label: _navLabel,                      done: Boolean(file.navieraAerolinea) },
+    { label: t('movingFiles.puertoEntrada'), done: Boolean(file.puertoEntrada) },
+    { label: t('movingFiles.oblHastaCiudad'),done: Boolean(file.oblHastaCiudad) },
+    { label: t('movingFiles.fechaLlegada'),  done: Boolean(file.fechaLlegada) },
+    { label: t('movingFiles.trasladoBodega'),done: Boolean(file.fechaTrasladoBodega) },
+    { label: t('movingFiles.fechaTraslado'), done: Boolean(file.fechaTraslado) },
+    { label: t('movingFiles.fechaEntrega'),  done: Boolean(file.fechaEntrega) },
+  ] : file.category === 'EXPORT' ? [
+    { label: t('movingFiles.etd'),           done: Boolean(file.etd) },
+    { label: t('movingFiles.eta'),           done: Boolean(file.eta) },
+    { label: _navLabel,                      done: Boolean(file.navieraAerolinea) },
+    { label: _vapLabel,                      done: Boolean(file.vaporVuelo) },
+    { label: t('movingFiles.guiaObl'),       done: Boolean(file.guiaObl) },
+    { label: t('movingFiles.puertoSalida'),  done: Boolean(file.puertoSalida) },
+    { label: t('movingFiles.puertoLlegada'), done: Boolean(file.puertoLlegada) },
+  ] : []
+  const allFieldsDone = requiredFieldsList.every(f => f.done)
+  const canClose = allRequiredDone && allFieldsDone
+
   const tabStyle = (tab) => ({
     padding: '8px 18px',
     border: 'none',
@@ -149,14 +177,14 @@ export default function FileDetail() {
               )}
               <button
                 onClick={handleClose}
-                disabled={closing || !allRequiredDone}
+                disabled={closing || !canClose}
                 style={{
-                  padding: '6px 14px', borderRadius: 6, border: 'none', cursor: allRequiredDone ? 'pointer' : 'not-allowed',
-                  background: allRequiredDone ? '#16a34a' : 'var(--surface-2, #e2e8f0)',
-                  color: allRequiredDone ? '#fff' : 'var(--text-muted)',
+                  padding: '6px 14px', borderRadius: 6, border: 'none', cursor: canClose ? 'pointer' : 'not-allowed',
+                  background: canClose ? '#16a34a' : 'var(--surface-2, #e2e8f0)',
+                  color: canClose ? '#fff' : 'var(--text-muted)',
                   fontWeight: 600, fontSize: 13, transition: 'background 0.2s',
                 }}
-                title={allRequiredDone ? '' : t('movingFiles.closeDisabledHint')}
+                title={canClose ? '' : t('movingFiles.closeDisabledHint')}
               >
                 {closing ? t('common.saving') : t('movingFiles.closeFile')}
               </button>
@@ -223,7 +251,7 @@ export default function FileDetail() {
                   <InfoRow label={t('movingFiles.puertoEntrada')}>{file.puertoEntrada || '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.oblHastaCiudad')}>{file.oblHastaCiudad || '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.fechaLlegada')}>{fmt(file.fechaLlegada)}</InfoRow>
-                  <InfoRow label={t('movingFiles.trasladoBodega')}>{fmt(file.fechaTrasladoBodega)}</InfoRow>
+                  <InfoRow label={t('movingFiles.trasladoBodega')}>{file.fechaTrasladoBodega || '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.fechaTraslado')}>{fmt(file.fechaTraslado)}</InfoRow>
                   <InfoRow label={t('movingFiles.fechaEntrega')}>{fmt(file.fechaEntrega)}</InfoRow>
                 </>)
@@ -309,6 +337,57 @@ export default function FileDetail() {
               </div>
             )}
           </div>
+
+          {/* Ready to Close card — all categories while OPEN */}
+          {file.status === 'OPEN' && (
+            <div className="card card-body" style={{
+              marginBottom: 20,
+              border: `1.5px solid ${canClose ? '#16a34a' : '#f59e0b'}`,
+            }}>
+              <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', color: canClose ? '#16a34a' : '#92400e', marginBottom: 14 }}>
+                {t('movingFiles.readyToClose')}
+              </div>
+
+              {/* Attachments row */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                  <span style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: allRequiredDone ? '#16a34a' : '#ef4444', fontWeight: 700 }}>{allRequiredDone ? '\u2713' : '\u2717'}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('movingFiles.requiredDocs')}</span>
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: allRequiredDone ? '#16a34a' : '#b45309' }}>
+                    {attachmentPct !== null ? `${attachmentPct}%` : '\u2014'}
+                  </span>
+                </div>
+                {attachmentPct !== null && (
+                  <div style={{ height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${attachmentPct}%`, background: allRequiredDone ? '#16a34a' : '#f59e0b', borderRadius: 3, transition: 'width 0.3s' }} />
+                  </div>
+                )}
+              </div>
+
+              {/* Required fields — only for IMPORT/EXPORT */}
+              {requiredFieldsList.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 10 }}>
+                  {t('movingFiles.requiredFields')}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '6px 16px' }}>
+                  {requiredFieldsList.map(f => (
+                    <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13 }}>
+                      <span style={{ color: f.done ? '#16a34a' : '#ef4444', fontWeight: 700, flexShrink: 0 }}>{f.done ? '\u2713' : '\u2717'}</span>
+                      <span style={{ color: f.done ? 'var(--text)' : '#ef4444', fontWeight: f.done ? 400 : 600 }}>{f.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              )}
+
+              <div style={{ marginTop: 14, textAlign: 'right' }}>
+                <Link to={`${back}/${id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>
+              </div>
+            </div>
+          )}
         </>
       )}
 

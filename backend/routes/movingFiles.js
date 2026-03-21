@@ -87,7 +87,13 @@ router.post("/", async (req, res, next) => {
   try {
     const { category, clientId, corporateClientId, notes, newClient,
             serviceType, shipmentMode, volumeCbm, weightKg,
-            bookerRole, originAgentId, destAgentId } = req.body
+            bookerRole, originAgentId, destAgentId,
+            originAddress, originCity, originCountry,
+            destAddress, destCity, destCountry,
+            etd, eta, navieraAerolinea, vaporVuelo, guiaObl,
+            puertoSalida, puertoLlegada, destPhone,
+            puertoEntrada, oblHastaCiudad,
+            fechaLlegada, fechaTrasladoBodega, fechaTraslado, fechaEntrega } = req.body
     if (!category) return res.status(400).json({ error: "category is required" })
 
     // Inline client creation
@@ -121,6 +127,26 @@ router.post("/", async (req, res, next) => {
         bookerRole: bookerRole || null,
         originAgentId: originAgentId || null,
         destAgentId:   destAgentId   || null,
+        originAddress: originAddress || null,
+        originCity:    originCity    || null,
+        originCountry: originCountry || null,
+        destAddress:   destAddress   || null,
+        destCity:      destCity      || null,
+        destCountry:   destCountry   || null,
+        etd:              etd              ? new Date(etd)              : null,
+        eta:              eta              ? new Date(eta)              : null,
+        navieraAerolinea: navieraAerolinea || null,
+        vaporVuelo:       vaporVuelo       || null,
+        guiaObl:          guiaObl          || null,
+        puertoSalida:     puertoSalida     || null,
+        puertoLlegada:    puertoLlegada    || null,
+        destPhone:        destPhone        || null,
+        puertoEntrada:    puertoEntrada    || null,
+        oblHastaCiudad:   oblHastaCiudad   || null,
+        fechaLlegada:         fechaLlegada         ? new Date(fechaLlegada)         : null,
+        fechaTrasladoBodega:  fechaTrasladoBodega  || null,
+        fechaTraslado:        fechaTraslado        ? new Date(fechaTraslado)        : null,
+        fechaEntrega:         fechaEntrega         ? new Date(fechaEntrega)         : null,
       },
       include: {
         client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
@@ -179,7 +205,7 @@ router.put("/:id", async (req, res, next) => {
         puertoEntrada:        puertoEntrada        !== undefined ? (puertoEntrada        || null) : undefined,
         oblHastaCiudad:       oblHastaCiudad       !== undefined ? (oblHastaCiudad       || null) : undefined,
         fechaLlegada:         fechaLlegada         !== undefined ? (fechaLlegada         ? new Date(fechaLlegada)         : null) : undefined,
-        fechaTrasladoBodega:  fechaTrasladoBodega  !== undefined ? (fechaTrasladoBodega  ? new Date(fechaTrasladoBodega)  : null) : undefined,
+        fechaTrasladoBodega:  fechaTrasladoBodega  !== undefined ? (fechaTrasladoBodega  || null) : undefined,
         fechaTraslado:        fechaTraslado        !== undefined ? (fechaTraslado        ? new Date(fechaTraslado)        : null) : undefined,
         fechaEntrega:         fechaEntrega         !== undefined ? (fechaEntrega         ? new Date(fechaEntrega)         : null) : undefined,
       },

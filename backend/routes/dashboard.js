@@ -16,6 +16,7 @@ router.get('/', async (req, res, next) => {
       quotesByStatus,
       upcomingVisits, pendingQuotesList,
       openFilesWithAttachments,
+      openLocalFiles,
     ] = await Promise.all([
       p.job.count(),
       p.client.count(),
@@ -74,6 +75,17 @@ router.get('/', async (req, res, next) => {
         select: {
           id: true,
           category: true,
+          attachments: { select: { category: true } },
+        },
+      }),
+      // Open LOCAL files (for no-invoice cards)
+      p.movingFile.findMany({
+        where: { status: 'OPEN', category: 'LOCAL' },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true, fileNumber: true, createdAt: true,
+          client:          { select: { name: true, firstName: true, lastName: true, clientType: true } },
+          corporateClient: { select: { name: true, firstName: true, lastName: true, clientType: true } },
           attachments: { select: { category: true } },
         },
       }),
@@ -147,6 +159,20 @@ router.get('/', async (req, res, next) => {
       { bucket: 'complete', label: '100%',      count: completionBuckets.complete },
     ]
 
+    // Local files without invoice
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const localNoInvoice = openLocalFiles.filter(
+      f => !f.attachments.some(a => a.category === 'INVOICE')
+    ).map(f => ({
+      id: f.id,
+      fileNumber: f.fileNumber,
+      createdAt: f.createdAt,
+      client: f.corporateClient || f.client || null,
+    }))
+    const localNoInvoiceRecent = localNoInvoice.filter(f => new Date(f.createdAt) >= thirtyDaysAgo).reverse()
+    const localNoInvoiceOld    = localNoInvoice.filter(f => new Date(f.createdAt) <  thirtyDaysAgo)
+
     res.json({
       totalJobs,
       activeJobs,
@@ -173,6 +199,8 @@ router.get('/', async (req, res, next) => {
       upcomingVisits,
       pendingQuotesList,
       filesByCompletion,
+      localNoInvoiceRecent,
+      localNoInvoiceOld,
     })
   } catch (err) { next(err) }
 })

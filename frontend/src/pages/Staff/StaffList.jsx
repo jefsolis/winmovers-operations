@@ -25,6 +25,11 @@ export default function StaffList() {
     load()
   }
 
+  const handleToggleActive = async (member) => {
+    await api.put(`/staff/${member.id}`, { ...member, isActive: !member.isActive })
+    load()
+  }
+
   return (
     <>
       <div className="page-header">
@@ -66,6 +71,9 @@ export default function StaffList() {
                   <th>{t('staff.name')}</th>
                   <th>{t('staff.email')}</th>
                   <th>{t('staff.phone')}</th>
+                  <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canBeAssignedToVisit')}</th>
+                  <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canCreateQuotes')}</th>
+                  <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canBeCreatorInWorkOrder')}</th>
                   <th>{t('staff.isActive')}</th>
                   <th />
                 </tr>
@@ -76,6 +84,9 @@ export default function StaffList() {
                     <td style={{ fontWeight: 600 }}>{m.name}</td>
                     <td style={{ fontSize: 13 }}>{m.email}</td>
                     <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{m.phone || '—'}</td>
+                    <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canBeAssignedToVisit ? '✓' : '—'}</td>
+                    <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canCreateQuotes ? '✓' : '—'}</td>
+                    <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canBeCreatorInWorkOrder ? '✓' : '—'}</td>
                     <td>
                       <span
                         className="badge"
@@ -88,6 +99,12 @@ export default function StaffList() {
                       </span>
                     </td>
                     <td style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleToggleActive(m)}
+                      >
+                        {m.isActive ? t('staff.deactivate') : t('staff.activate')}
+                      </button>
                       <Link to={`/staff/${m.id}/edit`} className="btn btn-secondary btn-sm">{t('common.edit')}</Link>
                       <button className="btn btn-danger btn-sm" onClick={() => handleDelete(m)}>{t('common.delete')}</button>
                     </td>

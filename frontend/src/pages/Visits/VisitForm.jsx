@@ -3,15 +3,20 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { getVisitStatuses, getServiceTypes, getVisitBookerRoles } from '../../constants'
 import { useLanguage } from '../../i18n'
+import ClientLookup from '../../components/ClientLookup'
+
+const EMPTY_IND = { clientId: '', name: '', phone: '', email: '' }
+const EMPTY_CORP = { clientId: '', name: '' }
 
 const EMPTY = {
   status: 'SCHEDULED',
-  prospectName: '', prospectPhone: '', prospectEmail: '',
-  clientId: '', corporateClientId: '', assignedToId: '',
+  indClient: { ...EMPTY_IND },
+  corpClient: { ...EMPTY_CORP },
+  assignedToId: '',
   serviceType: '',
   language: 'ES',
   scheduledDate: '',
-  bookerRole: '', originAgentId: '', destAgentId: '',
+  bookerRole: '', originAgentId: 'WINMOVERS', destAgentId: '',
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '',   destCity: '',   destCountry: '',
   observations: '',
@@ -27,7 +32,6 @@ export default function VisitForm() {
   const BOOKER_ROLES    = getVisitBookerRoles()
 
   const [form, setForm]       = useState(EMPTY)
-  const [clients, setClients] = useState([])
   const [agents, setAgents]   = useState([])
   const [staffMembers, setStaffMembers] = useState([])
   const [loading, setLoading] = useState(isEdit)
@@ -41,26 +45,33 @@ export default function VisitForm() {
 
   useEffect(() => {
     const tasks = [
-      api.get('/clients').then(setClients).catch(() => {}),
       api.get('/agents').then(setAgents).catch(() => {}),
-      api.get('/staff').then(setStaffMembers).catch(() => {}),
+      api.get('/staff?canBeAssignedToVisit=true').then(setStaffMembers).catch(() => {}),
     ]
     if (isEdit) {
       tasks.push(
         api.get(`/visits/${id}`).then(v => {
+          const indName = v.prospectName
+            || [v.client?.firstName, v.client?.lastName].filter(Boolean).join(' ')
+            || v.client?.name || ''
           setForm({
             status:        v.status,
-            prospectName:  v.prospectName  || '',
-            prospectPhone: v.prospectPhone || '',
-            prospectEmail: v.prospectEmail || '',
-            clientId:           v.clientId           || '',
-            corporateClientId:  v.corporateClientId  || '',
+            indClient: {
+              clientId: v.clientId           || '',
+              name:     indName,
+              phone:    v.prospectPhone      || v.client?.phone || '',
+              email:    v.prospectEmail      || v.client?.email || '',
+            },
+            corpClient: {
+              clientId: v.corporateClientId  || '',
+              name:     v.corporateClient?.name || '',
+            },
             assignedToId:       v.assignedToId       || '',
             serviceType:        v.serviceType        || '',
             language:      v.language      || 'ES',
             scheduledDate: v.scheduledDate ? new Date(v.scheduledDate).toISOString().slice(0, 16) : '',
             bookerRole:    v.bookerRole    || '',
-            originAgentId: v.originAgentId || '',
+            originAgentId: 'WINMOVERS',
             destAgentId:   v.destAgentId   || '',
             originAddress: v.originAddress || '',
             originCity:    v.originCity    || '',
@@ -78,9 +89,6 @@ export default function VisitForm() {
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
 
-  const individualClients  = clients.filter(c => c.clientType === 'INDIVIDUAL')
-  const corporateClients   = clients.filter(c => c.clientType === 'CORPORATE' || c.clientType === 'BROKER')
-
   const field = (name, type = 'text') => ({
     type,
     className: 'form-control',
@@ -91,21 +99,56 @@ export default function VisitForm() {
   const handleSubmit = async e => {
     e.preventDefault()
     const errs = []
-    if (!form.serviceType)                         errs.push(t('visits.validation.serviceType'))
-    if (!form.scheduledDate)                       errs.push(t('visits.validation.scheduledDate'))
-    if (!form.assignedToId)                            errs.push(t('visits.validation.assignedTo'))
-    if (!form.clientId && !form.prospectName?.trim()) errs.push(t('visits.validation.nameOrClient'))
+    if (!form.serviceType)                                    errs.push(t('visits.validation.serviceType'))
+    if (!form.scheduledDate)                                  errs.push(t('visits.validation.scheduledDate'))
+    if (!form.assignedToId)                                   errs.push(t('visits.validation.assignedTo'))
+    if (!form.indClient.clientId && !form.indClient.name?.trim()) errs.push(t('visits.validation.nameOrClient'))
     if (errs.length) { setError(errs.join('\n')); return }
     setSaving(true); setError(null)
     try {
+      // Auto-create individual client if new name was entered
+      let clientId = form.indClient.clientId
+      if (!clientId && form.indClient.name.trim()) {
+        const parts = form.indClient.name.trim().split(/\s+/)
+        const newCl = await api.post('/clients', {
+          clientType: 'INDIVIDUAL',
+          firstName:  parts[0],
+          lastName:   parts.slice(1).join(' ') || null,
+          phone:      form.indClient.phone || null,
+          email:      form.indClient.email || null,
+        })
+        clientId = newCl.id
+      }
+      // Auto-create corporate client if new name was entered
+      let corporateClientId = form.corpClient.clientId
+      if (!corporateClientId && form.corpClient.name.trim()) {
+        const newCorp = await api.post('/clients', {
+          clientType: 'CORPORATE',
+          name:       form.corpClient.name.trim(),
+        })
+        corporateClientId = newCorp.id
+      }
       const payload = {
-        ...form,
-        clientId:           form.clientId           || null,
-        corporateClientId:  form.corporateClientId  || null,
-        assignedToId:       form.assignedToId       || null,
+        prospectName:  form.indClient.name  || null,
+        prospectPhone: form.indClient.phone || null,
+        prospectEmail: form.indClient.email || null,
+        clientId:           clientId           || null,
+        corporateClientId:  corporateClientId  || null,
+        assignedToId:       form.assignedToId  || null,
+        status:        form.status,
+        serviceType:   form.serviceType   || null,
+        language:      form.language      || 'ES',
         scheduledDate: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
+        bookerRole:    form.bookerRole    || null,
         originAgentId: (form.originAgentId === 'WINMOVERS' ? null : form.originAgentId) || null,
         destAgentId:   (form.destAgentId   === 'WINMOVERS' ? null : form.destAgentId)   || null,
+        originAddress: form.originAddress || null,
+        originCity:    form.originCity    || null,
+        originCountry: form.originCountry || null,
+        destAddress:   form.destAddress   || null,
+        destCity:      form.destCity      || null,
+        destCountry:   form.destCountry   || null,
+        observations:  form.observations  || null,
       }
       if (isEdit) {
         await api.put(`/visits/${id}`, payload)
@@ -144,42 +187,46 @@ export default function VisitForm() {
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)' }}>{t('visits.requiredLegend')}</p>
           <div className="form-grid">
             <div className="form-group">
-              <label className="form-label">{t('visits.prospectName')}</label>
-              <input {...field('prospectName')} placeholder="e.g. María García" />
+              <label className="form-label">{t('visits.linkedClient')}</label>
+              <ClientLookup
+                clientType="INDIVIDUAL"
+                value={form.indClient}
+                onChange={val => set('indClient', val)}
+                showContact={false}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.prospectPhone')}</label>
-              <input {...field('prospectPhone')} placeholder="+57 300 000 0000" />
+              <input
+                className="form-control"
+                value={form.indClient.phone || ''}
+                readOnly={Boolean(form.indClient.clientId)}
+                onChange={e => set('indClient', { ...form.indClient, phone: e.target.value })}
+                placeholder="+57 300 000 0000"
+                style={form.indClient.clientId ? { background: 'var(--input-bg)' } : undefined}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.prospectEmail')}</label>
-              <input {...field('prospectEmail')} type="email" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('visits.linkedClient')}</label>
-              <select className="form-control" value={form.clientId} onChange={e => {
-                const selectedId = e.target.value
-                const client = individualClients.find(c => c.id === selectedId)
-                setForm(prev => ({
-                  ...prev,
-                  clientId: selectedId,
-                  ...(client ? {
-                    prospectName:  [client.firstName, client.lastName].filter(Boolean).join(' ') || client.name || prev.prospectName,
-                    prospectPhone: client.phone || prev.prospectPhone,
-                    prospectEmail: client.email || prev.prospectEmail,
-                  } : {}),
-                }))
-              }}>
-                <option value="">{t('common.none')}</option>
-                {individualClients.map(c => <option key={c.id} value={c.id}>{[c.firstName, c.lastName].filter(Boolean).join(' ') || c.name}</option>)}
-              </select>
+              <input
+                className="form-control"
+                value={form.indClient.email || ''}
+                readOnly={Boolean(form.indClient.clientId)}
+                onChange={e => set('indClient', { ...form.indClient, email: e.target.value })}
+                type="email"
+                style={form.indClient.clientId ? { background: 'var(--input-bg)' } : undefined}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.companyClient')}</label>
-              <select className="form-control" value={form.corporateClientId} onChange={e => set('corporateClientId', e.target.value)}>
-                <option value="">{t('common.none')}</option>
-                {corporateClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <ClientLookup
+                clientType="CORPORATE"
+                value={form.corpClient}
+                onChange={val => set('corpClient', val)}
+                showContact={false}
+                hintText={t('clients.willBeCreatedCompany')}
+                noResultsText={t('clients.noResultsNewCompany')}
+              />
             </div>
           </div>
         </div>
@@ -207,7 +254,7 @@ export default function VisitForm() {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">{t('visits.assignedTo')}</label>
+              <label className="form-label">{t('visits.assignedTo')} <span style={{ color: 'var(--danger, #dc3545)' }}>*</span></label>
               <select className="form-control" value={form.assignedToId} onChange={e => set('assignedToId', e.target.value)}>
                 <option value="">{t('visits.unassigned')}</option>
                 {staffMembers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -227,9 +274,7 @@ export default function VisitForm() {
                 const role = e.target.value
                 setForm(prev => ({
                   ...prev, bookerRole: role,
-                  ...(role === 'BOOKER' ? { originAgentId: 'WINMOVERS', destAgentId: 'WINMOVERS' } :
-                      role === 'OA'     ? { originAgentId: 'WINMOVERS' } :
-                      role === 'DA'     ? { destAgentId:   'WINMOVERS' } : {}),
+                  ...(role === 'BOOKER' || role === 'DA' ? { destAgentId: 'WINMOVERS' } : {}),
                 }))
               }}>
                 <option value="">{t('common.none')}</option>
@@ -238,11 +283,7 @@ export default function VisitForm() {
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.originAgent')}</label>
-              <select className="form-control" value={form.originAgentId} onChange={e => set('originAgentId', e.target.value)}>
-                <option value="">{t('common.none')}</option>
-                <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
-                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <input className="form-control" value={t('movingFiles.winmoversOption')} readOnly style={{ background: 'var(--bg-secondary, #f8f9fa)', cursor: 'default' }} />
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.destAgent')}</label>

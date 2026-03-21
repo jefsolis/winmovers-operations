@@ -52,7 +52,7 @@ export default function JobForm() {
   useEffect(() => {
     const tasks = [
       api.get('/clients').then(setClients).catch(() => {}),
-      api.get('/staff').then(setStaffMembers).catch(() => {}),
+      api.get('/staff?canBeCreatorInWorkOrder=true').then(setStaffMembers).catch(() => {}),
     ]
     if (isEdit) {
       tasks.push(
@@ -203,9 +203,13 @@ export default function JobForm() {
         movingFileId: (!isEdit && fromFileId) ? fromFileId : undefined,
         language,
       }
-      if (isEdit) { await api.put(`/jobs/${id}`, payload) }
-      else        { await api.post('/jobs', payload) }
-      navigate('/jobs')
+      if (isEdit) {
+        await api.put(`/jobs/${id}`, payload)
+        navigate(`/jobs/${id}`)
+      } else {
+        const created = await api.post('/jobs', payload)
+        navigate(`/jobs/${created.id}`)
+      }
     } catch (e) { setError(e.message) }
     finally { setSaving(false) }
   }

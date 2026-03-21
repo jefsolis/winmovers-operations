@@ -141,7 +141,7 @@ model MovingFile {
   puertoEntrada       String?
   oblHastaCiudad      String?
   fechaLlegada        DateTime?
-  fechaTrasladoBodega DateTime?
+  fechaTrasladoBodega String?
   fechaTraslado       DateTime?
   fechaEntrega        DateTime?
   job         Job?         // back-relation; null for LOCAL files
@@ -167,6 +167,16 @@ model StaffMember {
   email     String   @unique
   phone     String?
   isActive  Boolean  @default(true)
+
+  // Permission flags — control where this person appears
+  canBeAssignedToVisit    Boolean @default(true)
+  canCreateQuotes         Boolean @default(false)
+  canBeCreatorInWorkOrder Boolean @default(false)
+
+  // Future login (inert until implemented)
+  passwordHash  String?
+  role          String?   // 'ADMIN' | 'STAFF'
+
   visits    Visit[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -7,6 +7,8 @@ import {
 import { api } from '../api'
 import { formatDate } from '../constants'
 import { useLanguage } from '../i18n'
+import { useDashboardLayout } from '../hooks/useDashboardLayout'
+import DashboardCardStore from '../components/DashboardCardStore'
 
 const MODE_COLORS  = { ROAD: '#6366f1', SEA: '#0ea5e9', AIR: '#f59e0b', COMBINED: '#10b981' }
 const TYPE_COLORS  = { EXPORT: '#0ea5e9', IMPORT: '#8b5cf6', INTERNATIONAL: '#2563eb', DOMESTIC: '#16a34a' }
@@ -60,6 +62,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Dashboard layout — must be here (before early returns) to satisfy Rules of Hooks
+  const { isVisible, toggle, hiddenCards, reset } = useDashboardLayout()
+  const [storeOpen, setStoreOpen] = useState(false)
+
   useEffect(() => {
     api.get('/dashboard')
       .then(setData)
@@ -76,6 +82,8 @@ export default function Dashboard() {
     openVisits, pendingQuotes, conversionRate,
     pipeline, upcomingVisits, pendingQuotesList,
     filesByCompletion,
+    localNoInvoiceRecent,
+    localNoInvoiceOld,
   } = data
 
   const monthData  = (jobsByMonth || []).map(d => ({ ...d, month: fmtMonth(d.month) }))
@@ -84,6 +92,12 @@ export default function Dashboard() {
 
   const hasMonthData = monthData.some(d => (d.jobs || 0) + (d.visits || 0) + (d.quotes || 0) > 0)
   const hasModeData  = modeData.length > 0
+
+  // Pre-compute chart grid visibility
+  const showChartFC  = isVisible('files_completion')
+  const showChartBM  = isVisible('jobs_by_mode') && hasModeData
+  const showChartBT  = isVisible('jobs_by_type')
+  const chartGridCols = [showChartFC, showChartBM, showChartBT].filter(Boolean).length
 
   const visitsLabel = t('nav.visits')
   const quotesLabel = t('nav.quotes')
@@ -107,10 +121,14 @@ export default function Dashboard() {
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to="/visits/new" className="btn btn-primary">{t('visits.newVisit')}</Link>
           <Link to="/jobs/new" className="btn btn-secondary">{t('jobs.newJob')}</Link>
+          <button className="btn btn-secondary" onClick={() => setStoreOpen(true)} title={t('dashboard.store.customize')}>
+            ⚙️ {t('dashboard.store.customize')}
+          </button>
         </div>
       </div>
 
       {/* KPI cards */}
+      {isVisible('kpi') && (
       <div className="kpi-grid">
         <div className="kpi-card">
           <div className="kpi-label">{t('dashboard.totalJobs')}</div>
@@ -142,8 +160,10 @@ export default function Dashboard() {
           <div className="kpi-value">{totalClients}</div>
         </div>
       </div>
+      )}
 
       {/* Sales pipeline funnel */}
+      {isVisible('pipeline') && (
       <div className="card card-body" style={{ marginBottom: 20 }}>
         <div className="section-label" style={{ marginBottom: 16 }}>{t('dashboard.pipeline')}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap' }}>
@@ -164,11 +184,14 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+      )}
 
       {/* Upcoming visits + Pending quotes row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+      {(isVisible('upcoming_visits') || isVisible('pending_quotes')) && (
+      <div style={{ display: 'grid', gridTemplateColumns: (isVisible('upcoming_visits') && isVisible('pending_quotes')) ? '1fr 1fr' : '1fr', gap: 16, marginBottom: 20 }}>
 
         {/* Upcoming scheduled visits */}
+        {isVisible('upcoming_visits') && (
         <div className="card">
           <div className="card-body" style={{ paddingBottom: 0 }}>
             <div className="section-label">{t('dashboard.upcomingVisits')}</div>
@@ -214,8 +237,10 @@ export default function Dashboard() {
             <Link to="/visits" style={{ fontSize: 12, color: 'var(--primary)' }}>{t('visits.allVisits')} →</Link>
           </div>
         </div>
+        )}
 
         {/* Quotes awaiting decision */}
+        {isVisible('pending_quotes') && (
         <div className="card">
           <div className="card-body" style={{ paddingBottom: 0 }}>
             <div className="section-label">{t('dashboard.pendingQuotesList')}</div>
@@ -263,9 +288,114 @@ export default function Dashboard() {
             <Link to="/quotes" style={{ fontSize: 12, color: 'var(--primary)' }}>{t('quotes.allQuotes')} →</Link>
           </div>
         </div>
+        )}
       </div>
+      )}
+
+      {/* Local files without invoice */}
+      {isVisible('local_no_invoice') && (
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+
+        {/* Recent (≤ 30 days) */}
+        <div className="card">
+          <div className="card-body" style={{ paddingBottom: 0 }}>
+            <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{t('dashboard.localNoInvoiceRecent')}</span>
+              {(localNoInvoiceRecent || []).length > 0 && (
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 12, padding: '1px 8px' }}>
+                  {(localNoInvoiceRecent || []).length}
+                </span>
+              )}
+            </div>
+          </div>
+          {(localNoInvoiceRecent || []).length === 0
+            ? <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.noLocalNoInvoice')}</div>
+            : <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('dashboard.fileNumber')}</th>
+                      <th>{t('dashboard.client')}</th>
+                      <th style={{ textAlign: 'right' }}>{t('dashboard.daysOld')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(localNoInvoiceRecent || []).map(f => {
+                      const days = Math.floor((Date.now() - new Date(f.createdAt)) / 86400000)
+                      const cname = f.client
+                        ? (f.client.clientType === 'INDIVIDUAL'
+                            ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
+                            : f.client.name)
+                        : '—'
+                      return (
+                        <tr key={f.id}>
+                          <td><Link to={`/files/local/${f.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{f.fileNumber}</Link></td>
+                          <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{cname}</td>
+                          <td style={{ textAlign: 'right', fontSize: 13, color: 'var(--text-muted)' }}>{days}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+          }
+          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
+            <Link to="/files/local" style={{ fontSize: 12, color: 'var(--primary)' }}>{t('movingFiles.localTitle')} →</Link>
+          </div>
+        </div>
+
+        {/* Older (30+ days) — needs attention */}
+        <div className="card" style={(localNoInvoiceOld || []).length > 0 ? { border: '1.5px solid #fca5a5' } : {}}>
+          <div className="card-body" style={{ paddingBottom: 0 }}>
+            <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{t('dashboard.localNoInvoiceOld')}</span>
+              {(localNoInvoiceOld || []).length > 0 && (
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 12, padding: '1px 8px' }}>
+                  {(localNoInvoiceOld || []).length}
+                </span>
+              )}
+            </div>
+          </div>
+          {(localNoInvoiceOld || []).length === 0
+            ? <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.noLocalNoInvoice')}</div>
+            : <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('dashboard.fileNumber')}</th>
+                      <th>{t('dashboard.client')}</th>
+                      <th style={{ textAlign: 'right' }}>{t('dashboard.daysOld')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(localNoInvoiceOld || []).map(f => {
+                      const days = Math.floor((Date.now() - new Date(f.createdAt)) / 86400000)
+                      const cname = f.client
+                        ? (f.client.clientType === 'INDIVIDUAL'
+                            ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
+                            : f.client.name)
+                        : '—'
+                      return (
+                        <tr key={f.id}>
+                          <td><Link to={`/files/local/${f.id}`} style={{ color: '#dc2626', fontWeight: 600 }}>{f.fileNumber}</Link></td>
+                          <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{cname}</td>
+                          <td style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#dc2626' }}>{days}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+          }
+          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
+            <Link to="/files/local" style={{ fontSize: 12, color: 'var(--primary)' }}>{t('movingFiles.localTitle')} →</Link>
+          </div>
+        </div>
+      </div>
+      )}
 
       {/* Monthly bar chart */}
+      {isVisible('activity_chart') && (
       <div className="card card-body" style={{ marginBottom: 20 }}>
         <div className="section-label" style={{ marginBottom: 16 }}>{t('dashboard.jobsPerMonth')}</div>
         {!hasMonthData
@@ -292,12 +422,14 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </>}
       </div>
+      )}
 
       {/* Status + Mode + Type row */}
-      <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: hasModeData ? '1fr 1fr 1fr' : '1fr 1fr', gap: 16, marginBottom: 20 }}>
+      {chartGridCols > 0 && (
+      <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${chartGridCols}, 1fr)`, gap: 16, marginBottom: 20 }}>
 
         {/* Files completion chart */}
-        <div className="card card-body">
+        {showChartFC && (<div className="card card-body">
           <div className="section-label" style={{ marginBottom: 12 }}>{t('dashboard.filesByCompletion') || 'Files Completion'}</div>
           {(!filesByCompletion || filesByCompletion.every(b => b.count === 0))
             ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('dashboard.noFiles') || 'No open files'}</p>
@@ -326,10 +458,10 @@ export default function Dashboard() {
               </div>
             )
           }
-        </div>
+        </div>)}
 
         {/* Mode donut */}
-        {hasModeData && (
+        {showChartBM && (
           <div className="card card-body">
             <div className="section-label" style={{ marginBottom: 8 }}>{t('dashboard.byMode')}</div>
             <ResponsiveContainer width="100%" height={180}>
@@ -358,7 +490,7 @@ export default function Dashboard() {
         )}
 
         {/* Type donut */}
-        <div className="card card-body">
+        {showChartBT && (<div className="card card-body">
           <div className="section-label" style={{ marginBottom: 8 }}>{t('dashboard.byType')}</div>
           {typeData.length === 0
             ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('dashboard.noJobs')}</p>
@@ -387,12 +519,13 @@ export default function Dashboard() {
                 </div>
               </>
           }
-        </div>
+        </div>)}
 
       </div>
+      )}
 
       {/* Recent jobs */}
-      {recentJobs.length > 0 && (
+      {isVisible('recent_jobs') && recentJobs.length > 0 && (
         <div className="card">
           <div className="card-body" style={{ paddingBottom: 0 }}>
             <div className="section-label">{t('dashboard.recentJobs')}</div>
@@ -424,6 +557,15 @@ export default function Dashboard() {
             </table>
           </div>
         </div>
+      )}
+
+      {storeOpen && (
+        <DashboardCardStore
+          isVisible={isVisible}
+          toggle={toggle}
+          reset={reset}
+          onClose={() => setStoreOpen(false)}
+        />
       )}
     </>
   )

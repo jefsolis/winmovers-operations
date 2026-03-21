@@ -41,6 +41,53 @@ function fmtDate(v) {
   try { return new Date(v).toLocaleDateString('en-GB') } catch { return '' }
 }
 
+function formatTime12h(v) {
+  if (!v) return ''
+  const [hStr, mStr] = v.split(':')
+  let h = parseInt(hStr, 10)
+  if (isNaN(h)) return v
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${h}:${mStr || '00'} ${ampm}`
+}
+
+const SEL_STYLE = {
+  border: 'none', background: 'transparent',
+  fontFamily: "'Times New Roman', Times, serif", fontSize: '11pt',
+  padding: '2px 4px', outline: 'none', cursor: 'pointer',
+}
+
+function TimePicker12h({ value, onChange }) {
+  let hDisp = 12, mDisp = '00', ampm = 'AM'
+  if (value) {
+    const [hStr, mStr] = value.split(':')
+    const h24 = parseInt(hStr, 10) || 0
+    ampm  = h24 >= 12 ? 'PM' : 'AM'
+    hDisp = h24 % 12 || 12
+    mDisp = mStr || '00'
+  }
+  const commit = (h, m, ap) => {
+    let h24 = h % 12
+    if (ap === 'PM') h24 += 12
+    onChange(`${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', gap: 2 }}>
+      <select style={SEL_STYLE} value={hDisp} onChange={e => commit(parseInt(e.target.value), mDisp, ampm)}>
+        {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}</option>)}
+      </select>
+      <span style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: '11pt' }}>:</span>
+      <select style={SEL_STYLE} value={mDisp} onChange={e => commit(hDisp, e.target.value, ampm)}>
+        {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(mm => <option key={mm} value={mm}>{mm}</option>)}
+      </select>
+      <select style={SEL_STYLE} value={ampm} onChange={e => commit(hDisp, mDisp, e.target.value)}>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  )
+}
+
 function Row({ children, tall }) {
   return <div className={`jd-row${tall ? ' jd-row-tall' : ''}`}>{children}</div>
 }
@@ -164,7 +211,13 @@ const JobDocument = forwardRef(function JobDocument(
 
           {/* Row 2: Time */}
           <Row>
-            <Cell label={L.time} value={fv('serviceTime')} editMode={editMode} onChange={ch('serviceTime')} />
+            <div className="jd-cell" style={{ flex: 1 }}>
+              <span className="jd-cell-label">{L.time}</span>
+              {editMode
+                ? <TimePicker12h value={fv('serviceTime')} onChange={ch('serviceTime')} />
+                : <span className="jd-cell-value">{formatTime12h(fv('serviceTime'))}</span>
+              }
+            </div>
           </Row>
 
           {/* Row 3: Client picker (edit) / Client Name (view) | Cell Phone */}

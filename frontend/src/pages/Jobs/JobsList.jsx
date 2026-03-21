@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
-import { statusMeta, typeMeta, formatDate, getJobStatuses, getJobTypes } from '../../constants'
+import { typeMeta, formatDate, getJobStatuses, getJobTypes } from '../../constants'
 import { useLanguage } from '../../i18n'
 
 export default function JobsList() {
@@ -91,10 +91,8 @@ export default function JobsList() {
                   <thead>
                     <tr>
                       <th>{t('jobs.jobNumber')}</th>
-                      <th>{t('jobs.shipper')}</th>
                       <th>{t('jobs.client')}</th>
                       <th>{t('jobs.type')}</th>
-                      <th>{t('jobs.status')}</th>
                       <th>{t('jobs.route')}</th>
                       <th>{t('jobs.serviceDate')}</th>
                       <th></th>
@@ -102,15 +100,12 @@ export default function JobsList() {
                   </thead>
                   <tbody>
                     {displayed.map(job => {
-                      const sm = statusMeta(job.status, t)
                       const tm = typeMeta(job.type, t)
                       return (
                         <tr key={job.id}>
                           <td><Link to={`/jobs/${job.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.jobNumber}</Link></td>
-                          <td>{job.contact ? `${job.contact.firstName} ${job.contact.lastName}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                           <td style={{ color: 'var(--text-muted)' }}>{job.client?.name || '—'}</td>
                           <td><span className="badge" style={{ background: job.type === 'INTERNATIONAL' ? '#eff6ff' : '#f0fdf4', color: job.type === 'INTERNATIONAL' ? '#1e40af' : '#166534' }}>{tm.label}</span></td>
-                          <td><span className="badge" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span></td>
                           <td style={{ color: 'var(--text-muted)' }}>{[job.originCity, job.destCity].filter(Boolean).join(' → ') || '—'}</td>
                           <td style={{ color: 'var(--text-muted)' }}>{formatDate(job.serviceDate)}</td>
                           <td className="td-actions">

@@ -3,10 +3,9 @@ import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'reac
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { getFileServiceTypes, getShipmentModes, getFileBookerRoles } from '../../constants'
+import ClientLookup from '../../components/ClientLookup'
 
 const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
-
-const EMPTY_NEW_CLIENT = { firstName: '', lastName: '', email: '', phone: '' }
 
 export default function FileForm() {
   const { id } = useParams()
@@ -21,9 +20,8 @@ export default function FileForm() {
 
   const [form, setForm] = useState({
     category: defaultCategory,
-    clientId: '',
-    corporateClientId: '',
-    newClient: { ...EMPTY_NEW_CLIENT },
+    indClient: { clientId: '', name: '', phone: '', email: '' },
+    corpClient: { clientId: '', name: '' },
     notes: '',
     serviceType: '',
     shipmentMode: '',
@@ -31,7 +29,7 @@ export default function FileForm() {
     weightKg: '',
     bookerRole: '',
     originAgentId: '',
-    destAgentId: '',
+    destAgentId: defaultCategory === 'IMPORT' ? 'WINMOVERS' : '',
     // Shipping fields
     originAddress: '', originCity: '', originCountry: '',
     destAddress: '', destCity: '', destCountry: '',
@@ -49,7 +47,7 @@ export default function FileForm() {
     fechaTraslado: '',
     fechaEntrega: '',
   })
-  const [clients, setClients] = useState([])
+  const [clients, setClients] = useState([]) // eslint-disable-line
   const [agents, setAgents]   = useState([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving]   = useState(false)
@@ -60,20 +58,29 @@ export default function FileForm() {
   const BOOKER_ROLES       = getFileBookerRoles()
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
-  const setNc = (field, value) => setForm(prev => ({ ...prev, newClient: { ...prev.newClient, [field]: value } }))
 
   useEffect(() => {
-    api.get('/clients').then(setClients).catch(() => {})
     api.get('/agents').then(setAgents).catch(() => {})
     if (isEdit) {
       api.get(`/files/${id}`)
         .then(f => {
           const toDate = (v) => v ? new Date(v).toISOString().substring(0, 10) : ''
+          const indName = f.client
+            ? ([f.client.firstName, f.client.lastName].filter(Boolean).join(' ') || f.client.name || '')
+            : ''
           setForm(prev => ({
             ...prev,
             category:      f.category,
-            clientId:           f.clientId           || '',
-            corporateClientId:  f.corporateClientId  || '',
+            indClient: {
+              clientId: f.clientId           || '',
+              name:     indName,
+              phone:    f.client?.phone      || '',
+              email:    f.client?.email      || '',
+            },
+            corpClient: {
+              clientId: f.corporateClientId  || '',
+              name:     f.corporateClient?.name || '',
+            },
             notes:              f.notes              || '',
             serviceType:   f.serviceType   || '',
             shipmentMode:  f.shipmentMode  || '',
@@ -81,7 +88,7 @@ export default function FileForm() {
             weightKg:      f.weightKg      ?? '',
             bookerRole:    f.bookerRole    || '',
             originAgentId: f.originAgentId || '',
-            destAgentId:   f.destAgentId   || '',
+            destAgentId:   f.category === 'IMPORT' ? 'WINMOVERS' : (f.destAgentId || ''),
             originAddress: f.originAddress || '',
             originCity:    f.originCity    || '',
             originCountry: f.originCountry || '',
@@ -99,7 +106,7 @@ export default function FileForm() {
             puertoEntrada:    f.puertoEntrada        || '',
             oblHastaCiudad:   f.oblHastaCiudad       || '',
             fechaLlegada:         toDate(f.fechaLlegada),
-            fechaTrasladoBodega:  toDate(f.fechaTrasladoBodega),
+            fechaTrasladoBodega:  f.fechaTrasladoBodega  || '',
             fechaTraslado:        toDate(f.fechaTraslado),
             fechaEntrega:         toDate(f.fechaEntrega),
           }))
@@ -109,7 +116,7 @@ export default function FileForm() {
     }
   }, [id]) // eslint-disable-line
 
-  const newClientMode = form.clientId === '__new__'
+  const newClientMode = false // kept for safety, no longer used
   const category = form.category
 
   const handleBookerRoleChange = (role) => {
@@ -126,9 +133,32 @@ export default function FileForm() {
     e.preventDefault()
     setSaving(true); setError(null)
     try {
+      // Auto-create individual client if new name was entered
+      let clientId = form.indClient.clientId
+      if (!clientId && form.indClient.name.trim()) {
+        const parts = form.indClient.name.trim().split(/\s+/)
+        const newCl = await api.post('/clients', {
+          clientType: 'INDIVIDUAL',
+          firstName:  parts[0],
+          lastName:   parts.slice(1).join(' ') || null,
+          phone:      form.indClient.phone || null,
+          email:      form.indClient.email || null,
+        })
+        clientId = newCl.id
+      }
+      // Auto-create corporate client if new name was entered
+      let corporateClientId = form.corpClient.clientId
+      if (!corporateClientId && form.corpClient.name.trim()) {
+        const newCorp = await api.post('/clients', {
+          clientType: 'CORPORATE',
+          name:       form.corpClient.name.trim(),
+        })
+        corporateClientId = newCorp.id
+      }
       const payload = {
         category:           form.category,
-        corporateClientId:  form.corporateClientId || null,
+        clientId:           clientId          || null,
+        corporateClientId:  corporateClientId || null,
         notes:              form.notes             || null,
         serviceType:   form.serviceType   || null,
         shipmentMode:  form.shipmentMode  || null,
@@ -157,11 +187,6 @@ export default function FileForm() {
         fechaTrasladoBodega:  form.fechaTrasladoBodega  || null,
         fechaTraslado:        form.fechaTraslado        || null,
         fechaEntrega:         form.fechaEntrega         || null,
-      }
-      if (newClientMode) {
-        payload.newClient = { ...form.newClient, clientType: 'INDIVIDUAL' }
-      } else {
-        payload.clientId = form.clientId || null
       }
       if (isEdit) {
         await api.put(`/files/${id}`, payload)
@@ -199,39 +224,54 @@ export default function FileForm() {
           <div className="form-section">
             <div className="form-grid">
 
-              {/* Client selector */}
+              {/* Individual Client */}
               <div className="form-group">
                 <label className="form-label">{t('movingFiles.client')}</label>
-                <select
+                <ClientLookup
+                  clientType="INDIVIDUAL"
+                  value={form.indClient}
+                  onChange={val => set('indClient', val)}
+                  showContact={false}
+                />
+              </div>
+
+              {/* Phone */}
+              <div className="form-group">
+                <label className="form-label">{t('common.phone')}</label>
+                <input
                   className="form-control"
-                  value={form.clientId}
-                  onChange={e => set('clientId', e.target.value)}
-                >
-                  <option value="">{t('common.none')}</option>
-                  <option value="__new__">— {t('movingFiles.newClientInline')} —</option>
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.clientType === 'INDIVIDUAL'
-                        ? `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.name
-                        : c.name}
-                    </option>
-                  ))}
-                </select>
+                  value={form.indClient.phone || ''}
+                  readOnly={Boolean(form.indClient.clientId)}
+                  onChange={e => set('indClient', { ...form.indClient, phone: e.target.value })}
+                  placeholder="+57 300 000 0000"
+                  style={form.indClient.clientId ? { background: 'var(--input-bg)' } : undefined}
+                />
+              </div>
+
+              {/* Email */}
+              <div className="form-group">
+                <label className="form-label">{t('common.email')}</label>
+                <input
+                  className="form-control"
+                  value={form.indClient.email || ''}
+                  readOnly={Boolean(form.indClient.clientId)}
+                  onChange={e => set('indClient', { ...form.indClient, email: e.target.value })}
+                  type="email"
+                  style={form.indClient.clientId ? { background: 'var(--input-bg)' } : undefined}
+                />
               </div>
 
               {/* Corporate Client */}
               <div className="form-group">
                 <label className="form-label">{t('movingFiles.corporateClient')}</label>
-                <select
-                  className="form-control"
-                  value={form.corporateClientId}
-                  onChange={e => set('corporateClientId', e.target.value)}
-                >
-                  <option value="">{t('common.none')}</option>
-                  {clients.filter(c => c.clientType === 'CORPORATE').map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <ClientLookup
+                  clientType="CORPORATE"
+                  value={form.corpClient}
+                  onChange={val => set('corpClient', val)}
+                  showContact={false}
+                  hintText={t('clients.willBeCreatedCompany')}
+                  noResultsText={t('clients.noResultsNewCompany')}
+                />
               </div>
 
               {/* Service Type — only for IMPORT files */}
@@ -306,11 +346,15 @@ export default function FileForm() {
               {/* Destination Agent */}
               <div className="form-group">
                 <label className="form-label">{t('movingFiles.destAgent')}</label>
-                <select className="form-control" value={form.destAgentId} onChange={e => set('destAgentId', e.target.value)}>
-                  <option value="">{t('common.none')}</option>
-                  <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
-                  {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                {form.category === 'IMPORT' ? (
+                  <input className="form-control" value={t('movingFiles.winmoversOption')} readOnly style={{ background: 'var(--bg-secondary, #f8f9fa)', cursor: 'default' }} />
+                ) : (
+                  <select className="form-control" value={form.destAgentId} onChange={e => set('destAgentId', e.target.value)}>
+                    <option value="">{t('common.none')}</option>
+                    <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
+                    {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                )}
               </div>
 
               {/* Notes */}
@@ -424,7 +468,7 @@ export default function FileForm() {
 
                     <div className="form-group">
                       <label className="form-label">{t('movingFiles.trasladoBodega')}</label>
-                      <input className="form-control" type="date" value={form.fechaTrasladoBodega} onChange={e => set('fechaTrasladoBodega', e.target.value)} />
+                      <input className="form-control" type="text" value={form.fechaTrasladoBodega} onChange={e => set('fechaTrasladoBodega', e.target.value)} />
                     </div>
 
                     <div className="form-group">
@@ -439,31 +483,6 @@ export default function FileForm() {
                   </>
                 )}
 
-              </div>
-            </div>
-          )}
-
-          {/* Inline new client fields */}
-          {newClientMode && (
-            <div className="form-section" style={{ marginTop: 16, padding: '12px 0 0', borderTop: '1px solid var(--border)' }}>
-              <div className="section-label" style={{ marginBottom: 8 }}>{t('movingFiles.newClientSection')}</div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label className="form-label">{t('clients.firstName')}</label>
-                  <input className="form-control" value={form.newClient.firstName} onChange={e => setNc('firstName', e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('clients.lastName')}</label>
-                  <input className="form-control" value={form.newClient.lastName} onChange={e => setNc('lastName', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('common.email')}</label>
-                  <input className="form-control" type="email" value={form.newClient.email} onChange={e => setNc('email', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('common.phone')}</label>
-                  <input className="form-control" value={form.newClient.phone} onChange={e => setNc('phone', e.target.value)} />
-                </div>
               </div>
             </div>
           )}

@@ -4,16 +4,19 @@ const { getPrisma } = require('../db')
 // GET all
 router.get('/', async (req, res, next) => {
   try {
-    const { search } = req.query
-    const where = search ? {
-      OR: [
+    const { search, clientType } = req.query
+    const where = {}
+    if (clientType === 'INDIVIDUAL') where.clientType = 'INDIVIDUAL'
+    else if (clientType === 'CORPORATE') where.clientType = { in: ['CORPORATE', 'BROKER'] }
+    if (search) {
+      where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { firstName: { contains: search, mode: 'insensitive' } },
         { lastName: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { country: { contains: search, mode: 'insensitive' } },
       ]
-    } : {}
+    }
     const clients = await getPrisma().client.findMany({
       where,
       orderBy: { createdAt: 'desc' },

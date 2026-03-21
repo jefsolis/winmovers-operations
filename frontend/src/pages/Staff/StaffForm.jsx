@@ -3,7 +3,11 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 
-const EMPTY = { name: '', email: '', phone: '', isActive: true }
+const EMPTY = {
+  name: '', email: '', phone: '', isActive: true,
+  canBeAssignedToVisit: true, canCreateQuotes: false, canBeCreatorInWorkOrder: false,
+  role: '',
+}
 
 export default function StaffForm() {
   const { id } = useParams()
@@ -24,7 +28,13 @@ export default function StaffForm() {
   useEffect(() => {
     if (!isEdit) return
     api.get(`/staff/${id}`)
-      .then(m => setForm({ name: m.name, email: m.email, phone: m.phone || '', isActive: m.isActive }))
+      .then(m => setForm({
+        name: m.name, email: m.email, phone: m.phone || '', isActive: m.isActive,
+        canBeAssignedToVisit:    m.canBeAssignedToVisit,
+        canCreateQuotes:         m.canCreateQuotes,
+        canBeCreatorInWorkOrder: m.canBeCreatorInWorkOrder,
+        role: m.role || '',
+      }))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [id]) // eslint-disable-line
@@ -64,7 +74,18 @@ export default function StaffForm() {
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">{isEdit ? t('staff.editStaffMember') : t('staff.newStaffMember')}</div>
+          <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {isEdit ? t('staff.editStaffMember') : t('staff.newStaffMember')}
+            {isEdit && !loading && (
+              <span className="badge" style={{
+                fontSize: 12, fontWeight: 500, verticalAlign: 'middle',
+                background: form.isActive ? '#dcfce7' : '#f1f5f9',
+                color: form.isActive ? '#16a34a' : '#64748b',
+              }}>
+                {form.isActive ? t('staff.isActive') : t('staff.inactive')}
+              </span>
+            )}
+          </div>
           <div className="page-subtitle">{t('staff.subtitle')}</div>
         </div>
         <Link to="/staff" className="btn btn-secondary">{t('common.cancel')}</Link>
@@ -90,17 +111,34 @@ export default function StaffForm() {
               <label className="form-label">{t('staff.phone')}</label>
               <input {...field('phone', 'tel')} placeholder={t('staff.phonePlaceholder')} />
             </div>
-            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 24 }}>
-              <input
-                type="checkbox"
-                id="isActive"
-                checked={form.isActive}
-                onChange={e => set('isActive', e.target.checked)}
-              />
-              <label htmlFor="isActive" className="form-label" style={{ margin: 0, cursor: 'pointer' }}>
-                {t('staff.isActive')}
+          </div>
+        </div>
+
+        <div className="card card-body" style={{ marginBottom: 16 }}>
+          <div className="section-label">{t('staff.permissionsSection')}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            {[
+              ['canBeAssignedToVisit',    t('staff.canBeAssignedToVisit')],
+              ['canCreateQuotes',         t('staff.canCreateQuotes')],
+              ['canBeCreatorInWorkOrder', t('staff.canBeCreatorInWorkOrder')],
+            ].map(([key, label]) => (
+              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={form[key]}
+                  onChange={e => set(key, e.target.checked)}
+                />
+                {label}
               </label>
-            </div>
+            ))}
+          </div>
+          <div className="form-group" style={{ marginTop: 16, maxWidth: 240 }}>
+            <label className="form-label">{t('staff.role')}</label>
+            <select className="form-control" value={form.role} onChange={e => set('role', e.target.value)}>
+              <option value="">{t('staff.roleNone')}</option>
+              <option value="ADMIN">{t('staff.roleAdmin')}</option>
+              <option value="STAFF">{t('staff.roleStaff')}</option>
+            </select>
           </div>
         </div>
 

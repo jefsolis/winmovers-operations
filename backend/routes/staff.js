@@ -4,8 +4,11 @@ const { getPrisma } = require('../db')
 // GET all
 router.get('/', async (req, res, next) => {
   try {
-    const { includeInactive } = req.query
+    const { includeInactive, canBeAssignedToVisit, canCreateQuotes, canBeCreatorInWorkOrder } = req.query
     const where = includeInactive === 'true' ? {} : { isActive: true }
+    if (canBeAssignedToVisit    === 'true') where.canBeAssignedToVisit    = true
+    if (canCreateQuotes         === 'true') where.canCreateQuotes         = true
+    if (canBeCreatorInWorkOrder === 'true') where.canBeCreatorInWorkOrder = true
     const members = await getPrisma().staffMember.findMany({
       where,
       orderBy: { name: 'asc' },
@@ -35,7 +38,9 @@ router.get('/:id', async (req, res, next) => {
 // POST create
 router.post('/', async (req, res, next) => {
   try {
-    const { name, email, phone, isActive } = req.body
+    const { name, email, phone, isActive,
+            canBeAssignedToVisit, canCreateQuotes, canBeCreatorInWorkOrder,
+            role } = req.body
     if (!name?.trim()) return res.status(400).json({ error: 'Name is required.' })
     if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' })
     const member = await getPrisma().staffMember.create({
@@ -44,6 +49,10 @@ router.post('/', async (req, res, next) => {
         email: email.trim().toLowerCase(),
         phone: phone || null,
         isActive: isActive !== false,
+        canBeAssignedToVisit:    canBeAssignedToVisit    !== false && Boolean(canBeAssignedToVisit    ?? true),
+        canCreateQuotes:         Boolean(canCreateQuotes),
+        canBeCreatorInWorkOrder: Boolean(canBeCreatorInWorkOrder),
+        role: role || null,
       },
     })
     res.status(201).json(member)
@@ -56,7 +65,9 @@ router.post('/', async (req, res, next) => {
 // PUT update
 router.put('/:id', async (req, res, next) => {
   try {
-    const { name, email, phone, isActive } = req.body
+    const { name, email, phone, isActive,
+            canBeAssignedToVisit, canCreateQuotes, canBeCreatorInWorkOrder,
+            role } = req.body
     if (!name?.trim()) return res.status(400).json({ error: 'Name is required.' })
     if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' })
     const member = await getPrisma().staffMember.update({
@@ -66,6 +77,10 @@ router.put('/:id', async (req, res, next) => {
         email: email.trim().toLowerCase(),
         phone: phone || null,
         isActive: isActive !== false,
+        canBeAssignedToVisit:    Boolean(canBeAssignedToVisit),
+        canCreateQuotes:         Boolean(canCreateQuotes),
+        canBeCreatorInWorkOrder: Boolean(canBeCreatorInWorkOrder),
+        role: role || null,
       },
     })
     res.json(member)
