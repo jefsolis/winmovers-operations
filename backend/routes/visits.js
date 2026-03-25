@@ -63,6 +63,7 @@ router.get('/:id', async (req, res, next) => {
         originAgent:     { select: { id: true, name: true } },
         destAgent:       { select: { id: true, name: true } },
         quotes:          { include: { job: { select: { id: true, jobNumber: true } } } },
+        jobs:            { select: { id: true, jobNumber: true } },
         survey:          { select: { id: true, surveyNumber: true, totalCf: true, surveyDate: true } },
       },
     })

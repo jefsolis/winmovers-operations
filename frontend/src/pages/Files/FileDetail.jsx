@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { fileStatusMeta } from '../../constants'
+import { fileStatusMeta, getFileProgressionStatuses } from '../../constants'
 import FileAttachments from './FileAttachments'
 
 const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
@@ -31,6 +31,8 @@ export default function FileDetail() {
   const [activeTab, setActiveTab] = useState('summary')
   const [exceptionModalOpen, setExceptionModalOpen] = useState(false)
   const [exceptionNote, setExceptionNote] = useState('')
+  const [voidModalOpen, setVoidModalOpen] = useState(false)
+  const [voidNote, setVoidNote] = useState('')
 
   const load = () => {
     setLoading(true)
@@ -86,6 +88,26 @@ export default function FileDetail() {
     } catch (e) { alert(e.message) } finally { setClosing(false) }
   }
 
+  const handleSetStatus = async (newStatus) => {
+    setClosing(true)
+    try {
+      const updated = await api.put(`/files/${id}`, { status: newStatus })
+      setFile(updated)
+    } catch (e) { alert(e.message) } finally { setClosing(false) }
+  }
+
+  const handleVoid = async () => {
+    if (!voidNote.trim()) return
+    setClosing(true)
+    try {
+      const appendedNotes = (file.notes ? file.notes + '\n---\n' : '') + t('movingFiles.voidFile') + ': ' + voidNote.trim()
+      const updated = await api.put(`/files/${id}`, { status: 'VOID', notes: appendedNotes })
+      setFile(updated)
+      setVoidModalOpen(false)
+      setVoidNote('')
+    } catch (e) { alert(e.message) } finally { setClosing(false) }
+  }
+
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
   if (error)   return <div className="alert alert-error">{error}</div>
   if (!file)   return null
@@ -108,11 +130,14 @@ export default function FileDetail() {
   const destAgentName   = file.destAgent?.name
     || (fileBookerRole === 'DA' || fileBookerRole === 'BOOKER' ? winmovers : '\u2014')
 
-  const _shipMode = file.shipmentMode
-  const _isAir    = _shipMode === 'AIR'
-  const _isSea    = _shipMode === 'SEA'
+  const _shipMode  = file.shipmentMode
+  const _shipModes  = _shipMode ? _shipMode.split(',').filter(Boolean) : []
+  const _isAir    = _shipModes.length === 1 && _shipModes[0] === 'AIR'
+  const _isSea    = _shipModes.length === 1 && _shipModes[0] === 'SEA'
   const _navLabel = _isAir ? t('movingFiles.aerolinea') : _isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
   const _vapLabel = _isAir ? t('movingFiles.vuelo')     : _isSea ? t('movingFiles.vapor')   : `${t('movingFiles.vapor')} / ${t('movingFiles.vuelo')}`
+  const _formatModes = (raw) => raw ? raw.split(',').filter(Boolean).map(m => t(`modes.${m}`)).join(' + ') : '—'
+  const _formatLoadType = (raw) => raw ? raw.split(',').filter(Boolean).map(m => t(`loadTypes.${m}`)).join(' + ') : '—'
 
   const requiredFieldsList = file.category === 'IMPORT' ? [
     { label: t('movingFiles.etd'),           done: Boolean(file.etd) },
@@ -121,7 +146,7 @@ export default function FileDetail() {
     { label: t('movingFiles.puertoEntrada'), done: Boolean(file.puertoEntrada) },
     { label: t('movingFiles.oblHastaCiudad'),done: Boolean(file.oblHastaCiudad) },
     { label: t('movingFiles.fechaLlegada'),  done: Boolean(file.fechaLlegada) },
-    { label: t('movingFiles.trasladoBodega'),done: Boolean(file.fechaTrasladoBodega) },
+    { label: t('movingFiles.trasladoBodega'),done: file.anticipado || Boolean(file.fechaTrasladoBodega) },
     { label: t('movingFiles.fechaTraslado'), done: Boolean(file.fechaTraslado) },
     { label: t('movingFiles.fechaEntrega'),  done: Boolean(file.fechaEntrega) },
   ] : file.category === 'EXPORT' ? [
@@ -164,8 +189,20 @@ export default function FileDetail() {
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to={back} className="btn btn-ghost">{t('movingFiles.backToFiles')}</Link>
           <Link to={`${back}/${id}/edit`} className="btn btn-primary">{t('common.edit')}</Link>
-          {file.status !== 'CLOSED' ? (
+          {file.status !== 'CLOSED' && file.status !== 'VOID' ? (
             <>
+              {file.category !== 'LOCAL' && (
+                <select
+                  value={file.status}
+                  onChange={e => handleSetStatus(e.target.value)}
+                  disabled={closing}
+                  style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13, cursor: 'pointer' }}
+                >
+                  {getFileProgressionStatuses(file.category, t).map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              )}
               {file.category === 'LOCAL' && (
                 <button
                   className="btn btn-secondary"
@@ -175,6 +212,9 @@ export default function FileDetail() {
                   {t('movingFiles.exceptionCloseTitle')}
                 </button>
               )}
+              <button className="btn btn-secondary" onClick={() => setVoidModalOpen(true)} disabled={closing}>
+                {t('movingFiles.voidFile')}
+              </button>
               <button
                 onClick={handleClose}
                 disabled={closing || !canClose}
@@ -230,20 +270,21 @@ export default function FileDetail() {
                 const company = file.corporateClient?.name || job?.companyName || null
                 const clientPhone = file.client?.phone || file.client?.homePhone || job?.clientPhone || null
                 const shipMode = file.shipmentMode || job?.shipmentMode
-                const isAir = shipMode === 'AIR'
-                const isSea = shipMode === 'SEA'
-                const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '\u2014'
+                const _smArr = shipMode ? shipMode.split(',').filter(Boolean) : []
+                const isAir = _smArr.length === 1 && _smArr[0] === 'AIR'
+                const isSea = _smArr.length === 1 && _smArr[0] === 'SEA'
+                const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { timeZone: 'UTC' }) : '\u2014'
                 const destAddr = [file.destAddress || job?.destAddress, file.destCity || job?.destCity, file.destCountry || job?.destCountry].filter(Boolean).join(', ') || '\u2014'
-                const origAddr = [file.originAddress || job?.originAddress, file.originCity || job?.originCity, file.originCountry || job?.originCountry].filter(Boolean).join(', ') || '\u2014'
+                const origCountry = file.originCountry || job?.originCountry || '\u2014'
                 const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
                 return (<>
                   <InfoRow label={t('common.name')}>{clientName}</InfoRow>
                   <InfoRow label={t('movingFiles.destAddress')}>{destAddr}</InfoRow>
                   <InfoRow label={t('movingFiles.company')}>{company || '\u2014'}</InfoRow>
-                  <InfoRow label={t('jobs.originAddress')}>{origAddr}</InfoRow>
-                  <InfoRow label={t('movingFiles.originAgent')}>{originAgentName}</InfoRow>
-                  <InfoRow label={t('movingFiles.clientPhone')}>{clientPhone || '\u2014'}</InfoRow>
-                  <InfoRow label={t('movingFiles.shipmentMode')}>{shipMode ? t(`modes.${shipMode}`) : '\u2014'}</InfoRow>
+                  <InfoRow label={t('jobs.originCountry')}>{origCountry}</InfoRow>
+                  <InfoRow label={t('movingFiles.originAgent')}>{originAgentName}</InfoRow>                  <InfoRow label={t('movingFiles.coordinator')}>{file.coordinator?.name || '—'}</InfoRow>                  <InfoRow label={t('movingFiles.clientPhone')}>{clientPhone || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.shipmentMode')}>{_formatModes(shipMode)}</InfoRow>
+                  <InfoRow label={t('movingFiles.loadType')}>{_formatLoadType(file.loadType)}</InfoRow>
                   <InfoRow label={t('movingFiles.serviceType')}>{file.serviceType ? t(`serviceTypes.${file.serviceType}`) : '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.etd')}>{fmt(file.etd)}</InfoRow>
                   <InfoRow label={t('movingFiles.eta')}>{fmt(file.eta)}</InfoRow>
@@ -251,7 +292,11 @@ export default function FileDetail() {
                   <InfoRow label={t('movingFiles.puertoEntrada')}>{file.puertoEntrada || '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.oblHastaCiudad')}>{file.oblHastaCiudad || '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.fechaLlegada')}>{fmt(file.fechaLlegada)}</InfoRow>
-                  <InfoRow label={t('movingFiles.trasladoBodega')}>{file.fechaTrasladoBodega || '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.trasladoBodega')}>
+                    {file.anticipado
+                      ? <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('movingFiles.anticipado')}</span>
+                      : (file.fechaTrasladoBodega || '\u2014')}
+                  </InfoRow>
                   <InfoRow label={t('movingFiles.fechaTraslado')}>{fmt(file.fechaTraslado)}</InfoRow>
                   <InfoRow label={t('movingFiles.fechaEntrega')}>{fmt(file.fechaEntrega)}</InfoRow>
                 </>)
@@ -263,9 +308,10 @@ export default function FileDetail() {
                 const company = file.corporateClient?.name || job?.companyName || null
                 const clientPhone = file.client?.phone || file.client?.homePhone || job?.clientPhone || null
                 const shipMode = file.shipmentMode || job?.shipmentMode
-                const isAir = shipMode === 'AIR'
-                const isSea = shipMode === 'SEA'
-                const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '\u2014'
+                const _smArr2 = shipMode ? shipMode.split(',').filter(Boolean) : []
+                const isAir = _smArr2.length === 1 && _smArr2[0] === 'AIR'
+                const isSea = _smArr2.length === 1 && _smArr2[0] === 'SEA'
+                const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { timeZone: 'UTC' }) : '\u2014'
                 const origAddr = [file.originAddress || job?.originAddress, file.originCity || job?.originCity, file.originCountry || job?.originCountry].filter(Boolean).join(', ') || '\u2014'
                 const destAddr = [file.destAddress || job?.destAddress, file.destCity || job?.destCity, file.destCountry || job?.destCountry].filter(Boolean).join(', ') || '\u2014'
                 const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
@@ -276,8 +322,8 @@ export default function FileDetail() {
                   <InfoRow label={t('movingFiles.clientPhone')}>{clientPhone || '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.company')}>{company || '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.destAddress')}>{destAddr}</InfoRow>
-                  <InfoRow label={t('movingFiles.destAgent')}>{destAgentName}</InfoRow>
-                  <InfoRow label={t('movingFiles.shipmentMode')}>{shipMode ? t(`modes.${shipMode}`) : '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.destAgent')}>{destAgentName}</InfoRow>                  <InfoRow label={t('movingFiles.coordinator')}>{job?.coordinator?.name || '—'}</InfoRow>                  <InfoRow label={t('movingFiles.shipmentMode')}>{_formatModes(shipMode)}</InfoRow>
+                  <InfoRow label={t('movingFiles.loadType')}>{_formatLoadType(file.loadType)}</InfoRow>
                   <InfoRow label={t('movingFiles.serviceType')}>{file.serviceType ? t(`serviceTypes.${file.serviceType}`) : '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.etd')}>{fmt(file.etd)}</InfoRow>
                   <InfoRow label={t('movingFiles.eta')}>{fmt(file.eta)}</InfoRow>
@@ -301,7 +347,12 @@ export default function FileDetail() {
                   )}
                   {file.shipmentMode && (
                     <InfoRow label={t('movingFiles.shipmentMode')}>
-                      {t(`modes.${file.shipmentMode}`) || file.shipmentMode}
+                      {_formatModes(file.shipmentMode)}
+                    </InfoRow>
+                  )}
+                  {file.loadType && (
+                    <InfoRow label={t('movingFiles.loadType')}>
+                      {_formatLoadType(file.loadType)}
                     </InfoRow>
                   )}
                   {file.volumeCbm != null && (
@@ -338,8 +389,8 @@ export default function FileDetail() {
             )}
           </div>
 
-          {/* Ready to Close card — all categories while OPEN */}
-          {file.status === 'OPEN' && (
+          {/* Ready to Close card — all categories while active */}
+          {file.status !== 'CLOSED' && file.status !== 'VOID' && (
             <div className="card card-body" style={{
               marginBottom: 20,
               border: `1.5px solid ${canClose ? '#16a34a' : '#f59e0b'}`,
@@ -397,7 +448,7 @@ export default function FileDetail() {
           <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 16 }}>
             {t('files.title')}
           </div>
-          <FileAttachments fileId={id} fileCategory={file.category} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} onPctChange={setAttachmentPct} />
+          <FileAttachments fileId={id} fileCategory={file.category} fechaEntrega={file.fechaEntrega} job={file.job} bookerRole={file.bookerRole} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} onPctChange={setAttachmentPct} />
         </div>
       </div>
 
@@ -427,6 +478,38 @@ export default function FileDetail() {
                 disabled={closing || !exceptionNote.trim()}
               >
                 {closing ? t('common.saving') : t('movingFiles.exceptionCloseConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Void File Modal */}
+      {voidModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="card card-body" style={{ width: 420, padding: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{t('movingFiles.voidTitle')}</div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>{t('movingFiles.voidHint')}</p>
+            <label style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>
+              {t('movingFiles.voidNotes')}
+            </label>
+            <textarea
+              className="form-control"
+              rows={3}
+              value={voidNote}
+              onChange={e => setVoidNote(e.target.value)}
+              style={{ marginBottom: 16, width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => { setVoidModalOpen(false); setVoidNote('') }} disabled={closing}>
+                {t('common.cancel')}
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleVoid}
+                disabled={closing || !voidNote.trim()}
+              >
+                {closing ? t('common.saving') : t('movingFiles.voidConfirm')}
               </button>
             </div>
           </div>

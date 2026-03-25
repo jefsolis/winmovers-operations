@@ -17,6 +17,7 @@ router.get('/', async (req, res, next) => {
       upcomingVisits, pendingQuotesList,
       openFilesWithAttachments,
       openLocalFiles,
+      deliveryDocFiles,
     ] = await Promise.all([
       p.job.count(),
       p.client.count(),
@@ -89,6 +90,21 @@ router.get('/', async (req, res, next) => {
           attachments: { select: { category: true } },
         },
       }),
+      // IMPORT files where fechaEntrega has passed (delivery doc alerts)
+      p.movingFile.findMany({
+        where: {
+          status: { notIn: ['CLOSED', 'VOID'] },
+          category: 'IMPORT',
+          fechaEntrega: { not: null, lt: new Date() },
+        },
+        orderBy: { fechaEntrega: 'asc' },
+        select: {
+          id: true, fileNumber: true, category: true, fechaEntrega: true,
+          client:          { select: { name: true, firstName: true, lastName: true, clientType: true } },
+          corporateClient: { select: { name: true } },
+          attachments: { select: { category: true } },
+        },
+      }),
     ])
 
     const activeStatuses = ['SURVEY', 'QUOTATION', 'BOOKING', 'PRE_MOVE', 'IN_TRANSIT']
@@ -137,8 +153,8 @@ router.get('/', async (req, res, next) => {
 
     // Files completion buckets
     const REQUIRED_DOCS = {
-      EXPORT: ['SURVEY_REPORT','QUOTATION','INSURANCE_INVENTORY','SIGNED_QUOTATION','WORK_ORDER','PRE_ADVICE','SHIPPING_INSTRUCTIONS','TRANSPORT_DOCUMENT','INSURANCE_CERTIFICATE','SIGNED_PACKING_LIST','INVOICE','DELIVERY_CONFIRMATION'],
-      IMPORT: ['QUOTATION','INSURANCE_INVENTORY','SIGNED_QUOTATION','WORK_ORDER','SHIPPING_INSTRUCTIONS','TRANSPORT_DOCUMENT','INSURANCE_CERTIFICATE','SIGNED_PACKING_LIST','INVOICE','DELIVERY_CONFIRMATION'],
+      EXPORT: ['SURVEY_REPORT','QUOTATION','WORK_ORDER','PRE_ADVICE','SHIPPING_INSTRUCTIONS','TRANSPORT_DOCUMENT','SIGNED_PACKING_LIST','INVOICE','DELIVERY_CONFIRMATION'],
+      IMPORT: ['QUOTATION','WORK_ORDER','SHIPPING_INSTRUCTIONS','TRANSPORT_DOCUMENT','INVOICE','TARIFF_REPLY_EMAIL','DELIVERY_DOCS_EMAIL','DELIVERY_INFO_EMAIL','DELIVERY_REPORT'],
       LOCAL:  ['INVOICE'],
     }
     const completionBuckets = { none: 0, low: 0, mid: 0, high: 0, complete: 0 }
@@ -173,6 +189,33 @@ router.get('/', async (req, res, next) => {
     const localNoInvoiceRecent = localNoInvoice.filter(f => new Date(f.createdAt) >= thirtyDaysAgo).reverse()
     const localNoInvoiceOld    = localNoInvoice.filter(f => new Date(f.createdAt) <  thirtyDaysAgo)
 
+    // Delivery doc alerts — files past fechaEntrega missing TARIFF_REPLY_EMAIL or DELIVERY_DOCS_EMAIL
+    const now = Date.now()
+    const deliveryDocAlerts = deliveryDocFiles
+      .map(f => {
+        const attached = new Set(f.attachments.map(a => a.category))
+        const entrega  = new Date(f.fechaEntrega)
+        const missingDocs = []
+        if (!attached.has('TARIFF_REPLY_EMAIL')) {
+          const due = new Date(entrega.getTime() + 2 * 86400000)
+          missingDocs.push({ cat: 'TARIFF_REPLY_EMAIL', dueDate: due.toISOString(), overdue: now > due.getTime() })
+        }
+        if (!attached.has('DELIVERY_DOCS_EMAIL')) {
+          const due = new Date(entrega.getTime() + 3 * 86400000)
+          missingDocs.push({ cat: 'DELIVERY_DOCS_EMAIL', dueDate: due.toISOString(), overdue: now > due.getTime() })
+        }
+        if (missingDocs.length === 0) return null
+        return {
+          id: f.id,
+          fileNumber: f.fileNumber,
+          category: f.category,
+          fechaEntrega: f.fechaEntrega,
+          client: f.corporateClient || f.client || null,
+          missingDocs,
+        }
+      })
+      .filter(Boolean)
+
     res.json({
       totalJobs,
       activeJobs,
@@ -201,6 +244,7 @@ router.get('/', async (req, res, next) => {
       filesByCompletion,
       localNoInvoiceRecent,
       localNoInvoiceOld,
+      deliveryDocAlerts,
     })
   } catch (err) { next(err) }
 })

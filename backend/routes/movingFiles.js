@@ -39,10 +39,11 @@ async function checkAutoClose(fileId, category) {
 // GET /api/files
 router.get("/", async (req, res, next) => {
   try {
-    const { category, status, search } = req.query
+    const { category, status, notStatus, search } = req.query
     const where = {}
-    if (category) where.category = category
-    if (status)   where.status   = status
+    if (category)  where.category = category
+    if (status)    where.status   = status
+    if (notStatus) where.status   = { notIn: notStatus.split(',') }
     if (search)   where.OR = [
       { fileNumber: { contains: search, mode: "insensitive" } },
       { client: { name: { contains: search, mode: "insensitive" } } },
@@ -53,9 +54,10 @@ router.get("/", async (req, res, next) => {
       include: {
         client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
         corporateClient: { select: { id: true, name: true } },
-        job:    { select: { id: true, jobNumber: true, status: true } },
+        job:    { select: { id: true, jobNumber: true, status: true, coordinator: { select: { id: true, name: true } } } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
+        coordinator: { select: { id: true, name: true } },
         _count: { select: { attachments: true } },
       },
     })
@@ -71,9 +73,10 @@ router.get("/:id", async (req, res, next) => {
       include: {
         client:          true,
         corporateClient: { select: { id: true, name: true } },
-        job:         { select: { id: true, jobNumber: true, status: true, type: true, shipmentMode: true, volumeCbm: true, weightKg: true, serviceDate: true, originAddress: true, originCity: true, originCountry: true, destAddress: true, destCity: true, destCountry: true, companyName: true, clientPhone: true, clientHomePhone: true } },
+        job:         { select: { id: true, jobNumber: true, status: true, type: true, shipmentMode: true, volumeCbm: true, weightKg: true, serviceDate: true, originAddress: true, originCity: true, originCountry: true, destAddress: true, destCity: true, destCountry: true, companyName: true, clientPhone: true, clientHomePhone: true, coordinator: { select: { id: true, name: true } }, quote: { select: { id: true, quoteNumber: true, status: true } } } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
+        coordinator: { select: { id: true, name: true } },
         attachments: { orderBy: { uploadedAt: "desc" } },
       },
     })
@@ -86,15 +89,16 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", async (req, res, next) => {
   try {
     const { category, clientId, corporateClientId, notes, newClient,
-            serviceType, shipmentMode, volumeCbm, weightKg,
+            serviceType, shipmentMode, loadType, volumeCbm, weightKg,
             bookerRole, originAgentId, destAgentId,
             originAddress, originCity, originCountry,
             destAddress, destCity, destCountry,
             etd, eta, navieraAerolinea, vaporVuelo, guiaObl,
             puertoSalida, puertoLlegada, destPhone,
             puertoEntrada, oblHastaCiudad,
-            fechaLlegada, fechaTrasladoBodega, fechaTraslado, fechaEntrega } = req.body
-    if (!category) return res.status(400).json({ error: "category is required" })
+            fechaLlegada, fechaTrasladoBodega, fechaTraslado, fechaEntrega,
+            anticipado,
+            coordinatorId } = req.body
 
     // Inline client creation
     let resolvedClientId = clientId || null
@@ -122,6 +126,7 @@ router.post("/", async (req, res, next) => {
         notes: notes || null,
         serviceType: serviceType || null,
         shipmentMode: shipmentMode || null,
+        loadType: loadType || null,
         volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
         weightKg:  weightKg  ? parseFloat(weightKg)  : null,
         bookerRole: bookerRole || null,
@@ -145,8 +150,10 @@ router.post("/", async (req, res, next) => {
         oblHastaCiudad:   oblHastaCiudad   || null,
         fechaLlegada:         fechaLlegada         ? new Date(fechaLlegada)         : null,
         fechaTrasladoBodega:  fechaTrasladoBodega  || null,
+        anticipado:           anticipado           === true || anticipado === 'true',
         fechaTraslado:        fechaTraslado        ? new Date(fechaTraslado)        : null,
         fechaEntrega:         fechaEntrega         ? new Date(fechaEntrega)         : null,
+        coordinatorId:        coordinatorId        || null,
       },
       include: {
         client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
@@ -163,7 +170,7 @@ router.post("/", async (req, res, next) => {
 router.put("/:id", async (req, res, next) => {
   try {
     const { clientId, corporateClientId, notes, status,
-            serviceType, shipmentMode, volumeCbm, weightKg,
+            serviceType, shipmentMode, loadType, volumeCbm, weightKg,
             bookerRole, originAgentId, destAgentId,
             originAddress, originCity, originCountry,
             destAddress, destCity, destCountry,
@@ -171,7 +178,9 @@ router.put("/:id", async (req, res, next) => {
             etd, eta, navieraAerolinea, vaporVuelo, guiaObl,
             puertoSalida, puertoLlegada, destPhone,
             puertoEntrada, oblHastaCiudad,
-            fechaLlegada, fechaTrasladoBodega, fechaTraslado, fechaEntrega } = req.body
+            fechaLlegada, fechaTrasladoBodega, fechaTraslado, fechaEntrega,
+            anticipado,
+            coordinatorId } = req.body
     const file = await getPrisma().movingFile.update({
       where: { id: req.params.id },
       data: {
@@ -181,6 +190,7 @@ router.put("/:id", async (req, res, next) => {
         status:       status       !== undefined ? status                 : undefined,
         serviceType:  serviceType  !== undefined ? (serviceType  || null) : undefined,
         shipmentMode: shipmentMode !== undefined ? (shipmentMode || null) : undefined,
+        loadType:     loadType     !== undefined ? (loadType     || null) : undefined,
         volumeCbm:    volumeCbm    !== undefined ? (volumeCbm    ? parseFloat(volumeCbm) : null) : undefined,
         weightKg:     weightKg     !== undefined ? (weightKg     ? parseFloat(weightKg)  : null) : undefined,
         bookerRole:   bookerRole   !== undefined ? (bookerRole   || null) : undefined,
@@ -206,8 +216,10 @@ router.put("/:id", async (req, res, next) => {
         oblHastaCiudad:       oblHastaCiudad       !== undefined ? (oblHastaCiudad       || null) : undefined,
         fechaLlegada:         fechaLlegada         !== undefined ? (fechaLlegada         ? new Date(fechaLlegada)         : null) : undefined,
         fechaTrasladoBodega:  fechaTrasladoBodega  !== undefined ? (fechaTrasladoBodega  || null) : undefined,
+        anticipado:           anticipado           !== undefined ? (anticipado === true || anticipado === 'true') : undefined,
         fechaTraslado:        fechaTraslado        !== undefined ? (fechaTraslado        ? new Date(fechaTraslado)        : null) : undefined,
         fechaEntrega:         fechaEntrega         !== undefined ? (fechaEntrega         ? new Date(fechaEntrega)         : null) : undefined,
+        coordinatorId:        coordinatorId        !== undefined ? (coordinatorId        || null) : undefined,
       },
       include: {
         client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },

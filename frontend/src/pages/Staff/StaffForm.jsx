@@ -5,7 +5,7 @@ import { useLanguage } from '../../i18n'
 
 const EMPTY = {
   name: '', email: '', phone: '', isActive: true,
-  canBeAssignedToVisit: true, canCreateQuotes: false, canBeCreatorInWorkOrder: false,
+  canBeAssignedToVisit: true, canCreateQuotes: false, canBeCreatorInWorkOrder: false, canCoordinateFiles: false,
   role: '',
 }
 
@@ -33,6 +33,7 @@ export default function StaffForm() {
         canBeAssignedToVisit:    m.canBeAssignedToVisit,
         canCreateQuotes:         m.canCreateQuotes,
         canBeCreatorInWorkOrder: m.canBeCreatorInWorkOrder,
+        canCoordinateFiles:      m.canCoordinateFiles,
         role: m.role || '',
       }))
       .catch(e => setError(e.message))
@@ -121,6 +122,7 @@ export default function StaffForm() {
               ['canBeAssignedToVisit',    t('staff.canBeAssignedToVisit')],
               ['canCreateQuotes',         t('staff.canCreateQuotes')],
               ['canBeCreatorInWorkOrder', t('staff.canBeCreatorInWorkOrder')],
+              ['canCoordinateFiles',      t('staff.canCoordinateFiles')],
             ].map(([key, label]) => (
               <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer', userSelect: 'none' }}>
                 <input

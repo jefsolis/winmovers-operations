@@ -93,8 +93,12 @@ model Job {
   language        String      @default("EN")
   quoteId         String?     @unique
   quote           Quote?      @relation(fields: [quoteId], references: [id])
+  visitId         String?
+  visit           Visit?      @relation("JobVisit", fields: [visitId], references: [id])
   movingFileId    String?     @unique
   movingFile      MovingFile? @relation(fields: [movingFileId], references: [id])
+  coordinatorId   String?
+  coordinator     StaffMember? @relation("JobCoordinator", fields: [coordinatorId], references: [id])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }
@@ -115,6 +119,7 @@ model MovingFile {
   notes         String?
   serviceType   String?
   shipmentMode  String?
+  loadType      String?
   volumeCbm     Float?
   weightKg      Float?
   bookerRole    String?
@@ -141,9 +146,12 @@ model MovingFile {
   puertoEntrada       String?
   oblHastaCiudad      String?
   fechaLlegada        DateTime?
+  anticipado          Boolean   @default(false)
   fechaTrasladoBodega String?
   fechaTraslado       DateTime?
   fechaEntrega        DateTime?
+  coordinatorId   String?
+  coordinator     StaffMember? @relation("FileCoordinator", fields: [coordinatorId], references: [id])
   job         Job?         // back-relation; null for LOCAL files
   attachments Attachment[]
   createdAt   DateTime     @default(now())
@@ -172,12 +180,15 @@ model StaffMember {
   canBeAssignedToVisit    Boolean @default(true)
   canCreateQuotes         Boolean @default(false)
   canBeCreatorInWorkOrder Boolean @default(false)
+  canCoordinateFiles      Boolean @default(false)
 
   // Future login (inert until implemented)
   passwordHash  String?
   role          String?   // 'ADMIN' | 'STAFF'
 
-  visits    Visit[]
+  visits           Visit[]
+  coordinatedFiles MovingFile[] @relation("FileCoordinator")
+  coordinatedJobs  Job[]        @relation("JobCoordinator")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -217,6 +228,7 @@ model Visit {
   destAgentId   String?
   destAgent     Agent?   @relation("VisitDestAgent", fields: [destAgentId], references: [id])
   quotes        Quote[]
+  jobs          Job[]        @relation("JobVisit")
   survey        SurveyCubicFeet?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt

@@ -16,7 +16,7 @@ const EMPTY = {
   serviceDetails: '', materials: '',
   volumeCbm: '', weightKg: '',
   quoteTo: '', creatorName: '',
-  contacto: '', bultos: '', personalCount: '', transbordo: null,
+  contacto: '', bultos: '', personalCount: '', transbordo: null, coordinatorId: '',
 }
 
 function toInputDate(v) {
@@ -29,15 +29,17 @@ export default function JobForm() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
-  const fromQuoteId = !isEdit ? searchParams.get('fromQuote') : null
-  const fromFileId  = !isEdit ? searchParams.get('fromFile')  : null
-  const fromType    = !isEdit ? searchParams.get('type')      : null
+  const fromQuoteId  = !isEdit ? searchParams.get('fromQuote') : null
+  const fromFileId   = !isEdit ? searchParams.get('fromFile')  : null
+  const fromVisitId  = !isEdit ? searchParams.get('fromVisit') : null
+  const fromType     = !isEdit ? searchParams.get('type')      : null
   const { t } = useLanguage()
 
   const [form, setForm] = useState(EMPTY)
   const [language] = useState('ES')
   const [clients, setClients] = useState([])
   const [staffMembers, setStaffMembers] = useState([])
+  const [coordinatorStaff, setCoordinatorStaff] = useState([])
   const [linkedQuoteId, setLinkedQuoteId] = useState(null)
   const [availableQuotes, setAvailableQuotes] = useState([])
   const [loading, setLoading] = useState(isEdit)
@@ -53,6 +55,7 @@ export default function JobForm() {
     const tasks = [
       api.get('/clients').then(setClients).catch(() => {}),
       api.get('/staff?canBeCreatorInWorkOrder=true').then(setStaffMembers).catch(() => {}),
+      api.get('/staff?canCoordinateFiles=true').then(setCoordinatorStaff).catch(() => {}),
     ]
     if (isEdit) {
       tasks.push(
@@ -80,6 +83,7 @@ export default function JobForm() {
             bultos:        job.bultos        ?? '',
             personalCount: job.personalCount ?? '',
             transbordo:    job.transbordo    ?? null,
+            coordinatorId: job.coordinatorId  || '',
           })
         }).catch(e => setError(e.message)).finally(() => setLoading(false))
       )
@@ -130,6 +134,7 @@ export default function JobForm() {
             volumeCbm:   f.volumeCbm ?? '',
             weightKg:    f.weightKg  ?? '',
             notes:       f.notes     || '',
+            coordinatorId: (fromType === 'IMPORT' || (!fromType && f.category === 'IMPORT')) ? (f.coordinatorId || '') : prev.coordinatorId,
             originAddress: f.originAddress || '',
             originCity:    f.originCity    || '',
             originCountry: f.originCountry || '',
@@ -141,11 +146,37 @@ export default function JobForm() {
       )
     }
     if (!isEdit && !fromQuoteId && !fromFileId) {
-      tasks.push(
-        api.get('/quotes').then(qs => {
-          setAvailableQuotes(qs.filter(q => q.status === 'ACCEPTED' && !q.job))
-        }).catch(() => {})
-      )
+      if (fromVisitId) {
+        tasks.push(
+          api.get(`/visits/${fromVisitId}`).then(v => {
+            const clientName = v.client
+              ? (v.client.clientType === 'INDIVIDUAL'
+                  ? `${v.client.firstName || ''} ${v.client.lastName || ''}`.trim() || v.client.name
+                  : v.client.name)
+              : v.prospectName || ''
+            setForm(prev => ({
+              ...prev,
+              type:          'EXPORT',
+              clientId:      v.clientId      || '',
+              originAddress: v.originAddress || '',
+              originCity:    v.originCity    || '',
+              originCountry: v.originCountry || '',
+              destAddress:   v.destAddress   || '',
+              destCity:      v.destCity      || '',
+              destCountry:   v.destCountry   || '',
+              notes:         v.observations  || '',
+              clientPhone:   v.client?.phone || '',
+              quoteTo:       clientName,
+            }))
+          }).catch(() => {})
+        )
+      } else {
+        tasks.push(
+          api.get('/quotes').then(qs => {
+            setAvailableQuotes(qs.filter(q => q.status === 'ACCEPTED' && !q.job))
+          }).catch(() => {})
+        )
+      }
     }
     Promise.all(tasks)
   }, [id]) // eslint-disable-line
@@ -200,6 +231,7 @@ export default function JobForm() {
         ...form,
         clientId: form.clientId || null,
         quoteId: !isEdit ? (quoteToLink || null) : undefined,
+        visitId: (!isEdit && fromVisitId) ? fromVisitId : undefined,
         movingFileId: (!isEdit && fromFileId) ? fromFileId : undefined,
         language,
       }
@@ -264,6 +296,7 @@ export default function JobForm() {
               resolvedJobNumber={resolvedJobNumber}
               resolvedCreatedDate={resolvedCreatedDate}
               staffMembers={staffMembers}
+              coordinatorStaff={coordinatorStaff}
             />
           </div>
 

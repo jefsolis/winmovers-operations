@@ -43,6 +43,7 @@ router.get("/", async (req, res, next) => {
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
         customsAgent:{ select: { id: true, name: true } },
+        coordinator: { select: { id: true, name: true } },
         movingFile:  { select: { id: true, fileNumber: true, status: true, category: true } },
       },
     })
@@ -58,7 +59,9 @@ router.get("/:id", async (req, res, next) => {
       include: {
         client: true,
         originAgent: true, destAgent: true, customsAgent: true,
+        coordinator: { select: { id: true, name: true } },
         quote: { select: { id: true, quoteNumber: true, visit: { select: { id: true, visitNumber: true, serviceType: true, scheduledDate: true } } } },
+        visit: { select: { id: true, visitNumber: true, serviceType: true, scheduledDate: true } },
         movingFile: {
           select: {
             id: true, fileNumber: true, status: true, category: true,
@@ -88,18 +91,27 @@ router.post("/", async (req, res, next) => {
       companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language,
       contacto, bultos, personalCount, transbordo,
       movingFileId: manualMovingFileId,
+      coordinatorId,
+      visitId,
     } = req.body
-    if (!type) return res.status(400).json({ error: "type is required" })
 
     // Detect Export: visit serviceType DOOR_TO_PORT or DOOR_TO_DOOR
     const EXPORT_SERVICE_TYPES = ["DOOR_TO_PORT", "DOOR_TO_DOOR"]
     let isExport = type === "EXPORT"
-    if (!isExport && quoteId) {
+    let visitBookerRole = null
+
+    // Resolve bookerRole from the linked visit (direct visitId or via quote→visit)
+    if (visitId) {
+      const v = await getPrisma().visit.findUnique({ where: { id: visitId }, select: { serviceType: true, bookerRole: true } })
+      visitBookerRole = v?.bookerRole || null
+      if (!isExport) isExport = EXPORT_SERVICE_TYPES.includes(v?.serviceType)
+    } else if (quoteId) {
       const quote = await getPrisma().quote.findUnique({
         where: { id: quoteId },
-        select: { visit: { select: { serviceType: true } } },
+        select: { visit: { select: { serviceType: true, bookerRole: true } } },
       })
-      isExport = EXPORT_SERVICE_TYPES.includes(quote?.visit?.serviceType)
+      visitBookerRole = quote?.visit?.bookerRole || null
+      if (!isExport) isExport = EXPORT_SERVICE_TYPES.includes(quote?.visit?.serviceType)
     }
 
     let jobNumber
@@ -111,7 +123,8 @@ router.post("/", async (req, res, next) => {
       const mf = await getPrisma().movingFile.create({
         data: { fileNumber, category: "EXPORT", status: "OPEN", clientId: clientId || null,
                 volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
-                weightKg:  weightKg  ? parseFloat(weightKg)  : null },
+                weightKg:  weightKg  ? parseFloat(weightKg)  : null,
+                bookerRole: visitBookerRole },
       })
       jobNumber    = fileNumber
       movingFileId = mf.id
@@ -121,7 +134,8 @@ router.post("/", async (req, res, next) => {
       const mf = await getPrisma().movingFile.create({
         data: { fileNumber, category: "LOCAL", status: "OPEN", clientId: clientId || null,
                 volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
-                weightKg:  weightKg  ? parseFloat(weightKg)  : null },
+                weightKg:  weightKg  ? parseFloat(weightKg)  : null,
+                bookerRole: visitBookerRole },
       })
       jobNumber    = fileNumber
       movingFileId = mf.id
@@ -173,7 +187,8 @@ router.post("/", async (req, res, next) => {
       transbordo:     transbordo     !== undefined ? transbordo        : null,
       quoteId:        quoteId        || null,
       movingFileId,
-    }
+      visitId:        visitId        || null,
+      coordinatorId:  coordinatorId   || null,    }
 
     const job = await getPrisma().job.create({ data })
     res.status(201).json(job)
@@ -194,6 +209,8 @@ router.put("/:id", async (req, res, next) => {
       companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language,
       contacto, bultos, personalCount, transbordo,
       movingFileId,
+      coordinatorId,
+      visitId,
     } = req.body
 
     const job = await getPrisma().job.update({
@@ -230,7 +247,9 @@ router.put("/:id", async (req, res, next) => {
         personalCount:  personalCount   !== undefined ? (personalCount != null ? parseInt(personalCount) : null)          : undefined,
         transbordo:     transbordo      !== undefined ? transbordo                                                        : undefined,
         quoteId:        quoteId         !== undefined ? (quoteId         || null)                                        : undefined,
-        movingFileId:   movingFileId    !== undefined ? (movingFileId    || null)                                        : undefined,
+        movingFileId:   movingFileId    !== undefined ? (movingFileId    || null) : undefined,
+        coordinatorId:  coordinatorId   !== undefined ? (coordinatorId   || null) : undefined,
+        visitId:        visitId         !== undefined ? (visitId         || null) : undefined,
       },
     })
     res.json(job)

@@ -167,6 +167,9 @@ export default function SurveyForm() {
 
       <form onSubmit={handleSubmit}>
 
+        {/* ── Printable area ── */}
+        <div>
+
         {/*  Letterhead  */}
         <div className="card card-body" style={{ marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
@@ -369,7 +372,9 @@ export default function SurveyForm() {
             </div>
           </div>
 
-        </div>
+        </div>{/* end cartons + totals grid */}
+
+        </div>{/* end printable area */}
 
         {/*  Notes  */}
         <div className="card card-body" style={{ marginBottom: 12 }}>

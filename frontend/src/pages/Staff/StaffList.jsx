@@ -74,6 +74,7 @@ export default function StaffList() {
                   <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canBeAssignedToVisit')}</th>
                   <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canCreateQuotes')}</th>
                   <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canBeCreatorInWorkOrder')}</th>
+                  <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canCoordinateFiles')}</th>
                   <th>{t('staff.isActive')}</th>
                   <th />
                 </tr>
@@ -87,6 +88,7 @@ export default function StaffList() {
                     <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canBeAssignedToVisit ? '✓' : '—'}</td>
                     <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canCreateQuotes ? '✓' : '—'}</td>
                     <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canBeCreatorInWorkOrder ? '✓' : '—'}</td>
+                    <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canCoordinateFiles ? '✓' : '—'}</td>
                     <td>
                       <span
                         className="badge"

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMENTS } from '../../constants'
+import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMENTS, OPTIONAL_ATTACHMENTS, ATTACHMENT_DUE_OFFSETS } from '../../constants'
 
 /**
  * FileAttachments — attachment manager for a MovingFile.
@@ -10,10 +11,16 @@ import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMEN
  *   fileCategory String   EXPORT | IMPORT | LOCAL
  *   onStatusChange fn(status)   called when file auto-closes or re-opens
  */
-export default function FileAttachments({ fileId, fileCategory, onStatusChange, onAllRequiredDone, onPctChange }) {
+export default function FileAttachments({ fileId, fileCategory, fechaEntrega, job, bookerRole, onStatusChange, onAllRequiredDone, onPctChange }) {
   const { t } = useLanguage()
-  const FILE_CATS   = getFileCategories(t)
-  const requiredCats = REQUIRED_ATTACHMENTS[fileCategory] || []
+  const FILE_CATS = getFileCategories(t)
+  const isOaExport = bookerRole === 'OA' && fileCategory === 'EXPORT'
+  const requiredCats = isOaExport
+    ? [...(REQUIRED_ATTACHMENTS[fileCategory] || []), 'TARIFF_CONTESTATION']
+    : (REQUIRED_ATTACHMENTS[fileCategory] || [])
+  const optionalCats = isOaExport
+    ? (OPTIONAL_ATTACHMENTS[fileCategory] || []).filter(c => c !== 'TARIFF_CONTESTATION')
+    : (OPTIONAL_ATTACHMENTS[fileCategory] || [])
 
   const [attachments, setAttachments]   = useState([])
   const [loading, setLoading]           = useState(true)
@@ -22,10 +29,16 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange, 
   const fileInputRef                    = useRef(null)
   const pendingCategoryRef              = useRef(null)
 
+  // Categories satisfied by linked system records (Quote / Work Order)
+  const linkedDoneMap = {
+    ...(job?.quote ? { QUOTATION:   { number: job.quote.quoteNumber, route: `/quotes/${job.quote.id}` } } : {}),
+    ...(job         ? { WORK_ORDER: { number: job.jobNumber,        route: `/jobs/${job.id}?tab=workorder` } } : {}),
+  }
+
   // Notify parent when all required docs are uploaded
   const allRequiredDone = requiredCats.length === 0 ||
-    requiredCats.every(cat => attachments.some(a => a.category === cat))
-  const _requiredDoneCount = requiredCats.filter(cat => attachments.some(a => a.category === cat)).length
+    requiredCats.every(cat => attachments.some(a => a.category === cat) || !!linkedDoneMap[cat])
+  const _requiredDoneCount = requiredCats.filter(cat => attachments.some(a => a.category === cat) || !!linkedDoneMap[cat]).length
   const _requiredTotal     = requiredCats.length
   const _pct = _requiredTotal > 0 ? Math.round((_requiredDoneCount / _requiredTotal) * 100) : 100
   useEffect(() => {
@@ -104,12 +117,20 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange, 
   const checklist = requiredCats.map(catVal => {
     const meta  = FILE_CATS.find(c => c.value === catVal) || { value: catVal, label: catVal, bg: '#e2e8f0', color: '#475569' }
     const items = byCategory[catVal] || []
+    const linkedRecord = linkedDoneMap[catVal] || null
+    const done  = items.length > 0 || !!linkedRecord
+    return { ...meta, items, done, linkedRecord }
+  })
+
+  const optionalChecklist = optionalCats.map(catVal => {
+    const meta  = FILE_CATS.find(c => c.value === catVal) || { value: catVal, label: catVal, bg: '#e2e8f0', color: '#475569' }
+    const items = byCategory[catVal] || []
     const done  = items.length > 0
     return { ...meta, items, done }
   })
 
-  // OTHER uploads (not in required list)
-  const otherItems = attachments.filter(f => !requiredCats.includes(f.category) || f.category === 'OTHER')
+  // OTHER uploads (not in required or optional lists)
+  const otherItems = attachments.filter(f => !requiredCats.includes(f.category) && !optionalCats.includes(f.category))
 
   const requiredDone  = checklist.filter(c => c.done).length
   const requiredTotal = checklist.length
@@ -144,13 +165,68 @@ export default function FileAttachments({ fileId, fileCategory, onStatusChange, 
           </div>
           <div className="section-label" style={{ marginBottom: 12 }}>{t('files.required')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {checklist.map(cat => (
+            {checklist.map(cat => {
+              const _dueOff  = ATTACHMENT_DUE_OFFSETS[cat.value]
+              const _dueDate = _dueOff && fechaEntrega
+                ? new Date(new Date(fechaEntrega).getTime() + _dueOff.days * 24 * 60 * 60 * 1000)
+                : null
+              const _isOverdue = _dueDate && !cat.done && new Date() > _dueDate
+              return (
+                <div key={cat.value}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 14px', borderRadius: 6,
+                    border: `1px solid ${cat.done ? '#bbf7d0' : _isOverdue ? '#fecaca' : '#e2e8f0'}`,
+                    background: cat.done ? '#f0fdf4' : _isOverdue ? '#fff5f5' : '#fff',
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>{cat.done ? '✅' : '⬜'}</span>
+                  <span className="badge" style={{ background: cat.bg, color: cat.color, fontSize: 11, whiteSpace: 'nowrap' }}>{cat.label}</span>
+                  {_dueDate && (
+                    <span style={{ fontSize: 11, whiteSpace: 'nowrap', color: cat.done ? 'var(--text-muted)' : _isOverdue ? '#dc2626' : '#d97706', fontWeight: _isOverdue && !cat.done ? 600 : 400 }}>
+                      {_isOverdue && !cat.done ? `⚠ ${t('files.overdue')}` : `${t('files.dueBy')} ${_dueDate.toLocaleDateString('en-GB', { timeZone: 'UTC' })}`}
+                    </span>
+                  )}
+                  {cat.items.map(att => (
+                    <span key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)}>
+                        ⬇ {att.filename} ({formatFileSize(att.sizeBytes)})
+                      </button>
+                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
+                    </span>
+                  ))}
+                  {cat.linkedRecord && cat.items.length === 0 && (
+                    <Link to={cat.linkedRecord.route} style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>
+                      {cat.linkedRecord.number} →
+                    </Link>
+                  )}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => triggerUpload(cat.value)}
+                    disabled={uploading === cat.value}
+                    style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
+                  >
+                    {uploading === cat.value ? '…' : cat.done ? t('files.replace') : t('files.upload')}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Optional attachments */}
+      {optionalChecklist.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div className="section-label" style={{ marginBottom: 12 }}>{t('files.optional')}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {optionalChecklist.map(cat => (
               <div key={cat.value}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '10px 14px', borderRadius: 6,
                   border: `1px solid ${cat.done ? '#bbf7d0' : '#e2e8f0'}`,
-                  background: cat.done ? '#f0fdf4' : '#fff',
+                  background: cat.done ? '#f0fdf4' : '#fafafa',
                 }}
               >
                 <span style={{ fontSize: 16 }}>{cat.done ? '✅' : '⬜'}</span>

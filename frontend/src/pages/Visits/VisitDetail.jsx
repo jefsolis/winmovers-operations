@@ -169,8 +169,14 @@ export default function VisitDetail() {
             {t('visits.markCompleted')}
           </button>
         )}
-        {visit.status === 'COMPLETED' && visit.quotes.length === 0 && (
+        {visit.status === 'COMPLETED' && visit.quotes.length === 0 && visit.bookerRole !== 'OA' && (
           <Link to={`/quotes/new?visitId=${id}`} className="btn btn-primary btn-sm">{t('visits.createQuote')}</Link>
+        )}
+        {visit.status === 'COMPLETED' && visit.bookerRole === 'OA' && visit.jobs?.length === 0 && visit.quotes.length === 0 && (
+          <Link to={`/jobs/new?fromVisit=${id}`} className="btn btn-primary btn-sm">{t('visits.createWorkOrder')}</Link>
+        )}
+        {visit.bookerRole === 'OA' && visit.jobs?.length > 0 && (
+          <Link to={`/jobs/${visit.jobs[0].id}`} className="btn btn-secondary btn-sm">{t('visits.viewWorkOrder')} #{visit.jobs[0].jobNumber}</Link>
         )}
         {visit.serviceType !== 'LOCAL_MOVE' && visit.status === 'COMPLETED' && !visit.survey && (
           <Link to={`/surveys/new?visitId=${id}`} className="btn btn-primary btn-sm">{t('visits.fillSurvey')}</Link>

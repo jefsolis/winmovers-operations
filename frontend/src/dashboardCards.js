@@ -37,6 +37,12 @@ export const DASHBOARD_CARDS = [
     defaultVisible: true,
   },
   {
+    id: 'delivery_doc_alerts',
+    titleKey: 'dashboard.store.cards.deliveryDocAlerts.title',
+    descKey:  'dashboard.store.cards.deliveryDocAlerts.desc',
+    defaultVisible: true,
+  },
+  {
     id: 'activity_chart',
     titleKey: 'dashboard.store.cards.activityChart.title',
     descKey:  'dashboard.store.cards.activityChart.desc',
@@ -66,7 +72,14 @@ export const DASHBOARD_CARDS = [
     descKey:  'dashboard.store.cards.recentJobs.desc',
     defaultVisible: true,
   },
-  // Future card — requires user auth to know "who is the current user"
+  // Future cards — require user auth to know "who is the current user"
+  {
+    id: 'my_coordinations',
+    titleKey: 'dashboard.store.cards.myCoordinations.title',
+    descKey:  'dashboard.store.cards.myCoordinations.desc',
+    defaultVisible: false,
+    comingSoon: true,
+  },
   {
     id: 'my_appointments',
     titleKey: 'dashboard.store.cards.myAppointments.title',

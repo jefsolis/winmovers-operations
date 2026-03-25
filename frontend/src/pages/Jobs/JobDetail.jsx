@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { statusMeta, typeMeta, formatDate } from '../../constants'
@@ -10,13 +10,14 @@ import ServiceEvaluation, { EMPTY_SE } from '../Files/ServiceEvaluation'
 export default function JobDetail() {
   const { id } = useParams()
   const { t }  = useLanguage()
+  const [searchParams] = useSearchParams()
   const docRef    = useRef(null)
   const headerRef = useRef(null)
 
   const [job, setJob]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [tab, setTab]          = useState('overview') // 'overview' | 'workorder' | 'damage' | 'evaluation'
+  const [tab, setTab]          = useState(searchParams.get('tab') || 'overview') // 'overview' | 'workorder' | 'damage' | 'evaluation'
   const [closing, setClosing]           = useState(false)
   const [exporting, setExporting]       = useState(false)
   const [importFiles, setImportFiles]   = useState(null)  // null = not loaded
@@ -366,6 +367,17 @@ export default function JobDetail() {
                   <Field label={t('visits.scheduledDate')} value={job.quote.visit.scheduledDate ? new Date(job.quote.visit.scheduledDate).toLocaleString('en-GB') : null} />
                 </>
               )}
+            </Section>
+          )}
+
+          {job.visit && !job.quote && (
+            <Section title={t('jobs.linkedVisit')}>
+              <Field
+                label={t('visits.visitNumber')}
+                value={<Link to={`/visits/${job.visit.id}`} style={{ color: 'var(--primary)' }}>{job.visit.visitNumber}</Link>}
+              />
+              <Field label={t('visits.serviceType')} value={job.visit.serviceType ? t(`serviceTypes.${job.visit.serviceType}`) : null} />
+              <Field label={t('visits.scheduledDate')} value={job.visit.scheduledDate ? new Date(job.visit.scheduledDate).toLocaleString('en-GB') : null} />
             </Section>
           )}
 

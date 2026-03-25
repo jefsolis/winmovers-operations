@@ -19,6 +19,7 @@ export default function ClientLookup({
   required = false,
   hintText,
   noResultsText,
+  onCreateNew,
 }) {
   const { t } = useLanguage()
   const [results, setResults] = useState([])
@@ -141,9 +142,20 @@ export default function ClientLookup({
       {searching && (
         <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginTop: 2 }}>…</span>
       )}
-      {showNewHint && (
+      {showNewHint && !onCreateNew && (
         <div style={{ fontSize: 11, color: 'var(--text-accent, #2563eb)', marginTop: 2 }}>
           ✦ {hintText || t('clients.willBeCreated')}
+        </div>
+      )}
+      {showNewHint && onCreateNew && (
+        <div style={{ fontSize: 11, marginTop: 2 }}>
+          <button
+            type="button"
+            onClick={() => onCreateNew(nameVal)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-accent, #2563eb)', padding: 0, fontSize: 11 }}
+          >
+            {hintText || t('clients.addDetailsCreate')}
+          </button>
         </div>
       )}
 

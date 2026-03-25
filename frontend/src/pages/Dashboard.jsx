@@ -84,6 +84,7 @@ export default function Dashboard() {
     filesByCompletion,
     localNoInvoiceRecent,
     localNoInvoiceOld,
+    deliveryDocAlerts,
   } = data
 
   const monthData  = (jobsByMonth || []).map(d => ({ ...d, month: fmtMonth(d.month) }))
@@ -391,6 +392,78 @@ export default function Dashboard() {
             <Link to="/files/local" style={{ fontSize: 12, color: 'var(--primary)' }}>{t('movingFiles.localTitle')} →</Link>
           </div>
         </div>
+      </div>
+      )}
+
+      {/* Delivery document alerts */}
+      {isVisible('delivery_doc_alerts') && (
+      <div className="card" style={{ marginBottom: 20, ...(deliveryDocAlerts?.some(f => f.missingDocs.some(d => d.overdue)) ? { border: '1.5px solid #fca5a5' } : {}) }}>
+        <div className="card-body" style={{ paddingBottom: 0 }}>
+          <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>⚠️ {t('dashboard.deliveryDocAlertsTitle')}</span>
+            {(deliveryDocAlerts || []).length > 0 && (
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 12, padding: '1px 8px' }}>
+                {(deliveryDocAlerts || []).length}
+              </span>
+            )}
+          </div>
+        </div>
+        {!(deliveryDocAlerts || []).length
+          ? <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.deliveryDocAlertsNone')}</div>
+          : <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t('dashboard.fileNumber')}</th>
+                    <th>{t('dashboard.client')}</th>
+                    <th>{t('dashboard.fechaEntrega')}</th>
+                    <th>{t('dashboard.missingDoc')}</th>
+                    <th>{t('dashboard.dueIn')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(deliveryDocAlerts || []).flatMap(f => {
+                    const cname = f.client
+                      ? (f.client.clientType === 'INDIVIDUAL'
+                          ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
+                          : f.client.name)
+                      : '—'
+                    const entregaFmt = f.fechaEntrega
+                      ? new Date(f.fechaEntrega).toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })
+                      : '—'
+                    const route = f.category === 'EXPORT' ? '/files/export' : '/files/import'
+                    return f.missingDocs.map((doc, di) => {
+                      const dueDate   = new Date(doc.dueDate)
+                      const daysLeft  = Math.ceil((dueDate - Date.now()) / 86400000)
+                      const docLabel  = t(`files.categories.${doc.cat}`)
+                      return (
+                        <tr key={`${f.id}-${doc.cat}`} style={{ background: doc.overdue ? '#fff5f5' : undefined }}>
+                          {di === 0 && (
+                            <>
+                              <td rowSpan={f.missingDocs.length}>
+                                <Link to={`${route}/${f.id}`} style={{ color: doc.overdue ? '#dc2626' : 'var(--primary)', fontWeight: 600 }}>{f.fileNumber}</Link>
+                              </td>
+                              <td rowSpan={f.missingDocs.length} style={{ fontSize: 13 }}>{cname}</td>
+                              <td rowSpan={f.missingDocs.length} style={{ fontSize: 13, color: 'var(--text-muted)' }}>{entregaFmt}</td>
+                            </>
+                          )}
+                          <td>
+                            <span className="badge" style={{ fontSize: 11, background: '#ede9fe', color: '#5b21b6' }}>{docLabel}</span>
+                          </td>
+                          <td style={{ fontSize: 13, fontWeight: 600, color: doc.overdue ? '#dc2626' : daysLeft <= 1 ? '#d97706' : 'var(--text)', whiteSpace: 'nowrap' }}>
+                            {doc.overdue
+                              ? `⚠ ${t('files.overdue')}`
+                              : `${daysLeft} ${t('dashboard.days')}`
+                            }
+                          </td>
+                        </tr>
+                      )
+                    })
+                  })}
+                </tbody>
+              </table>
+            </div>
+        }
       </div>
       )}
 

@@ -4,6 +4,9 @@ import { api } from '../../api'
 import { getVisitStatuses, getServiceTypes, getVisitBookerRoles } from '../../constants'
 import { useLanguage } from '../../i18n'
 import ClientLookup from '../../components/ClientLookup'
+import AgentLookup from '../../components/AgentLookup'
+import QuickCreateAgentModal from '../../components/QuickCreateAgentModal'
+import QuickCreateCorporateClientModal from '../../components/QuickCreateCorporateClientModal'
 
 const EMPTY_IND = { clientId: '', name: '', phone: '', email: '' }
 const EMPTY_CORP = { clientId: '', name: '' }
@@ -16,7 +19,7 @@ const EMPTY = {
   serviceType: '',
   language: 'ES',
   scheduledDate: '',
-  bookerRole: '', originAgentId: 'WINMOVERS', destAgentId: '',
+  bookerRole: '', originAgentId: 'WINMOVERS', destAgent: { agentId: '', name: '' },
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '',   destCity: '',   destCountry: '',
   observations: '',
@@ -32,12 +35,15 @@ export default function VisitForm() {
   const BOOKER_ROLES    = getVisitBookerRoles()
 
   const [form, setForm]       = useState(EMPTY)
-  const [agents, setAgents]   = useState([])
   const [staffMembers, setStaffMembers] = useState([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
   const errorRef = useRef(null)
+  const [agentModalOpen, setAgentModalOpen]   = useState(false)
+  const [agentModalName, setAgentModalName]   = useState('')
+  const [corpModalOpen, setCorpModalOpen]     = useState(false)
+  const [corpModalName, setCorpModalName]     = useState('')
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -45,7 +51,6 @@ export default function VisitForm() {
 
   useEffect(() => {
     const tasks = [
-      api.get('/agents').then(setAgents).catch(() => {}),
       api.get('/staff?canBeAssignedToVisit=true').then(setStaffMembers).catch(() => {}),
     ]
     if (isEdit) {
@@ -72,7 +77,7 @@ export default function VisitForm() {
             scheduledDate: v.scheduledDate ? new Date(v.scheduledDate).toISOString().slice(0, 16) : '',
             bookerRole:    v.bookerRole    || '',
             originAgentId: 'WINMOVERS',
-            destAgentId:   v.destAgentId   || '',
+            destAgent:   { agentId: v.destAgentId || '', name: v.destAgent?.name || '' },
             originAddress: v.originAddress || '',
             originCity:    v.originCity    || '',
             originCountry: v.originCountry || '',
@@ -141,7 +146,7 @@ export default function VisitForm() {
         scheduledDate: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
         bookerRole:    form.bookerRole    || null,
         originAgentId: (form.originAgentId === 'WINMOVERS' ? null : form.originAgentId) || null,
-        destAgentId:   (form.destAgentId   === 'WINMOVERS' ? null : form.destAgentId)   || null,
+        destAgentId:   (form.destAgent.agentId   === 'WINMOVERS' ? null : form.destAgent.agentId)   || null,
         originAddress: form.originAddress || null,
         originCity:    form.originCity    || null,
         originCountry: form.originCountry || null,
@@ -224,8 +229,8 @@ export default function VisitForm() {
                 value={form.corpClient}
                 onChange={val => set('corpClient', val)}
                 showContact={false}
-                hintText={t('clients.willBeCreatedCompany')}
                 noResultsText={t('clients.noResultsNewCompany')}
+                onCreateNew={name => { setCorpModalName(name); setCorpModalOpen(true) }}
               />
             </div>
           </div>
@@ -274,7 +279,7 @@ export default function VisitForm() {
                 const role = e.target.value
                 setForm(prev => ({
                   ...prev, bookerRole: role,
-                  ...(role === 'BOOKER' || role === 'DA' ? { destAgentId: 'WINMOVERS' } : {}),
+                  ...(role === 'BOOKER' || role === 'DA' ? { destAgent: { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') } } : {}),
                 }))
               }}>
                 <option value="">{t('common.none')}</option>
@@ -287,11 +292,12 @@ export default function VisitForm() {
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.destAgent')}</label>
-              <select className="form-control" value={form.destAgentId} onChange={e => set('destAgentId', e.target.value)}>
-                <option value="">{t('common.none')}</option>
-                <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
-                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <AgentLookup
+                value={form.destAgent}
+                onChange={val => set('destAgent', val)}
+                allowWinMovers
+                onCreateNew={name => { setAgentModalName(name); setAgentModalOpen(true) }}
+              />
             </div>
           </div>
         </div>
@@ -357,6 +363,24 @@ export default function VisitForm() {
           <Link to={isEdit ? `/visits/${id}` : '/visits'} className="btn btn-secondary">{t('common.cancel')}</Link>
         </div>
       </form>
+      <QuickCreateAgentModal
+        open={agentModalOpen}
+        onClose={() => setAgentModalOpen(false)}
+        initialName={agentModalName}
+        onCreated={agent => {
+          set('destAgent', { agentId: agent.id, name: agent.name })
+          setAgentModalOpen(false)
+        }}
+      />
+      <QuickCreateCorporateClientModal
+        open={corpModalOpen}
+        onClose={() => setCorpModalOpen(false)}
+        initialName={corpModalName}
+        onCreated={client => {
+          set('corpClient', { clientId: client.id, name: client.name })
+          setCorpModalOpen(false)
+        }}
+      />
     </>
   )
 }

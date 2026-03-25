@@ -27,6 +27,7 @@ const LABELS = {
   weight:         'Peso (Kg)',
   quoteTo:        'Facturar a Nombre de',
   createdBy:      'Hecho por',
+  coordinator:    'Coordinador',
   // Import-only
   contacto:       'Contacto',
   bultos:         'Cantidad de Bultos',
@@ -142,6 +143,7 @@ const JobDocument = forwardRef(function JobDocument(
     resolvedCreatedDate = '',
     headerRef,
     staffMembers = [],
+    coordinatorStaff = [],
   },
   ref
 ) {
@@ -367,6 +369,25 @@ const JobDocument = forwardRef(function JobDocument(
               </div>
             ) : (
               <Cell label={L.createdBy} value={fv('creatorName')} editMode={editMode} onChange={ch('creatorName')} />
+            )}
+          </Row>
+
+          {/* Row 12: Coordinator */}
+          <Row>
+            {editMode && coordinatorStaff.length > 0 ? (
+              <div className="jd-cell" style={{ flex: 1, borderRight: 'none' }}>
+                <span className="jd-cell-label">{L.coordinator}</span>
+                <select
+                  className="jd-cell-input"
+                  value={fv('coordinatorId') || ''}
+                  onChange={e => ch('coordinatorId')(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {coordinatorStaff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            ) : (
+              <Cell label={L.coordinator} value={editMode ? '' : (job?.coordinator?.name || '')} editMode={false} />
             )}
           </Row>
 

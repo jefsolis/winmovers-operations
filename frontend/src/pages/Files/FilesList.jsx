@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { fileStatusMeta } from '../../constants'
+import { fileStatusMeta, getFileProgressionStatuses } from '../../constants'
 
 /**
  * FilesList — shared list component for all three file categories.
@@ -24,10 +24,17 @@ export default function FilesList({ category }) {
     } catch (e) { alert(e.message) }
   }
 
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await api.put(`/files/${id}`, { status: newStatus })
+      setFiles(prev => prev.map(f => f.id === id ? { ...f, status: newStatus } : f))
+    } catch (e) { alert(e.message) }
+  }
+
   useEffect(() => {
     setLoading(true)
     const params = new URLSearchParams({ category })
-    if (!showClosed) params.set('status', 'OPEN')
+    if (!showClosed) params.set('notStatus', 'CLOSED,VOID')
     if (search) params.set('search', search)
     api.get(`/files?${params}`)
       .then(setFiles)
@@ -94,6 +101,7 @@ export default function FilesList({ category }) {
                     <th>{t('common.name')}</th>
                     <th>{t('movingFiles.status')}</th>
                     {category !== 'LOCAL' && <th>{t('movingFiles.linkedJob')}</th>}
+                    {category !== 'LOCAL' && <th>{t('movingFiles.coordinator')}</th>}
                     <th>{t('movingFiles.attachments')}</th>
                     <th>{t('common.actions')}</th>
                   </tr>
@@ -101,18 +109,41 @@ export default function FilesList({ category }) {
                 <tbody>
                   {files.map(f => {
                     const sm = fileStatusMeta(f.status, t)
+                    const progressionStatuses = getFileProgressionStatuses(category, t)
+                    const canChangeStatus = category !== 'LOCAL' && f.status !== 'CLOSED' && f.status !== 'VOID'
                     return (
                       <tr key={f.id}>
                           <td><Link to={`${prefix[category]}/${f.id}`} style={{ color: 'var(--primary)', fontWeight: 700 }}>{f.fileNumber}</Link></td>
                         <td>{clientName(f.client)}</td>
                         <td>
-                          <span className="badge" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
+                          {canChangeStatus ? (
+                            <select
+                              value={f.status}
+                              onChange={e => handleStatusChange(f.id, e.target.value)}
+                              style={{
+                                padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)',
+                                background: sm.bg, color: sm.color,
+                                fontWeight: 600, fontSize: 12, cursor: 'pointer', outline: 'none',
+                              }}
+                            >
+                              {progressionStatuses.map(s => (
+                                <option key={s.value} value={s.value}>{s.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="badge" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
+                          )}
                         </td>
                         {category !== 'LOCAL' && (
                           <td>
                             {f.job
                               ? <Link to={`/jobs/${f.job.id}`} style={{ color: 'var(--primary)' }}>{f.job.jobNumber}</Link>
                               : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{t('movingFiles.noJob')}</span>}
+                          </td>
+                        )}
+                        {category !== 'LOCAL' && (
+                          <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                            {category === 'IMPORT' ? (f.coordinator?.name || '—') : (f.job?.coordinator?.name || '—')}
                           </td>
                         )}
                         <td>{f._count?.attachments ?? 0}</td>

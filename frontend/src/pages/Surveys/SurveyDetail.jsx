@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
@@ -19,6 +19,8 @@ export default function SurveyDetail() {
   const { t } = useLanguage()
   const [survey, setSurvey] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+  const surveyRef = useRef(null)
 
   useEffect(() => {
     api.get(`/surveys/${id}`)
@@ -26,6 +28,59 @@ export default function SurveyDetail() {
       .catch(() => navigate('/visits'))
       .finally(() => setLoading(false))
   }, [id]) // eslint-disable-line
+
+  const exportPDF = async () => {
+    if (!surveyRef.current) return
+    setExporting(true)
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+      const styleEl = document.createElement('style')
+      styleEl.textContent = `
+        [data-pdf-capture] input, [data-pdf-capture] textarea {
+          border: none !important; background: transparent !important;
+          -webkit-appearance: none !important; appearance: none !important;
+          outline: none !important; box-shadow: none !important;
+        }
+      `
+      document.head.appendChild(styleEl)
+      surveyRef.current.setAttribute('data-pdf-capture', '')
+      const captureOpts = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }
+      const canvas = await html2canvas(surveyRef.current, captureOpts)
+      surveyRef.current.removeAttribute('data-pdf-capture')
+      document.head.removeChild(styleEl)
+      const pdf   = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const mSide = 20, mTop = 20, mBottom = 20
+      const contentW = pageW - mSide * 2
+      const slicePtH = pageH - mTop - mBottom
+      const pxW = canvas.width
+      const pxH = canvas.height
+      const slicePxH = Math.round((slicePtH / contentW) * pxW)
+      let page = 0, offsetPx = 0
+      const clientLabel = visit?.client?.name || visit?.corporateClient?.name || visit?.prospectName || survey.surveyNumber
+      while (offsetPx < pxH) {
+        if (page > 0) pdf.addPage()
+        const thisSlicePx = Math.min(slicePxH, pxH - offsetPx)
+        const sliceCanvas = document.createElement('canvas')
+        sliceCanvas.width  = pxW
+        sliceCanvas.height = thisSlicePx
+        const ctx = sliceCanvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, pxW, thisSlicePx)
+        ctx.drawImage(canvas, 0, offsetPx, pxW, thisSlicePx, 0, 0, pxW, thisSlicePx)
+        const slicePtActual = (thisSlicePx / slicePxH) * slicePtH
+        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', mSide, mTop, contentW, slicePtActual)
+        offsetPx += thisSlicePx
+        page++
+      }
+      pdf.save(`Survey-${clientLabel}.pdf`)
+    } catch (e) { console.error(e) }
+    finally { setExporting(false) }
+  }
 
   const handleDelete = async () => {
     if (!window.confirm(t('surveys.deleteConfirm', { num: survey.surveyNumber }))) return
@@ -89,6 +144,7 @@ export default function SurveyDetail() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {visit && <Link to={`/visits/${visit.id}`} className="btn btn-secondary">{t('surveys.backToVisit')}</Link>}
+          <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>{exporting ? t('common.loading') : t('surveys.exportPDF')}</button>
           <Link to={`/surveys/${id}/edit`} className="btn btn-secondary">{t('common.edit')}</Link>
           <button className="btn btn-danger" onClick={handleDelete}>{t('common.delete')}</button>
         </div>
@@ -116,6 +172,9 @@ export default function SurveyDetail() {
           <Field label={t('surveys.destination')}  value={dest} />
         </div>
       </div>
+
+      {/* Printable area */}
+      <div ref={surveyRef}>
 
       {/* Item Inventory — 4-column grid matching SurveyForm layout */}
       <div className="card card-body" style={{ padding: '12px 12px 0', marginBottom: 16, overflow: 'hidden' }}>
@@ -260,6 +319,8 @@ export default function SurveyDetail() {
           <p style={{ fontSize: 14, color: 'var(--text)', whiteSpace: 'pre-wrap', margin: 0 }}>{survey.notes}</p>
         </div>
       )}
+
+      </div>{/* end printable area */}
     </>
   )
 }

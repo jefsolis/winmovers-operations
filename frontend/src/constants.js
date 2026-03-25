@@ -11,7 +11,7 @@ const STATUS_META = [
 ]
 
 const TYPE_VALUES  = ['EXPORT', 'IMPORT', 'INTERNATIONAL', 'DOMESTIC']
-const MODE_VALUES  = ['ROAD', 'SEA', 'AIR', 'COMBINED']
+const MODE_VALUES  = ['ROAD', 'SEA', 'AIR']
 
 // Pass the t() function from useLanguage() to get translated labels
 export function getJobStatuses(t) {
@@ -52,7 +52,7 @@ export function clientTypeMeta(value, t) {
 
 export function formatDate(dateStr) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  return new Date(dateStr).toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export function formatDateTime(dateStr) {
@@ -82,6 +82,12 @@ const FILE_CATEGORY_META = [
   { value: 'SIGNED_PACKING_LIST',    bg: '#dcfce7', color: '#16a34a' },
   { value: 'INVOICE',                bg: '#fee2e2', color: '#b91c1c' },
   { value: 'DELIVERY_CONFIRMATION',  bg: '#d1fae5', color: '#065f46' },
+  { value: 'TARIFF_REPLY_EMAIL',     bg: '#ede9fe', color: '#5b21b6' },
+  { value: 'CONSIGNMENT_EMAIL',      bg: '#dcfce7', color: '#15803d' },
+  { value: 'DELIVERY_DOCS_EMAIL',    bg: '#fff7ed', color: '#c2410c' },
+  { value: 'DELIVERY_INFO_EMAIL',    bg: '#ccfbf1', color: '#0f766e' },
+  { value: 'DELIVERY_REPORT',        bg: '#fce7f3', color: '#be185d' },
+  { value: 'TARIFF_CONTESTATION',    bg: '#fef3c7', color: '#b45309' },
   { value: 'OTHER',                  bg: '#e2e8f0', color: '#475569' },
 ]
 
@@ -105,19 +111,39 @@ export function formatFileSize(bytes) {
 export const FILE_CATEGORIES = ['EXPORT', 'IMPORT', 'LOCAL']
 
 export const REQUIRED_ATTACHMENTS = {
-  EXPORT: ['SURVEY_REPORT', 'QUOTATION', 'INSURANCE_INVENTORY', 'SIGNED_QUOTATION',
-           'WORK_ORDER', 'PRE_ADVICE', 'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT',
-           'INSURANCE_CERTIFICATE', 'SIGNED_PACKING_LIST', 'INVOICE', 'DELIVERY_CONFIRMATION'],
-  IMPORT: ['QUOTATION', 'INSURANCE_INVENTORY', 'SIGNED_QUOTATION', 'WORK_ORDER',
-           'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT', 'INSURANCE_CERTIFICATE',
+  EXPORT: ['SURVEY_REPORT', 'QUOTATION', 'WORK_ORDER', 'PRE_ADVICE',
+           'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT',
            'SIGNED_PACKING_LIST', 'INVOICE', 'DELIVERY_CONFIRMATION'],
+  IMPORT: ['QUOTATION', 'WORK_ORDER', 'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT', 'INVOICE',
+           'TARIFF_REPLY_EMAIL', 'DELIVERY_DOCS_EMAIL', 'DELIVERY_INFO_EMAIL', 'DELIVERY_REPORT'],
   LOCAL:  ['INVOICE'],
 }
 
+export const OPTIONAL_ATTACHMENTS = {
+  EXPORT: ['INSURANCE_INVENTORY', 'INSURANCE_CERTIFICATE', 'SIGNED_QUOTATION', 'TARIFF_CONTESTATION'],
+  IMPORT: ['INSURANCE_INVENTORY', 'INSURANCE_CERTIFICATE', 'SIGNED_QUOTATION', 'CONSIGNMENT_EMAIL'],
+  LOCAL:  [],
+}
+
+export const ATTACHMENT_DUE_OFFSETS = {
+  TARIFF_REPLY_EMAIL:  { days: 2 },
+  DELIVERY_DOCS_EMAIL: { days: 3 },
+}
+
 const FILE_STATUS_META = [
-  { value: 'OPEN',   bg: '#dbeafe', color: '#1e40af' },
-  { value: 'CLOSED', bg: '#d1fae5', color: '#065f46' },
+  { value: 'OPEN',                  bg: '#dbeafe', color: '#1e40af' },
+  { value: 'PACKING',               bg: '#fef3c7', color: '#92400e' },
+  { value: 'WAITING_GREEN_LIGHT',   bg: '#fef9c3', color: '#713f12' },
+  { value: 'DISPATCH',              bg: '#e0f2fe', color: '#0c4a6e' },
+  { value: 'TRANSIT',               bg: '#ede9fe', color: '#4c1d95' },
+  { value: 'WAITING_DELIVERY_DOCS', bg: '#fff7ed', color: '#9a3412' },
+  { value: 'CUSTOMS',               bg: '#fae8ff', color: '#701a75' },
+  { value: 'CLOSED',                bg: '#d1fae5', color: '#065f46' },
+  { value: 'VOID',                  bg: '#fee2e2', color: '#991b1b' },
 ]
+
+const EXPORT_FILE_PROGRESSION = ['OPEN', 'PACKING', 'WAITING_GREEN_LIGHT', 'DISPATCH', 'TRANSIT', 'WAITING_DELIVERY_DOCS']
+const IMPORT_FILE_PROGRESSION = ['OPEN', 'PACKING', 'DISPATCH', 'TRANSIT', 'CUSTOMS']
 
 export function getFileStatuses(t) {
   return FILE_STATUS_META.map(s => ({ ...s, label: t(`fileStatuses.${s.value}`) }))
@@ -126,6 +152,13 @@ export function getFileStatuses(t) {
 export function fileStatusMeta(value, t) {
   const meta = FILE_STATUS_META.find(s => s.value === value) || { value, bg: '#e2e8f0', color: '#475569' }
   return { ...meta, label: t ? t(`fileStatuses.${value}`) : value }
+}
+
+export function getFileProgressionStatuses(category, t) {
+  const values = category === 'EXPORT' ? EXPORT_FILE_PROGRESSION
+    : category === 'IMPORT' ? IMPORT_FILE_PROGRESSION
+    : ['OPEN']
+  return values.map(v => ({ value: v, ...fileStatusMeta(v, t) }))
 }
 
 export function getFileCategoryLabel(category, t) {

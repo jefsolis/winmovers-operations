@@ -4,6 +4,9 @@ import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { getFileServiceTypes, getShipmentModes, getFileBookerRoles } from '../../constants'
 import ClientLookup from '../../components/ClientLookup'
+import AgentLookup from '../../components/AgentLookup'
+import QuickCreateAgentModal from '../../components/QuickCreateAgentModal'
+import QuickCreateCorporateClientModal from '../../components/QuickCreateCorporateClientModal'
 
 const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
 
@@ -23,13 +26,15 @@ export default function FileForm() {
     indClient: { clientId: '', name: '', phone: '', email: '' },
     corpClient: { clientId: '', name: '' },
     notes: '',
+    coordinatorId: '',
     serviceType: '',
-    shipmentMode: '',
+    shipmentMode: [],
+    loadType: [],
     volumeCbm: '',
     weightKg: '',
     bookerRole: '',
-    originAgentId: '',
-    destAgentId: defaultCategory === 'IMPORT' ? 'WINMOVERS' : '',
+    originAgent: { agentId: '', name: '' },
+    destAgent: { agentId: defaultCategory === 'IMPORT' ? 'WINMOVERS' : '', name: '' },
     // Shipping fields
     originAddress: '', originCity: '', originCountry: '',
     destAddress: '', destCity: '', destCountry: '',
@@ -44,14 +49,21 @@ export default function FileForm() {
     oblHastaCiudad: '',
     fechaLlegada: '',
     fechaTrasladoBodega: '',
+    anticipado: false,
     fechaTraslado: '',
     fechaEntrega: '',
   })
   const [clients, setClients] = useState([]) // eslint-disable-line
-  const [agents, setAgents]   = useState([])
+  const [coordinatorStaff, setCoordinatorStaff] = useState([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
+
+  const [agentModalOpen, setAgentModalOpen]   = useState(false)
+  const [agentModalName, setAgentModalName]   = useState('')
+  const [agentModalTarget, setAgentModalTarget] = useState('origin')
+  const [corpModalOpen, setCorpModalOpen]     = useState(false)
+  const [corpModalName, setCorpModalName]     = useState('')
 
   const FILE_SERVICE_TYPES = getFileServiceTypes(t)
   const SHIPMENT_MODES     = getShipmentModes(t)
@@ -60,7 +72,7 @@ export default function FileForm() {
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
 
   useEffect(() => {
-    api.get('/agents').then(setAgents).catch(() => {})
+    api.get('/staff?canCoordinateFiles=true').then(setCoordinatorStaff).catch(() => {})
     if (isEdit) {
       api.get(`/files/${id}`)
         .then(f => {
@@ -83,12 +95,14 @@ export default function FileForm() {
             },
             notes:              f.notes              || '',
             serviceType:   f.serviceType   || '',
-            shipmentMode:  f.shipmentMode  || '',
+            shipmentMode:  f.shipmentMode ? f.shipmentMode.split(',').filter(Boolean) : [],
+            loadType:      f.loadType     ? f.loadType.split(',').filter(Boolean)     : [],
             volumeCbm:     f.volumeCbm     ?? '',
             weightKg:      f.weightKg      ?? '',
             bookerRole:    f.bookerRole    || '',
-            originAgentId: f.originAgentId || '',
-            destAgentId:   f.category === 'IMPORT' ? 'WINMOVERS' : (f.destAgentId || ''),
+            coordinatorId: f.coordinatorId || '',
+            originAgent: { agentId: f.originAgentId || '', name: f.originAgent?.name || '' },
+            destAgent:   { agentId: f.category === 'IMPORT' ? 'WINMOVERS' : (f.destAgentId || ''), name: f.category === 'IMPORT' ? '' : (f.destAgent?.name || '') },
             originAddress: f.originAddress || '',
             originCity:    f.originCity    || '',
             originCountry: f.originCountry || '',
@@ -107,6 +121,7 @@ export default function FileForm() {
             oblHastaCiudad:   f.oblHastaCiudad       || '',
             fechaLlegada:         toDate(f.fechaLlegada),
             fechaTrasladoBodega:  f.fechaTrasladoBodega  || '',
+            anticipado:           f.anticipado           || false,
             fechaTraslado:        toDate(f.fechaTraslado),
             fechaEntrega:         toDate(f.fechaEntrega),
           }))
@@ -123,9 +138,9 @@ export default function FileForm() {
     setForm(prev => ({
       ...prev,
       bookerRole: role,
-      ...(role === 'BOOKER' ? { originAgentId: 'WINMOVERS', destAgentId: 'WINMOVERS' } :
-          role === 'OA'     ? { originAgentId: 'WINMOVERS' } :
-          role === 'DA'     ? { destAgentId:   'WINMOVERS' } : {}),
+      ...(role === 'BOOKER' ? { originAgent: { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') }, destAgent: { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') } } :
+          role === 'OA'     ? { originAgent: { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') } } :
+          role === 'DA'     ? { destAgent:   { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') } } : {}),
     }))
   }
 
@@ -161,12 +176,14 @@ export default function FileForm() {
         corporateClientId:  corporateClientId || null,
         notes:              form.notes             || null,
         serviceType:   form.serviceType   || null,
-        shipmentMode:  form.shipmentMode  || null,
+        shipmentMode:  form.shipmentMode.length ? form.shipmentMode.join(',') : null,
+        loadType:      form.loadType.length     ? form.loadType.join(',')     : null,
         volumeCbm:     form.volumeCbm !== '' ? parseFloat(form.volumeCbm) : null,
         weightKg:      form.weightKg  !== '' ? parseFloat(form.weightKg)  : null,
         bookerRole:    form.bookerRole    || null,
-        originAgentId: (form.originAgentId === 'WINMOVERS' ? null : form.originAgentId) || null,
-        destAgentId:   (form.destAgentId   === 'WINMOVERS' ? null : form.destAgentId)   || null,
+        coordinatorId: form.coordinatorId || null,
+        originAgentId: (form.originAgent.agentId === 'WINMOVERS' ? null : form.originAgent.agentId) || null,
+        destAgentId:   (form.destAgent.agentId   === 'WINMOVERS' ? null : form.destAgent.agentId)   || null,
         originAddress: form.originAddress || null,
         originCity:    form.originCity    || null,
         originCountry: form.originCountry || null,
@@ -185,6 +202,7 @@ export default function FileForm() {
         oblHastaCiudad:   form.oblHastaCiudad   || null,
         fechaLlegada:         form.fechaLlegada         || null,
         fechaTrasladoBodega:  form.fechaTrasladoBodega  || null,
+        anticipado:           form.anticipado           || false,
         fechaTraslado:        form.fechaTraslado        || null,
         fechaEntrega:         form.fechaEntrega         || null,
       }
@@ -269,8 +287,8 @@ export default function FileForm() {
                   value={form.corpClient}
                   onChange={val => set('corpClient', val)}
                   showContact={false}
-                  hintText={t('clients.willBeCreatedCompany')}
                   noResultsText={t('clients.noResultsNewCompany')}
+                  onCreateNew={name => { setCorpModalName(name); setCorpModalOpen(true) }}
                 />
               </div>
 
@@ -288,10 +306,48 @@ export default function FileForm() {
               {/* Shipment Mode */}
               <div className="form-group">
                 <label className="form-label">{t('movingFiles.shipmentMode')}</label>
-                <select className="form-control" value={form.shipmentMode} onChange={e => set('shipmentMode', e.target.value)}>
-                  <option value="">{t('common.select')}</option>
-                  {SHIPMENT_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
+                <div style={{ display: 'flex', gap: 20, marginTop: 6 }}>
+                  {SHIPMENT_MODES.map(m => (
+                    <label key={m.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 400 }}>
+                      <input
+                        type="checkbox"
+                        checked={form.shipmentMode.includes(m.value)}
+                        onChange={e => {
+                          const next = e.target.checked
+                            ? [...form.shipmentMode, m.value]
+                            : form.shipmentMode.filter(v => v !== m.value)
+                          set('shipmentMode', next)
+                        }}
+                      />
+                      {m.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Type of Load */}
+              <div className="form-group">
+                <label className="form-label">{t('movingFiles.loadType')}</label>
+                <div style={{ display: 'flex', gap: 20, marginTop: 6 }}>
+                  {[
+                    { value: 'HOUSEHOLD', label: t('loadTypes.HOUSEHOLD') },
+                    { value: 'VEHICLE',   label: t('loadTypes.VEHICLE') },
+                  ].map(m => (
+                    <label key={m.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 400 }}>
+                      <input
+                        type="checkbox"
+                        checked={form.loadType.includes(m.value)}
+                        onChange={e => {
+                          const next = e.target.checked
+                            ? [...form.loadType, m.value]
+                            : form.loadType.filter(v => v !== m.value)
+                          set('loadType', next)
+                        }}
+                      />
+                      {m.label}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {/* Volume */}
@@ -336,11 +392,12 @@ export default function FileForm() {
               {/* Origin Agent */}
               <div className="form-group">
                 <label className="form-label">{t('movingFiles.originAgent')}</label>
-                <select className="form-control" value={form.originAgentId} onChange={e => set('originAgentId', e.target.value)}>
-                  <option value="">{t('common.none')}</option>
-                  <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
-                  {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                <AgentLookup
+                  value={form.originAgent}
+                  onChange={val => set('originAgent', val)}
+                  allowWinMovers
+                  onCreateNew={name => { setAgentModalTarget('origin'); setAgentModalName(name); setAgentModalOpen(true) }}
+                />
               </div>
 
               {/* Destination Agent */}
@@ -349,13 +406,25 @@ export default function FileForm() {
                 {form.category === 'IMPORT' ? (
                   <input className="form-control" value={t('movingFiles.winmoversOption')} readOnly style={{ background: 'var(--bg-secondary, #f8f9fa)', cursor: 'default' }} />
                 ) : (
-                  <select className="form-control" value={form.destAgentId} onChange={e => set('destAgentId', e.target.value)}>
-                    <option value="">{t('common.none')}</option>
-                    <option value="WINMOVERS">{t('movingFiles.winmoversOption')}</option>
-                    {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
+                  <AgentLookup
+                    value={form.destAgent}
+                    onChange={val => set('destAgent', val)}
+                    allowWinMovers
+                    onCreateNew={name => { setAgentModalTarget('dest'); setAgentModalName(name); setAgentModalOpen(true) }}
+                  />
                 )}
               </div>
+
+              {/* Coordinator — IMPORT only */}
+              {category === 'IMPORT' && (
+                <div className="form-group form-full">
+                  <label className="form-label">{t('movingFiles.coordinator')}</label>
+                  <select className="form-control" value={form.coordinatorId} onChange={e => set('coordinatorId', e.target.value)}>
+                    <option value="">—</option>
+                    {coordinatorStaff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
 
               {/* Notes */}
               <div className="form-group form-full">
@@ -372,14 +441,18 @@ export default function FileForm() {
               <div className="section-label" style={{ marginBottom: 12 }}>{t('movingFiles.addressSection') || 'Addresses'}</div>
               <div className="form-grid">
 
-                <div className="form-group">
-                  <label className="form-label">{t('jobs.originAddress')}</label>
-                  <input className="form-control" value={form.originAddress} onChange={e => set('originAddress', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('jobs.originCity')}</label>
-                  <input className="form-control" value={form.originCity} onChange={e => set('originCity', e.target.value)} />
-                </div>
+                {category === 'EXPORT' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">{t('jobs.originAddress')}</label>
+                      <input className="form-control" value={form.originAddress} onChange={e => set('originAddress', e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">{t('jobs.originCity')}</label>
+                      <input className="form-control" value={form.originCity} onChange={e => set('originCity', e.target.value)} />
+                    </div>
+                  </>
+                )}
                 <div className="form-group">
                   <label className="form-label">{t('jobs.originCountry')}</label>
                   <input className="form-control" value={form.originCountry} onChange={e => set('originCountry', e.target.value)} />
@@ -468,7 +541,27 @@ export default function FileForm() {
 
                     <div className="form-group">
                       <label className="form-label">{t('movingFiles.trasladoBodega')}</label>
-                      <input className="form-control" type="text" value={form.fechaTrasladoBodega} onChange={e => set('fechaTrasladoBodega', e.target.value)} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input
+                          className="form-control"
+                          type="text"
+                          value={form.anticipado ? '' : form.fechaTrasladoBodega}
+                          onChange={e => set('fechaTrasladoBodega', e.target.value)}
+                          disabled={form.anticipado}
+                          placeholder={form.anticipado ? t('movingFiles.anticipado') : ''}
+                        />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontSize: 13, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={form.anticipado}
+                            onChange={e => {
+                              set('anticipado', e.target.checked)
+                              if (e.target.checked) set('fechaTrasladoBodega', '')
+                            }}
+                          />
+                          {t('movingFiles.anticipado')}
+                        </label>
+                      </div>
                     </div>
 
                     <div className="form-group">
@@ -495,6 +588,24 @@ export default function FileForm() {
           </div>
         </form>
       </div>
+      <QuickCreateAgentModal
+        open={agentModalOpen}
+        onClose={() => setAgentModalOpen(false)}
+        initialName={agentModalName}
+        onCreated={agent => {
+          set(agentModalTarget === 'origin' ? 'originAgent' : 'destAgent', { agentId: agent.id, name: agent.name })
+          setAgentModalOpen(false)
+        }}
+      />
+      <QuickCreateCorporateClientModal
+        open={corpModalOpen}
+        onClose={() => setCorpModalOpen(false)}
+        initialName={corpModalName}
+        onCreated={client => {
+          set('corpClient', { clientId: client.id, name: client.name })
+          setCorpModalOpen(false)
+        }}
+      />
     </>
   )
 }
