@@ -22,6 +22,7 @@ app.use('/api/files/:fileId/attachments', require('./routes/attachments'))  // m
 app.use('/api/files',                    require('./routes/movingFiles'))
 app.use('/api/jobs',                     require('./routes/jobs'))
 app.use('/api/surveys',                  require('./routes/surveys'))
+app.use('/api/admin',                    require('./routes/admin'))
 
 // Legacy health check
 app.get('/api/hello', (req, res) => {

@@ -9,7 +9,10 @@ async function generateQuoteNumber() {
     orderBy: { quoteNumber: 'desc' },
     select: { quoteNumber: true },
   })
-  const next = last ? parseInt(last.quoteNumber.slice(prefix.length), 10) + 1 : 1
+  const lastNum = last ? parseInt(last.quoteNumber.slice(prefix.length), 10) : 0
+  const seed = await getPrisma().systemSetting.findUnique({ where: { key: 'counter.QUOTE' } })
+  const seedNum = seed ? parseInt(seed.value, 10) - 1 : 0
+  const next = Math.max(lastNum, seedNum) + 1
   return `${prefix}${String(next).padStart(4, '0')}`
 }
 

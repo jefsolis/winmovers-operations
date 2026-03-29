@@ -169,6 +169,12 @@ model Attachment {
   uploadedAt  DateTime   @default(now())
 }
 
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model StaffMember {
   id        String   @id @default(cuid())
   name      String

@@ -8,16 +8,22 @@ function toDate(val) {
   return isNaN(d.getTime()) ? null : d
 }
 
-async function generateJobNumber() {
+async function generateImportJobNumber() {
   const year = new Date().getFullYear()
-  const prefix = "WM-" + year + "-"
   const last = await getPrisma().job.findFirst({
-    where: { jobNumber: { startsWith: prefix } },
-    orderBy: { jobNumber: "desc" },
+    where: { jobNumber: { startsWith: 'D-' } },
+    orderBy: { createdAt: 'desc' },
     select: { jobNumber: true },
   })
-  const next = last ? parseInt(last.jobNumber.slice(prefix.length), 10) + 1 : 1
-  return prefix + String(next).padStart(4, "0")
+  let lastNum = 0
+  if (last) {
+    const parts = last.jobNumber.split('-')
+    lastNum = parseInt(parts[1], 10) || 0
+  }
+  const seed = await getPrisma().systemSetting.findUnique({ where: { key: 'counter.IMPORT_JOB' } })
+  const seedNum = seed ? parseInt(seed.value, 10) - 1 : 0
+  const next = Math.max(lastNum, seedNum) + 1
+  return 'D-' + String(next).padStart(4, '0') + '-' + year
 }
 
 // GET all
@@ -140,17 +146,15 @@ router.post("/", async (req, res, next) => {
       jobNumber    = fileNumber
       movingFileId = mf.id
     } else if (type === "IMPORT" && manualMovingFileId) {
-      // Import job linked to existing file: use file's number as job number
-      const linkedFile = await getPrisma().movingFile.findUnique({
-        where: { id: manualMovingFileId },
-        select: { fileNumber: true },
-      })
-      jobNumber    = linkedFile?.fileNumber || await generateJobNumber()
+      // Import job linked to existing file: independent number (OT-YYYY-####)
+      jobNumber    = await generateImportJobNumber()
       movingFileId = manualMovingFileId
+    } else if (type === "IMPORT") {
+      // Import standalone: own counter
+      jobNumber    = await generateImportJobNumber()
+      movingFileId = null
     } else {
-      // Import standalone or International: standard WM-YYYY-#### number
-      jobNumber    = await generateJobNumber()
-      movingFileId = manualMovingFileId || null
+      throw new Error(`Unsupported job type: ${type}`)
     }
 
     const data = {

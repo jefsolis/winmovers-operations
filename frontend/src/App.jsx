@@ -23,6 +23,7 @@ import FileDetail from './pages/Files/FileDetail'
 import FileForm from './pages/Files/FileForm'
 import SurveyForm from './pages/Surveys/SurveyForm'
 import SurveyDetail from './pages/Surveys/SurveyDetail'
+import AdminPage from './pages/Admin/AdminPage'
 
 export default function App() {
   return (
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="surveys/new"              element={<SurveyForm />} />
           <Route path="surveys/:id"              element={<SurveyDetail />} />
           <Route path="surveys/:id/edit"         element={<SurveyForm />} />
+          <Route path="admin"                       element={<AdminPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

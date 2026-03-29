@@ -1,7 +1,7 @@
 const router = require("express").Router()
 const { getPrisma } = require("../db")
 
-const CATEGORY_PREFIX = { EXPORT: "E", IMPORT: "D", LOCAL: "M" }
+const CATEGORY_PREFIX = { EXPORT: "E", IMPORT: "DF", LOCAL: "M" }
 
 async function generateFileNumber(category) {
   const prefix = CATEGORY_PREFIX[category]
@@ -12,12 +12,16 @@ async function generateFileNumber(category) {
     orderBy: { createdAt: "desc" },
     select: { fileNumber: true },
   })
-  let next = 1
+  let lastNum = 0
   if (last) {
     // Support both legacy format "E-0001" and new format "E-0001-2026"
     const parts = last.fileNumber.split("-")
-    next = parseInt(parts[1], 10) + 1
+    lastNum = parseInt(parts[1], 10)
   }
+  const seedKey = `counter.${category}`
+  const seed = await getPrisma().systemSetting.findUnique({ where: { key: seedKey } })
+  const seedNum = seed ? parseInt(seed.value, 10) - 1 : 0
+  const next = Math.max(lastNum, seedNum) + 1
   return prefix + "-" + String(next).padStart(4, "0") + "-" + year
 }
 

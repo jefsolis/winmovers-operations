@@ -5,7 +5,7 @@ import { useLanguage } from '../../i18n'
 import JobDocument from './JobDocument'
 
 const EMPTY = {
-  type: 'INTERNATIONAL', status: 'SURVEY',
+  type: 'IMPORT', status: 'SURVEY',
   clientId: '',
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '', destCity: '', destCountry: '',
@@ -95,7 +95,7 @@ export default function JobForm() {
           const autoQuoteTo = v?.client?.name
             || (v?.client ? `${v.client.firstName || ''} ${v.client.lastName || ''}`.trim() : '')
             || v?.prospectName || ''
-          let jobType = 'INTERNATIONAL'
+          let jobType = 'IMPORT'
           if (v?.serviceType === 'LOCAL_MOVE') jobType = 'DOMESTIC'
           else if (['DOOR_TO_PORT', 'DOOR_TO_DOOR'].includes(v?.serviceType)) jobType = 'EXPORT'
           else if (v?.serviceType === 'PORT_TO_DOOR') jobType = 'IMPORT'

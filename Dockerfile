@@ -24,6 +24,14 @@ FROM node:20-alpine
 RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=backend-builder /app/backend ./
+
+ARG BUILD_NUMBER=dev
+ARG GIT_SHA=unknown
+ARG BUILD_DATE=unknown
+ENV BUILD_NUMBER=$BUILD_NUMBER
+ENV GIT_SHA=$GIT_SHA
+ENV BUILD_DATE=$BUILD_DATE
+
 ENV PORT=8080
 EXPOSE 8080
 # Retry prisma db push up to 3 times (10s apart) in case of a slow DB connection,

@@ -46,6 +46,10 @@ jobs:
         with:
           push: true
           tags: ${{ secrets.ACR_NAME }}.azurecr.io/winmovers-ops:latest
+          build-args: |
+            BUILD_NUMBER=${{ github.run_number }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
       - name: Azure CLI - update Web App container
         uses: azure/cli@v1
