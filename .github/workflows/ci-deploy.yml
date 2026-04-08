@@ -57,7 +57,7 @@ jobs:
           azcliversion: 'latest'
           inlineScript: |
             az login --service-principal -u ${{ secrets.AZURE_APP_ID }} -p ${{ secrets.AZURE_PASSWORD }} --tenant ${{ secrets.AZURE_TENANT }}
-            az webapp config container set --resource-group winmovers-rg --name winmoversops-2026 --container-image-name ${{ secrets.ACR_NAME }}.azurecr.io/winmovers-ops:latest
-            az webapp restart --resource-group winmovers-rg --name winmoversops-2026
+            az webapp config container set --resource-group Sistema --name winmoversops-app --container-image-name ${{ secrets.ACR_NAME }}.azurecr.io/winmovers-ops:latest
+            az webapp restart --resource-group Sistema --name winmoversops-app
 
   
