@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import JobDocument from './JobDocument'
+import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 
 const EMPTY = {
   type: 'IMPORT', status: 'SURVEY',
@@ -46,6 +47,14 @@ export default function JobForm() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const errorRef = useRef(null)
+  const currentStaff = useCurrentStaff()
+
+  // Auto-fill creatorName for new records once staff list + current user are known
+  useEffect(() => {
+    if (!isEdit && currentStaff?.canBeCreatorInWorkOrder) {
+      setForm(prev => prev.creatorName ? prev : { ...prev, creatorName: currentStaff.name })
+    }
+  }, [currentStaff, isEdit])
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })

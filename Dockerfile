@@ -8,6 +8,10 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ .
+ARG VITE_AZURE_TENANT_ID
+ARG VITE_AZURE_CLIENT_ID
+ENV VITE_AZURE_TENANT_ID=$VITE_AZURE_TENANT_ID
+ENV VITE_AZURE_CLIENT_ID=$VITE_AZURE_CLIENT_ID
 RUN node node_modules/vite/bin/vite.js build
 
 FROM node:20-alpine AS backend-builder

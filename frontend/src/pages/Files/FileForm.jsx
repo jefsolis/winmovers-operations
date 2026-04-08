@@ -7,6 +7,7 @@ import ClientLookup from '../../components/ClientLookup'
 import AgentLookup from '../../components/AgentLookup'
 import QuickCreateAgentModal from '../../components/QuickCreateAgentModal'
 import QuickCreateCorporateClientModal from '../../components/QuickCreateCorporateClientModal'
+import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 
 const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
 
@@ -59,6 +60,14 @@ export default function FileForm() {
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
+  const currentStaff = useCurrentStaff()
+
+  // Auto-fill coordinatorId for new records once current user is known
+  useEffect(() => {
+    if (!isEdit && currentStaff?.canCoordinateFiles) {
+      setForm(prev => prev.coordinatorId ? prev : { ...prev, coordinatorId: currentStaff.id })
+    }
+  }, [currentStaff, isEdit])
 
   const [agentModalOpen, setAgentModalOpen]   = useState(false)
   const [agentModalName, setAgentModalName]   = useState('')

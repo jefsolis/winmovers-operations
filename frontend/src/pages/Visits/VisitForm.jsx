@@ -7,6 +7,7 @@ import ClientLookup from '../../components/ClientLookup'
 import AgentLookup from '../../components/AgentLookup'
 import QuickCreateAgentModal from '../../components/QuickCreateAgentModal'
 import QuickCreateCorporateClientModal from '../../components/QuickCreateCorporateClientModal'
+import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 
 const EMPTY_IND = { clientId: '', name: '', phone: '', email: '' }
 const EMPTY_CORP = { clientId: '', name: '' }
@@ -44,6 +45,14 @@ export default function VisitForm() {
   const [agentModalName, setAgentModalName]   = useState('')
   const [corpModalOpen, setCorpModalOpen]     = useState(false)
   const [corpModalName, setCorpModalName]     = useState('')
+  const currentStaff = useCurrentStaff()
+
+  // Auto-fill assignedToId for new records once current user is known
+  useEffect(() => {
+    if (!isEdit && currentStaff?.canBeAssignedToVisit) {
+      setForm(prev => prev.assignedToId ? prev : { ...prev, assignedToId: currentStaff.id })
+    }
+  }, [currentStaff, isEdit])
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })

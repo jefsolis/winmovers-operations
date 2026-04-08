@@ -5,6 +5,7 @@ import { CURRENCIES } from '../../constants'
 import { useLanguage } from '../../i18n'
 import QuoteDocument from './QuoteDocument'
 import { buildDefaultSections, SERVICE_TYPE_LABELS, SECTION_KEYS, LOCAL_SECTION_KEYS, priceToWords } from './quoteTemplates'
+import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 
 const daysFromNow = (n) => {
   const d = new Date()
@@ -51,8 +52,16 @@ export default function QuoteForm() {
   const [error, setError]                 = useState(null)
   const [staffMembers, setStaffMembers]   = useState([])
   const errorRef = useRef(null)
+  const currentStaff = useCurrentStaff()
 
   useEffect(() => { api.get('/staff?canCreateQuotes=true').then(setStaffMembers).catch(() => {}) }, [])
+
+  // Auto-fill creatorName for new records once current user is known
+  useEffect(() => {
+    if (!isEdit && currentStaff?.canCreateQuotes) {
+      setMeta(prev => prev.creatorName ? prev : { ...prev, creatorName: currentStaff.name })
+    }
+  }, [currentStaff, isEdit])
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })

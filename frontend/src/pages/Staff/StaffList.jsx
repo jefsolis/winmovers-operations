@@ -3,6 +3,19 @@ import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 
+const PERMISSIONS = [
+  { key: 'canBeAssignedToVisit',    bg: '#ede9fe', color: '#7c3aed', labelKey: 'nav.visits'  },
+  { key: 'canCreateQuotes',         bg: '#e0f2fe', color: '#0369a1', labelKey: 'nav.quotes'  },
+  { key: 'canBeCreatorInWorkOrder', bg: '#fef9c3', color: '#a16207', labelKey: 'nav.jobs'    },
+  { key: 'canCoordinateFiles',      bg: '#dcfce7', color: '#15803d', labelKey: 'nav.files'   },
+]
+
+const ROLE_META = {
+  ADMIN:       { bg: '#fee2e2', color: '#b91c1c' },
+  COORDINATOR: { bg: '#fce7f3', color: '#be185d' },
+  STAFF:       { bg: '#f1f5f9', color: '#475569' },
+}
+
 export default function StaffList() {
   const { t } = useLanguage()
   const [members, setMembers] = useState([])
@@ -71,10 +84,7 @@ export default function StaffList() {
                   <th>{t('staff.name')}</th>
                   <th>{t('staff.email')}</th>
                   <th>{t('staff.phone')}</th>
-                  <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canBeAssignedToVisit')}</th>
-                  <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canCreateQuotes')}</th>
-                  <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canBeCreatorInWorkOrder')}</th>
-                  <th style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{t('staff.canCoordinateFiles')}</th>
+                  <th>{t('staff.permissions')}</th>
                   <th>{t('staff.isActive')}</th>
                   <th />
                 </tr>
@@ -82,13 +92,41 @@ export default function StaffList() {
               <tbody>
                 {members.map(m => (
                   <tr key={m.id}>
-                    <td style={{ fontWeight: 600 }}>{m.name}</td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{m.name}</div>
+                      {m.role && (
+                        <span
+                          className="badge"
+                          style={{
+                            background: ROLE_META[m.role]?.bg ?? '#f1f5f9',
+                            color: ROLE_META[m.role]?.color ?? '#475569',
+                            fontSize: 11,
+                            marginTop: 2,
+                          }}
+                        >
+                          {m.role}
+                        </span>
+                      )}
+                    </td>
                     <td style={{ fontSize: 13 }}>{m.email}</td>
                     <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{m.phone || '—'}</td>
-                    <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canBeAssignedToVisit ? '✓' : '—'}</td>
-                    <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canCreateQuotes ? '✓' : '—'}</td>
-                    <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canBeCreatorInWorkOrder ? '✓' : '—'}</td>
-                    <td style={{ textAlign: 'center', fontSize: 16 }}>{m.canCoordinateFiles ? '✓' : '—'}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {PERMISSIONS.filter(p => m[p.key]).map(p => (
+                          <span
+                            key={p.key}
+                            title={t(`staff.${p.key}`)}
+                            className="badge"
+                            style={{ background: p.bg, color: p.color, fontSize: 11 }}
+                          >
+                            {t(p.labelKey)}
+                          </span>
+                        ))}
+                        {!PERMISSIONS.some(p => m[p.key]) && (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>
+                        )}
+                      </div>
+                    </td>
                     <td>
                       <span
                         className="badge"

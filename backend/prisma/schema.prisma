@@ -177,6 +177,7 @@ model SystemSetting {
 
 model StaffMember {
   id        String   @id @default(cuid())
+  azureOid  String?  @unique  // Azure AD Object ID — links this record to a tenant user
   name      String
   email     String   @unique
   phone     String?

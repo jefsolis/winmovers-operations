@@ -50,6 +50,8 @@ jobs:
             BUILD_NUMBER=${{ github.run_number }}
             GIT_SHA=${{ github.sha }}
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VITE_AZURE_TENANT_ID=${{ secrets.AZURE_TENANT }}
+            VITE_AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Azure CLI - update Web App container
         uses: azure/cli@v1
@@ -58,6 +60,10 @@ jobs:
           inlineScript: |
             az login --service-principal -u ${{ secrets.AZURE_APP_ID }} -p ${{ secrets.AZURE_PASSWORD }} --tenant ${{ secrets.AZURE_TENANT }}
             az webapp config container set --resource-group Sistema --name winmoversops-app --container-image-name ${{ secrets.ACR_NAME }}.azurecr.io/winmovers-ops:latest
+            az webapp config appsettings set --resource-group Sistema --name winmoversops-app --settings \
+              AZURE_TENANT_ID="${{ secrets.AZURE_TENANT }}" \
+              AZURE_CLIENT_ID="${{ secrets.AZURE_CLIENT_ID }}" \
+              AZURE_CLIENT_SECRET="${{ secrets.AZURE_CLIENT_SECRET }}"
             az webapp restart --resource-group Sistema --name winmoversops-app
 
   
