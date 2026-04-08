@@ -737,8 +737,11 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     box-shadow: none;
   }
   .quote-document { box-shadow: none; padding: 12mm 14mm; }
+  .job-document { box-shadow: none; }
   .qd-section-edit-label { display: none; }
   .qd-textarea { border: none; background: transparent; padding: 0; }
+  .jd-cell-input, .jd-cell-textarea { border: none; background: transparent; padding: 0; }
+  .no-print { display: none !important; }
 }
 
 @media (max-width: 900px) {

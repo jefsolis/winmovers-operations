@@ -166,6 +166,9 @@ export default function QuoteDetail() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link to="/quotes" className="btn btn-secondary btn-sm">{t('quotes.backToQuotes')}</Link>
           <Link to={`/quotes/${id}/edit`} className="btn btn-secondary btn-sm">{t('common.edit')}</Link>
+          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+            🖨 {t('common.print')}
+          </button>
           <button className="btn btn-primary btn-sm" onClick={exportPDF} disabled={exporting}>
             {exporting ? '…' : `📥 ${t('quotes.downloadPdf')}`}
           </button>

@@ -127,7 +127,7 @@ az login --tenant <NEW_TENANT_ID>
 #### 2.1 Resource Group
 
 ```powershell
-az group create --name winmovers-rg --location centralus
+az group create --name Sistema --location centralus
 ```
 
 #### 2.2 Container Registry
@@ -139,7 +139,7 @@ az provider register --namespace Microsoft.Storage
 
 ```powershell
 az acr create `
-  --resource-group winmovers-rg `
+  --resource-group Sistema `
   --name winmoversops `
   --sku Basic `
   --location centralus
@@ -150,7 +150,7 @@ az acr create `
 ```powershell
 # Create Linux plan
 az appservice plan create `
-  --resource-group winmovers-rg `
+  --resource-group Sistema `
   --name winmovers-rg-plan `
   --is-linux `
   --sku B1 `
@@ -158,15 +158,15 @@ az appservice plan create `
 
 # Create Web App for Containers
 az webapp create `
-  --resource-group winmovers-rg `
+  --resource-group Sistema `
   --plan winmovers-rg-plan `
-  --name winmoversops-2026 `
+  --name winmoversops-app `
   --container-image-name winmoversops.azurecr.io/winmovers-ops:latest
 
 # Configure port
 az webapp config appsettings set `
-  --resource-group winmovers-rg `
-  --name winmoversops-2026 `
+  --resource-group Sistema `
+  --name winmoversops-app `
   --settings WEBSITES_PORT=8080
 ```
 
@@ -174,13 +174,13 @@ az webapp config appsettings set `
 
 ```powershell
 az storage account create `
-  --resource-group winmovers-rg `
-  --name winmoversopsfiles `
+  --resource-group Sistema `
+  --name winmoversopsfile `
   --sku Standard_LRS `
   --location centralus
 
 az storage container create `
-  --account-name winmoversopsfiles `
+  --account-name winmoversopsfile `
   --name job-files
 ```
 
@@ -189,8 +189,8 @@ az storage container create `
 ```powershell
 # Azure Database for PostgreSQL Flexible Server
 az postgres flexible-server create `
-  --resource-group winmovers-rg `
-  --name winmoversops-db `
+  --resource-group Sistema `
+  --name winmoversopsdb `
   --location centralus `
   --admin-user winmoversadmin `
   --admin-password "<STRONG_PASSWORD>" `
@@ -201,14 +201,14 @@ az postgres flexible-server create `
 
 # Create the database
 az postgres flexible-server db create `
-  --resource-group winmovers-rg `
-  --server-name winmoversops-db `
+  --resource-group Sistema `
+  --server-name winmoversopsdb `
   --database-name winmovers
 
 # Allow Azure services to connect
 az postgres flexible-server firewall-rule create `
-  --resource-group winmovers-rg `
-  --name winmoversops-db `
+  --resource-group Sistema `
+  --name winmoversopsdb `
   --rule-name AllowAzureServices `
   --start-ip-address 0.0.0.0 `
   --end-ip-address 0.0.0.0
@@ -221,7 +221,7 @@ az postgres flexible-server firewall-rule create `
 $sp = az ad sp create-for-rbac `
   --name "winmovers-ci" `
   --role contributor `
-  --scopes /subscriptions/00748643-2267-4516-9954-2840e79d3f6b/resourceGroups/winmovers-rg `
+  --scopes /subscriptions/90116589-6b05-4070-a37e-aba73407b2e9/resourceGroups/Sistema `
   --output json | ConvertFrom-Json
 
 # Grant AcrPush on the registry (for image push)
@@ -247,7 +247,7 @@ Write-Host "TENANT:   $($sp.tenant)"
 
 ```powershell
 # Get the new connection string
-$newDbUrl = "postgresql://winmoversadmin:<PASSWORD>@<NEW_PG_SERVER>.postgres.database.azure.com:5432/winmovers?sslmode=require"
+$newDbUrl = "postgresql://winmoversadmin:<PASSWORD>@winmoversops-db.postgres.database.azure.com:5432/winmovers?sslmode=require"
 
 # Restore from dump
 pg_restore --dbname="$newDbUrl" --no-owner --no-acl "C:\backup\winmovers-db.dump"
@@ -281,6 +281,8 @@ azcopy copy `
 
 #### 3.3 Push Container Image to New ACR
 
+docker build -t winmoversops.azurecr.io/winmovers-ops:latest .
+
 ```powershell
 az acr login --name winmoversops
 docker tag winmovers-ops:migration-backup winmoversops.azurecr.io/winmovers-ops:latest
@@ -294,16 +296,16 @@ docker push winmoversops.azurecr.io/winmovers-ops:latest
 ```powershell
 # Get the new storage connection string
 $storageConn = az storage account show-connection-string `
-  --resource-group winmovers-rg `
-  --name winmoversopsfiles `
+  --resource-group Sistema `
+  --name winmoversopsfile `
   --output tsv
 
 # Set all environment variables
 az webapp config appsettings set `
-  --resource-group winmovers-rg `
-  --name winmoversops-2026 `
+  --resource-group Sistema `
+  --name winmoversops-app `
   --settings `
-    DATABASE_URL="postgresql://winmoversadmin:<PASSWORD>@winmoversops-db.postgres.database.azure.com:5432/winmovers?sslmode=require" `
+    DATABASE_URL="postgresql://winmoversadmin:<PASSWORD>@winmoversopsdb.postgres.database.azure.com:5432/winmovers?sslmode=require" `
     AZURE_STORAGE_CONNECTION_STRING="$storageConn" `
     AZURE_STORAGE_CONTAINER="job-files" `
     WEBSITES_PORT="8080" `
@@ -311,8 +313,8 @@ az webapp config appsettings set `
 
 # Point Web App to the new ACR
 az webapp config container set `
-  --resource-group winmovers-rg `
-  --name winmoversops-2026 `
+  --resource-group Sistema `
+  --name winmoversops-app `
   --container-image-name winmoversops.azurecr.io/winmovers-ops:latest `
   --container-registry-url https://winmoversops.azurecr.io `
   --container-registry-user $sp.appId `
@@ -320,12 +322,12 @@ az webapp config container set `
 
 # Grant managed identity AcrPull (recommended over credentials)
 az webapp identity assign `
-  --resource-group winmovers-rg `
-  --name winmoversops-2026
+  --resource-group Sistema `
+  --name winmoversops-app
 
 $principalId = az webapp identity show `
-  --resource-group winmovers-rg `
-  --name winmoversops-2026 `
+  --resource-group Sistema `
+  --name winmoversops-app `
   --query principalId --output tsv
 
 az role assignment create `
@@ -334,7 +336,7 @@ az role assignment create `
   --scope $(az acr show --name winmoversops --query id --output tsv)
 
 # Restart
-az webapp restart --resource-group winmovers-rg --name winmoversops-2026
+az webapp restart --resource-group Sistema --name winmoversops-app
 ```
 
 ---

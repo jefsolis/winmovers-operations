@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { fileStatusMeta, getFileProgressionStatuses } from '../../constants'
+import { fileStatusMeta, getFileProgressionStatuses, stripFilePrefix } from '../../constants'
 
 /**
  * FilesList — shared list component for all three file categories.
@@ -113,7 +113,7 @@ export default function FilesList({ category }) {
                     const canChangeStatus = category !== 'LOCAL' && f.status !== 'CLOSED' && f.status !== 'VOID'
                     return (
                       <tr key={f.id}>
-                          <td><Link to={`${prefix[category]}/${f.id}`} style={{ color: 'var(--primary)', fontWeight: 700 }}>{f.fileNumber}</Link></td>
+                          <td><Link to={`${prefix[category]}/${f.id}`} style={{ color: 'var(--primary)', fontWeight: 700 }}>{stripFilePrefix(f.fileNumber)}</Link></td>
                         <td>{clientName(f.client)}</td>
                         <td>
                           {canChangeStatus ? (

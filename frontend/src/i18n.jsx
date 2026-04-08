@@ -17,7 +17,7 @@ const translations = {
       noResults: 'No results found.', actions: 'Actions', yes: 'Yes', no: 'No',
       saving: 'Saving…', create: 'Create', name: 'Name', email: 'Email', phone: 'Phone',
       country: 'Country', city: 'City', address: 'Address', optional: 'Optional', reset: 'Reset', clear: 'Clear',
-      showClosed: 'Show closed',
+      showClosed: 'Show closed', print: 'Print',
       allFieldsOptional: 'All fields are optional unless otherwise noted.',
     },
     nav: {
@@ -304,6 +304,9 @@ const translations = {
       readyToClose: 'Ready to Close?',
       requiredDocs: 'Required documents',
       requiredFields: 'Required fields',
+      validation: {
+        bookerRole: 'Please select a Booker/OA/DA role.',
+      },
     },
     visitStatuses: {
       SCHEDULED: 'Scheduled', COMPLETED: 'Completed', QUOTED: 'Quoted', CLOSED: 'Closed (Lost)',
@@ -354,6 +357,7 @@ const translations = {
         scheduledDate: 'Scheduled date is required.',
         nameOrClient: 'Please enter a prospect name or select a linked client.',
         assignedTo: 'Please assign this visit to a staff member.',
+        bookerRole: 'Please select a Booker/OA/DA role.',
       },
     },
     quotes: {
@@ -436,7 +440,7 @@ const translations = {
       noResults: 'Sin resultados.', actions: 'Acciones', yes: 'Sí', no: 'No',
       saving: 'Guardando…', create: 'Crear', name: 'Nombre', email: 'Correo', phone: 'Teléfono',
       country: 'País', city: 'Ciudad', address: 'Dirección', optional: 'Opcional', reset: 'Reiniciar', clear: 'Limpiar',
-      showClosed: 'Mostrar cerrados',
+      showClosed: 'Mostrar cerrados', print: 'Imprimir',
       allFieldsOptional: 'Todos los campos son opcionales salvo indicación.',
     },
     nav: {
@@ -494,7 +498,7 @@ const translations = {
           upcomingVisits:  { title: 'Próximas Visitas',                desc: 'Las siguientes visitas programadas ordenadas por fecha, con asignado y tipo de servicio.' },
           pendingQuotes:   { title: 'Cotizaciones Pendientes',          desc: 'Cotizaciones enviadas esperando una decisión, ordenadas por fecha de vencimiento.' },
           localNoInvoice:  { title: 'Expedientes Locales Sin Factura',  desc: 'Expedientes locales abiertos sin documento de factura, agrupados por antigüedad.' },
-          deliveryDocAlerts: { title: 'Alertas de Documentos de Entrega', desc: 'Expedientes de Importación y Exportación con fecha de entrega pasada que aún no tienen Correo de Contestación de Tarifas o Correo de Documentos de Entrega.' },
+          deliveryDocAlerts: { title: 'Alertas de Documentos de Entrega', desc: 'Expedientes de Importación y Exportación con fecha de entrega pasada que aún no tienen Correo de Documentos de Entrega.' },
           activityChart:   { title: 'Gráfico de Actividad',            desc: 'Gráfico de barras mensual de visitas, cotizaciones y órdenes creadas en los últimos 12 meses.' },
           filesCompletion: { title: 'Completitud de Expedientes',       desc: 'Desglose del progreso de expedientes abiertos según los documentos requeridos cargados.' },
           jobsByMode:      { title: 'Órdenes por Modo de Envío',        desc: 'Gráfico de dona con el desglose entre envíos terrestres, marítimos, aéreos y combinados.' },
@@ -724,6 +728,9 @@ const translations = {
       readyToClose: '¿Listo para cerrar?',
       requiredDocs: 'Documentos requeridos',
       requiredFields: 'Campos requeridos',
+      validation: {
+        bookerRole: 'Por favor selecciona un rol Booker/OA/DA.',
+      },
     },
     visitStatuses: {
       SCHEDULED: 'Programada', COMPLETED: 'Completada', QUOTED: 'Cotizada', CLOSED: 'Cerrada (Perdida)',
@@ -774,6 +781,7 @@ const translations = {
         scheduledDate: 'La fecha programada es requerida.',
         nameOrClient: 'Ingresa un nombre de prospecto o selecciona un cliente vinculado.',
         assignedTo: 'Por favor asigna esta visita a un miembro del personal.',
+        bookerRole: 'Por favor selecciona un rol Booker/OA/DA.',
       },
     },
     quotes: {

@@ -98,6 +98,14 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
     } catch (e) { alert(e.message) }
   }
 
+  const handlePrint = async (att) => {
+    try {
+      const { url } = await api.get(`/files/${fileId}/attachments/${att.id}/download`)
+      const printWin = window.open(url, '_blank', 'noopener')
+      if (printWin) printWin.addEventListener('load', () => printWin.print())
+    } catch (e) { alert(e.message) }
+  }
+
   const handleDelete = async (att) => {
     if (!window.confirm(t('files.deleteConfirm', { name: att.filename }))) return
     try {
@@ -191,8 +199,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                     <span key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)}>
                         ⬇ {att.filename} ({formatFileSize(att.sizeBytes)})
-                      </button>
-                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
+                      </button>                    <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(att)} title={t('common.print')}>🖨</button>                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
                     </span>
                   ))}
                   {cat.linkedRecord && cat.items.length === 0 && (
@@ -236,6 +243,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                     <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)}>
                       ⬇ {att.filename} ({formatFileSize(att.sizeBytes)})
                     </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(att)} title={t('common.print')}>🖨</button>
                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
                   </span>
                 ))}
@@ -273,6 +281,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                   <span style={{ flex: 1, fontSize: 13 }}>{att.filename}</span>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatFileSize(att.sizeBytes)}</span>
                   <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)}>⬇</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(att)} title={t('common.print')}>🖨</button>
                   <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
                 </div>
               )

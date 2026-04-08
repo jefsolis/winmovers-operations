@@ -50,6 +50,10 @@ export function clientTypeMeta(value, t) {
   return { ...meta, label: t ? t(`clients.clientTypes.${value}`) : value }
 }
 
+export function stripFilePrefix(num) {
+  return num ? num.replace(/^[A-Z]+-/, '') : num
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })
@@ -126,7 +130,6 @@ export const OPTIONAL_ATTACHMENTS = {
 }
 
 export const ATTACHMENT_DUE_OFFSETS = {
-  TARIFF_REPLY_EMAIL:  { days: 2 },
   DELIVERY_DOCS_EMAIL: { days: 3 },
 }
 

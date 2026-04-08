@@ -196,10 +196,6 @@ router.get('/', async (req, res, next) => {
         const attached = new Set(f.attachments.map(a => a.category))
         const entrega  = new Date(f.fechaEntrega)
         const missingDocs = []
-        if (!attached.has('TARIFF_REPLY_EMAIL')) {
-          const due = new Date(entrega.getTime() + 2 * 86400000)
-          missingDocs.push({ cat: 'TARIFF_REPLY_EMAIL', dueDate: due.toISOString(), overdue: now > due.getTime() })
-        }
         if (!attached.has('DELIVERY_DOCS_EMAIL')) {
           const due = new Date(entrega.getTime() + 3 * 86400000)
           missingDocs.push({ cat: 'DELIVERY_DOCS_EMAIL', dueDate: due.toISOString(), overdue: now > due.getTime() })

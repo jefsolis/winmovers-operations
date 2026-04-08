@@ -20,7 +20,8 @@ export default function SurveyDetail() {
   const [survey, setSurvey] = useState(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const surveyRef = useRef(null)
+  const surveyRef  = useRef(null)
+  const cartonsRef = useRef(null)
 
   useEffect(() => {
     api.get(`/surveys/${id}`)
@@ -60,11 +61,24 @@ export default function SurveyDetail() {
       const pxW = canvas.width
       const pxH = canvas.height
       const slicePxH = Math.round((slicePtH / contentW) * pxW)
+      // Forced page break before Cartones section
+      const scale = canvas.width / surveyRef.current.offsetWidth
+      const cartonsPx = cartonsRef.current
+        ? Math.round((cartonsRef.current.offsetTop - surveyRef.current.offsetTop) * scale)
+        : null
+      // Build page break points
+      const breakPoints = []
+      if (cartonsPx && cartonsPx > 0 && cartonsPx < pxH) breakPoints.push(cartonsPx)
       let page = 0, offsetPx = 0
       const clientLabel = visit?.client?.name || visit?.corporateClient?.name || visit?.prospectName || survey.surveyNumber
       while (offsetPx < pxH) {
         if (page > 0) pdf.addPage()
-        const thisSlicePx = Math.min(slicePxH, pxH - offsetPx)
+        // Determine where this page ends — use forced break if it falls within this page
+        let endPx = offsetPx + slicePxH
+        const nextBreak = breakPoints.find(bp => bp > offsetPx && bp < endPx)
+        if (nextBreak) endPx = nextBreak
+        endPx = Math.min(endPx, pxH)
+        const thisSlicePx = endPx - offsetPx
         const sliceCanvas = document.createElement('canvas')
         sliceCanvas.width  = pxW
         sliceCanvas.height = thisSlicePx
@@ -74,7 +88,7 @@ export default function SurveyDetail() {
         ctx.drawImage(canvas, 0, offsetPx, pxW, thisSlicePx, 0, 0, pxW, thisSlicePx)
         const slicePtActual = (thisSlicePx / slicePxH) * slicePtH
         pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', mSide, mTop, contentW, slicePtActual)
-        offsetPx += thisSlicePx
+        offsetPx = endPx
         page++
       }
       pdf.save(`Survey-${clientLabel}.pdf`)
@@ -252,7 +266,7 @@ export default function SurveyDetail() {
               </div>
 
               {/* Cartons */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12, alignItems: 'start' }}>
+              <div ref={cartonsRef} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12, alignItems: 'start' }}>
                 <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
                   <div style={roomHdr}>{t('surveys.rooms.CARTONS')}</div>
                   <div style={{ ...CART_GRID, background: 'var(--surface-2)', borderBottom: '2px solid var(--border)' }}>

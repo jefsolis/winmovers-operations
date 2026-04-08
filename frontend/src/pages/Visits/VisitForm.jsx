@@ -107,6 +107,7 @@ export default function VisitForm() {
     if (!form.serviceType)                                    errs.push(t('visits.validation.serviceType'))
     if (!form.scheduledDate)                                  errs.push(t('visits.validation.scheduledDate'))
     if (!form.assignedToId)                                   errs.push(t('visits.validation.assignedTo'))
+    if (!form.bookerRole)                                     errs.push(t('visits.validation.bookerRole'))
     if (!form.indClient.clientId && !form.indClient.name?.trim()) errs.push(t('visits.validation.nameOrClient'))
     if (errs.length) { setError(errs.join('\n')); return }
     setSaving(true); setError(null)
@@ -274,7 +275,7 @@ export default function VisitForm() {
               </div>
             )}
             <div className="form-group">
-              <label className="form-label">{t('visits.bookerRole')}</label>
+              <label className="form-label">{t('visits.bookerRole')}<Req /></label>
               <select className="form-control" value={form.bookerRole} onChange={e => {
                 const role = e.target.value
                 setForm(prev => ({

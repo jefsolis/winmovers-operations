@@ -17,6 +17,7 @@ export default function FileForm() {
   const navigate  = useNavigate()
   const { t }     = useLanguage()
   const isEdit    = Boolean(id)
+  const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }} title="Required">*</span>
 
   const defaultCategory = searchParams.get('category')
     || (pathname.includes('/import') ? 'IMPORT' : pathname.includes('/local') ? 'LOCAL' : 'EXPORT')
@@ -146,6 +147,9 @@ export default function FileForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const errs = []
+    if (!form.bookerRole) errs.push(t('movingFiles.validation.bookerRole'))
+    if (errs.length) { setError(errs.join('\n')); return }
     setSaving(true); setError(null)
     try {
       // Auto-create individual client if new name was entered
@@ -378,7 +382,7 @@ export default function FileForm() {
 
               {/* Booker Role */}
               <div className="form-group">
-                <label className="form-label">{t('movingFiles.bookerRole')}</label>
+                <label className="form-label">{t('movingFiles.bookerRole')}<Req /></label>
                 <select
                   className="form-control"
                   value={form.bookerRole}

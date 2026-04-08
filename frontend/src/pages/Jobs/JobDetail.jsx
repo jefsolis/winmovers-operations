@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { statusMeta, typeMeta, formatDate } from '../../constants'
+import { statusMeta, typeMeta, formatDate, stripFilePrefix } from '../../constants'
 import JobDocument from './JobDocument'
 import DamageReport, { EMPTY_DR } from '../Files/DamageReport'
 import ServiceEvaluation, { EMPTY_SE } from '../Files/ServiceEvaluation'
@@ -237,18 +237,28 @@ export default function JobDetail() {
 
       {/* Work Order tab */}
       {tab === 'workorder' && (
-        <JobDocument ref={docRef} headerRef={headerRef} job={job} language={job.language || 'EN'} />
+        <>
+          <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
+            <button className="btn btn-secondary" onClick={() => window.print()}>
+              🖨 {t('common.print')}
+            </button>
+          </div>
+          <JobDocument ref={docRef} headerRef={headerRef} job={job} language={job.language || 'EN'} />
+        </>
       )}
 
       {/* Damage Report tab (IMPORT only) */}
       {tab === 'damage' && (
         <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
+          <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
             <button className="btn btn-secondary" onClick={() => setDrData(EMPTY_DR)}>
               {t('common.reset')}
             </button>
             <button className="btn btn-primary" onClick={saveDR} disabled={saving}>
               {saving ? t('common.saving') : t('common.save')}
+            </button>
+            <button className="btn btn-secondary" onClick={() => window.print()}>
+              🖨 {t('common.print')}
             </button>
             <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
               {exporting ? '…' : t('jobs.exportPDF')}
@@ -268,12 +278,15 @@ export default function JobDetail() {
       {/* Service Evaluation tab (IMPORT only) */}
       {tab === 'evaluation' && (
         <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
+          <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
             <button className="btn btn-secondary" onClick={() => setSeData(EMPTY_SE)}>
               {t('common.reset')}
             </button>
             <button className="btn btn-primary" onClick={saveSE} disabled={saving}>
               {saving ? t('common.saving') : t('common.save')}
+            </button>
+            <button className="btn btn-secondary" onClick={() => window.print()}>
+              🖨 {t('common.print')}
             </button>
             <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
               {exporting ? '…' : t('jobs.exportPDF')}
@@ -303,7 +316,7 @@ export default function JobDetail() {
                     to={`/files/${job.movingFile.category.toLowerCase()}/${job.movingFile.id}`}
                     style={{ color: 'var(--primary)' }}
                   >
-                    {job.movingFile.fileNumber}
+                    {stripFilePrefix(job.movingFile.fileNumber)}
                   </Link>
                 }
               />
@@ -331,7 +344,7 @@ export default function JobDetail() {
                               ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim()
                               : f.client.name)
                           : ''
-                        return <option key={f.id} value={f.id}>{f.fileNumber}{cn ? ` — ${cn}` : ''}</option>
+                        return <option key={f.id} value={f.id}>{stripFilePrefix(f.fileNumber)}{cn ? ` — ${cn}` : ''}</option>
                       })}
                     </select>
                     <button
@@ -390,8 +403,8 @@ export default function JobDetail() {
           </Section>
 
           <Section title={t('jobs.route_section')}>
-            <Field label={t('jobs.originAddress')} value={job.originAddress} />
-            <Field label={t('jobs.originCity')} value={job.originCity} />
+            {job.type !== 'IMPORT' && <Field label={t('jobs.originAddress')} value={job.originAddress} />}
+            {job.type !== 'IMPORT' && <Field label={t('jobs.originCity')} value={job.originCity} />}
             <Field label={t('jobs.originCountry')} value={job.originCountry} />
             <Field label={t('jobs.destAddress')} value={job.destAddress} />
             <Field label={t('jobs.destCity')} value={job.destCity} />

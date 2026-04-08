@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { fileStatusMeta, getFileProgressionStatuses } from '../../constants'
+import { fileStatusMeta, getFileProgressionStatuses, stripFilePrefix } from '../../constants'
 import FileAttachments from './FileAttachments'
 
 const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
@@ -47,7 +47,7 @@ export default function FileDetail() {
   useEffect(() => { load() }, [id]) // eslint-disable-line
 
   const handleDelete = async () => {
-    if (!window.confirm(t('movingFiles.deleteConfirm', { num: file?.fileNumber }))) return
+    if (!window.confirm(t('movingFiles.deleteConfirm', { num: stripFilePrefix(file?.fileNumber) }))) return
     setDeleting(true)
     try {
       await api.delete(`/files/${id}`)
@@ -178,7 +178,7 @@ export default function FileDetail() {
       <div className="page-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <div className="page-title">{file.fileNumber}</div>
+            <div className="page-title">{stripFilePrefix(file.fileNumber)}</div>
             <span className="badge" style={{ background: sm.bg, color: sm.color, fontSize: 13 }}>{statusLabel}</span>
             <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: 13 }}>
               {t(`movingFiles.${file.category.toLowerCase()}Title`)}
@@ -257,7 +257,7 @@ export default function FileDetail() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '12px 20px' }}>
 
               <InfoRow label={t('movingFiles.fileNumber')}>
-                <span style={{ fontSize: 16, fontWeight: 700 }}>{file.fileNumber}</span>
+                <span style={{ fontSize: 16, fontWeight: 700 }}>{stripFilePrefix(file.fileNumber)}</span>
               </InfoRow>
 
               <InfoRow label={t('movingFiles.status')}>

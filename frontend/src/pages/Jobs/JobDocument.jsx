@@ -148,21 +148,23 @@ const JobDocument = forwardRef(function JobDocument(
   ref
 ) {
   const L = LABELS
-
   // View-mode derived values
   const viewClientName = job?.client?.clientType === 'INDIVIDUAL'
     ? `${job?.client?.firstName || ''} ${job?.client?.lastName || ''}`.trim() || job?.client?.name
     : job?.client?.name || ''
-  const viewOriginAddr = [job?.originAddress, job?.originCity, job?.originCountry].filter(Boolean).join(', ')
+
+  const ch = field => (editMode && onFormChange) ? (v => onFormChange(field, v)) : undefined
+  const fv = field => editMode ? (form?.[field] ?? '') : (job?.[field] ?? '')
+  const isImport = editMode ? form?.type === 'IMPORT' : job?.type === 'IMPORT'
+
+  const viewOriginAddr = isImport
+    ? (job?.originCountry || '')
+    : [job?.originAddress, job?.originCity, job?.originCountry].filter(Boolean).join(', ')
   const viewDestAddr   = [job?.destAddress,   job?.destCity,   job?.destCountry  ].filter(Boolean).join(', ')
 
   const jobNumber   = editMode ? resolvedJobNumber   : (job?.jobNumber || '')
   const createdDate = editMode ? resolvedCreatedDate : fmtDate(job?.createdAt)
   const serviceDate = editMode ? (form?.serviceDate || '') : fmtDate(job?.serviceDate)
-
-  const ch = field => (editMode && onFormChange) ? (v => onFormChange(field, v)) : undefined
-  const fv = field => editMode ? (form?.[field] ?? '') : (job?.[field] ?? '')
-  const isImport = editMode ? form?.type === 'IMPORT' : job?.type === 'IMPORT'
 
   // Inline select style for edit mode pickers
   const selectStyle = {
@@ -256,23 +258,29 @@ const JobDocument = forwardRef(function JobDocument(
             </Row>
           )}
 
-          {/* Row 6: Origin Address */}
-          <Row>
-            <div className="jd-cell jd-cell-top" style={{ flex: 1 }}>
-              <span className="jd-cell-label">{L.address}</span>
-              {editMode ? (
-                <div style={{ flex: 1, display: 'flex', gap: 0, minWidth: 0 }}>
-                  {addrInput('Street / address', fv('originAddress'), ch('originAddress'), 3)}
-                  <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                  {addrInput('City', fv('originCity'), ch('originCity'), 2)}
-                  <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                  {addrInput('Country', fv('originCountry'), ch('originCountry'), 1)}
-                </div>
-              ) : (
-                <span className="jd-cell-value">{viewOriginAddr}</span>
-              )}
-            </div>
-          </Row>
+          {/* Row 6: Origin Address (IMPORT: only country) */}
+          {isImport ? (
+            <Row>
+              <Cell label={L.paisOrigen} value={fv('originCountry')} editMode={editMode} onChange={ch('originCountry')} />
+            </Row>
+          ) : (
+            <Row>
+              <div className="jd-cell jd-cell-top" style={{ flex: 1 }}>
+                <span className="jd-cell-label">{L.address}</span>
+                {editMode ? (
+                  <div style={{ flex: 1, display: 'flex', gap: 0, minWidth: 0 }}>
+                    {addrInput('Street / address', fv('originAddress'), ch('originAddress'), 3)}
+                    <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
+                    {addrInput('City', fv('originCity'), ch('originCity'), 2)}
+                    <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
+                    {addrInput('Country', fv('originCountry'), ch('originCountry'), 1)}
+                  </div>
+                ) : (
+                  <span className="jd-cell-value">{viewOriginAddr}</span>
+                )}
+              </div>
+            </Row>
+          )}
 
           {/* Row 7: Destination Address */}
           <Row>
@@ -391,12 +399,7 @@ const JobDocument = forwardRef(function JobDocument(
             )}
           </Row>
 
-          {/* País de Origen — Import only */}
-          {isImport && (
-            <Row>
-              <Cell label={L.paisOrigen} value={fv('originCountry')} editMode={editMode} onChange={ch('originCountry')} />
-            </Row>
-          )}
+          {/* (Import country field moved up into Origin Address section) */}
 
         </div>
         <div style={{ height: 40 }} />

@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts'
 import { api } from '../api'
-import { formatDate } from '../constants'
+import { formatDate, stripFilePrefix } from '../constants'
 import { useLanguage } from '../i18n'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
 import DashboardCardStore from '../components/DashboardCardStore'
@@ -121,7 +121,6 @@ export default function Dashboard() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to="/visits/new" className="btn btn-primary">{t('visits.newVisit')}</Link>
-          <Link to="/jobs/new" className="btn btn-secondary">{t('jobs.newJob')}</Link>
           <button className="btn btn-secondary" onClick={() => setStoreOpen(true)} title={t('dashboard.store.customize')}>
             ⚙️ {t('dashboard.store.customize')}
           </button>
@@ -330,7 +329,7 @@ export default function Dashboard() {
                         : '—'
                       return (
                         <tr key={f.id}>
-                          <td><Link to={`/files/local/${f.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{f.fileNumber}</Link></td>
+                          <td><Link to={`/files/local/${f.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{stripFilePrefix(f.fileNumber)}</Link></td>
                           <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{cname}</td>
                           <td style={{ textAlign: 'right', fontSize: 13, color: 'var(--text-muted)' }}>{days}</td>
                         </tr>
@@ -378,7 +377,7 @@ export default function Dashboard() {
                         : '—'
                       return (
                         <tr key={f.id}>
-                          <td><Link to={`/files/local/${f.id}`} style={{ color: '#dc2626', fontWeight: 600 }}>{f.fileNumber}</Link></td>
+                          <td><Link to={`/files/local/${f.id}`} style={{ color: '#dc2626', fontWeight: 600 }}>{stripFilePrefix(f.fileNumber)}</Link></td>
                           <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{cname}</td>
                           <td style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#dc2626' }}>{days}</td>
                         </tr>
@@ -441,7 +440,7 @@ export default function Dashboard() {
                           {di === 0 && (
                             <>
                               <td rowSpan={f.missingDocs.length}>
-                                <Link to={`${route}/${f.id}`} style={{ color: doc.overdue ? '#dc2626' : 'var(--primary)', fontWeight: 600 }}>{f.fileNumber}</Link>
+                                <Link to={`${route}/${f.id}`} style={{ color: doc.overdue ? '#dc2626' : 'var(--primary)', fontWeight: 600 }}>{stripFilePrefix(f.fileNumber)}</Link>
                               </td>
                               <td rowSpan={f.missingDocs.length} style={{ fontSize: 13 }}>{cname}</td>
                               <td rowSpan={f.missingDocs.length} style={{ fontSize: 13, color: 'var(--text-muted)' }}>{entregaFmt}</td>
