@@ -9,6 +9,38 @@ router.get('/', async (req, res, next) => {
     twelveMonthsAgo.setDate(1)
     twelveMonthsAgo.setHours(0, 0, 0, 0)
 
+    const oid = req.user?.oid ?? null
+    const myAppointmentsQuery = oid
+      ? p.visit.findMany({
+          where: {
+            status: 'SCHEDULED',
+            scheduledDate: { gte: new Date() },
+            assignedTo: { azureOid: oid },
+          },
+          orderBy: { scheduledDate: 'asc' },
+          take: 20,
+          select: {
+            id: true, visitNumber: true, scheduledDate: true, status: true,
+            serviceType: true, prospectName: true, originAddress: true, originCity: true,
+            client: { select: { name: true, firstName: true, lastName: true, clientType: true } },
+            corporateClient: { select: { name: true } },
+          },
+        })
+      : Promise.resolve([])
+
+    const myCoordinationsQuery = oid
+      ? p.movingFile.findMany({
+          where: { status: 'OPEN', coordinator: { azureOid: oid } },
+          orderBy: [{ category: 'asc' }, { fileNumber: 'asc' }],
+          take: 50,
+          select: {
+            id: true, fileNumber: true, category: true, status: true, createdAt: true,
+            client: { select: { name: true, firstName: true, lastName: true, clientType: true } },
+            corporateClient: { select: { name: true } },
+          },
+        })
+      : Promise.resolve([])
+
     const [
       totalJobs, totalClients,
       byStatus, byType, byMode, recentJobs, monthlyJobs, monthlyVisits, monthlyQuotes,
@@ -18,6 +50,8 @@ router.get('/', async (req, res, next) => {
       openFilesWithAttachments,
       openLocalFiles,
       deliveryDocFiles,
+      myAppointments,
+      myCoordinations,
     ] = await Promise.all([
       p.job.count(),
       p.client.count(),
@@ -105,6 +139,8 @@ router.get('/', async (req, res, next) => {
           attachments: { select: { category: true } },
         },
       }),
+      myAppointmentsQuery,
+      myCoordinationsQuery,
     ])
 
     const activeStatuses = ['SURVEY', 'QUOTATION', 'BOOKING', 'PRE_MOVE', 'IN_TRANSIT']
@@ -241,6 +277,8 @@ router.get('/', async (req, res, next) => {
       localNoInvoiceRecent,
       localNoInvoiceOld,
       deliveryDocAlerts,
+      myAppointments,
+      myCoordinations,
     })
   } catch (err) { next(err) }
 })

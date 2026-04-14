@@ -16,7 +16,7 @@ export const DASHBOARD_CARDS = [
     id: 'pipeline',
     titleKey: 'dashboard.store.cards.pipeline.title',
     descKey:  'dashboard.store.cards.pipeline.desc',
-    defaultVisible: true,
+    defaultVisible: false,
   },
   {
     id: 'upcoming_visits',
@@ -46,25 +46,25 @@ export const DASHBOARD_CARDS = [
     id: 'activity_chart',
     titleKey: 'dashboard.store.cards.activityChart.title',
     descKey:  'dashboard.store.cards.activityChart.desc',
-    defaultVisible: true,
+    defaultVisible: false,
   },
   {
     id: 'files_completion',
     titleKey: 'dashboard.store.cards.filesCompletion.title',
     descKey:  'dashboard.store.cards.filesCompletion.desc',
-    defaultVisible: true,
+    defaultVisible: false,
   },
   {
     id: 'jobs_by_mode',
     titleKey: 'dashboard.store.cards.jobsByMode.title',
     descKey:  'dashboard.store.cards.jobsByMode.desc',
-    defaultVisible: true,
+    defaultVisible: false,
   },
   {
     id: 'jobs_by_type',
     titleKey: 'dashboard.store.cards.jobsByType.title',
     descKey:  'dashboard.store.cards.jobsByType.desc',
-    defaultVisible: true,
+    defaultVisible: false,
   },
   {
     id: 'recent_jobs',
@@ -72,19 +72,17 @@ export const DASHBOARD_CARDS = [
     descKey:  'dashboard.store.cards.recentJobs.desc',
     defaultVisible: true,
   },
-  // Future cards — require user auth to know "who is the current user"
+  // Personal cards — require a linked StaffMember to show relevant data
   {
     id: 'my_coordinations',
     titleKey: 'dashboard.store.cards.myCoordinations.title',
     descKey:  'dashboard.store.cards.myCoordinations.desc',
     defaultVisible: false,
-    comingSoon: true,
   },
   {
     id: 'my_appointments',
     titleKey: 'dashboard.store.cards.myAppointments.title',
     descKey:  'dashboard.store.cards.myAppointments.desc',
     defaultVisible: false,
-    comingSoon: true,
   },
 ]

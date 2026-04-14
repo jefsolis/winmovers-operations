@@ -85,6 +85,8 @@ export default function Dashboard() {
     localNoInvoiceRecent,
     localNoInvoiceOld,
     deliveryDocAlerts,
+    myAppointments,
+    myCoordinations,
   } = data
 
   const monthData  = (jobsByMonth || []).map(d => ({ ...d, month: fmtMonth(d.month) }))
@@ -631,6 +633,107 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* My Appointments + My Coordinations row */}
+      {(isVisible('my_appointments') || isVisible('my_coordinations')) && (
+      <div style={{ display: 'grid', gridTemplateColumns: (isVisible('my_appointments') && isVisible('my_coordinations')) ? '1fr 1fr' : '1fr', gap: 16, marginBottom: 20 }}>
+
+        {/* My upcoming visits */}
+        {isVisible('my_appointments') && (
+        <div className="card">
+          <div className="card-body" style={{ paddingBottom: 0 }}>
+            <div className="section-label">{t('dashboard.myAppointmentsTitle')}</div>
+          </div>
+          {!(myAppointments || []).length
+            ? <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.myAppointmentsNone')}</div>
+            : <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('dashboard.visitDate')}</th>
+                      <th>{t('dashboard.prospect')}</th>
+                      <th>{t('dashboard.serviceType')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(myAppointments || []).map(v => {
+                      const name = v.client
+                        ? clientName(v.client)
+                        : v.corporateClient?.name || v.prospectName || '—'
+                      return (
+                        <tr key={v.id}>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>
+                            <Link to={`/visits/${v.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                              {new Date(v.scheduledDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </Link>
+                          </td>
+                          <td style={{ fontSize: 13 }}>{name}</td>
+                          <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            {v.serviceType ? t(`serviceTypes.${v.serviceType}`) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+          }
+          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
+            <Link to="/visits" style={{ fontSize: 12, color: 'var(--primary)' }}>{t('visits.allVisits')} →</Link>
+          </div>
+        </div>
+        )}
+
+        {/* My coordinated files */}
+        {isVisible('my_coordinations') && (
+        <div className="card">
+          <div className="card-body" style={{ paddingBottom: 0 }}>
+            <div className="section-label">{t('dashboard.myCoordinationsTitle')}</div>
+          </div>
+          {!(myCoordinations || []).length
+            ? <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.myCoordinationsNone')}</div>
+            : <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('dashboard.fileNumber')}</th>
+                      <th>{t('dashboard.client')}</th>
+                      <th>{t('movingFiles.category')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(myCoordinations || []).map(f => {
+                      const name = f.corporateClient?.name || (f.client ? clientName(f.client) : '—')
+                      const route = f.category === 'EXPORT' ? '/files/export' : f.category === 'IMPORT' ? '/files/import' : '/files/local'
+                      const catColors = { EXPORT: { bg: '#dbeafe', color: '#1e40af' }, IMPORT: { bg: '#ede9fe', color: '#5b21b6' }, LOCAL: { bg: '#dcfce7', color: '#166534' } }
+                      const catStyle = catColors[f.category] || {}
+                      return (
+                        <tr key={f.id}>
+                          <td>
+                            <Link to={`${route}/${f.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                              {f.fileNumber}
+                            </Link>
+                          </td>
+                          <td style={{ fontSize: 13 }}>{name}</td>
+                          <td>
+                            <span className="badge" style={{ fontSize: 11, background: catStyle.bg, color: catStyle.color }}>
+                              {t(`movingFiles.${f.category.toLowerCase()}Short`)}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+          }
+          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
+            <Link to="/files/export" style={{ fontSize: 12, color: 'var(--primary)' }}>{t('movingFiles.exportTitle')} →</Link>
+          </div>
+        </div>
+        )}
+      </div>
+      )}
+
       {storeOpen && (
         <DashboardCardStore
           isVisible={isVisible}
@@ -642,4 +745,3 @@ export default function Dashboard() {
     </>
   )
 }
-

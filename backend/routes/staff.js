@@ -12,6 +12,34 @@ router.get('/me', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// GET /me/dashboard-layout — returns persisted hidden-card list for current user
+router.get('/me/dashboard-layout', async (req, res, next) => {
+  try {
+    const oid = req.user?.oid
+    if (!oid) return res.json({ hiddenCards: null })
+    const member = await getPrisma().staffMember.findUnique({
+      where: { azureOid: oid },
+      select: { dashboardLayout: true },
+    })
+    res.json(member?.dashboardLayout ?? { hiddenCards: null })
+  } catch (err) { next(err) }
+})
+
+// PUT /me/dashboard-layout — persists hidden-card list for current user
+router.put('/me/dashboard-layout', async (req, res, next) => {
+  try {
+    const oid = req.user?.oid
+    if (!oid) return res.status(204).end()
+    const { hiddenCards } = req.body
+    if (!Array.isArray(hiddenCards)) return res.status(400).json({ error: 'hiddenCards must be an array' })
+    await getPrisma().staffMember.updateMany({
+      where: { azureOid: oid },
+      data: { dashboardLayout: { hiddenCards } },
+    })
+    res.status(204).end()
+  } catch (err) { next(err) }
+})
+
 // GET /azure-users?q= — must be registered BEFORE /:id
 router.get('/azure-users', async (req, res, next) => {
   try {

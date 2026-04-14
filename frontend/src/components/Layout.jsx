@@ -91,7 +91,7 @@ export default function Layout() {
         <div className="topbar">
           <button className="hamburger" onClick={() => setOpen(true)}>☰</button>
           <span className="topbar-brand">🚚 WinMovers</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+          <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
             {displayName && (
               <span style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 👤 {displayName}

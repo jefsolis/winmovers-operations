@@ -10,7 +10,7 @@ function formatDate(d) {
   if (!d) return '—'
   return new Date(d).toLocaleString('es-ES', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Costa_Rica',
   })
 }
 
@@ -84,6 +84,10 @@ async function notifyVisitAssigned(visit, action = 'created') {
       || visit.prospectName
       || 'Unknown client'
 
+    // Resolve contact phone & email (prefer linked client record, fall back to prospect fields)
+    const contactPhone = visit.client?.phone || visit.corporateClient?.phone || visit.prospectPhone || null
+    const contactEmail = visit.client?.email || visit.corporateClient?.email || visit.prospectEmail || null
+
     const locationParts = [visit.originAddress, visit.originCity, visit.originCountry].filter(Boolean)
     const location = locationParts.join(', ') || undefined
 
@@ -91,7 +95,13 @@ async function notifyVisitAssigned(visit, action = 'created') {
       uid:            `visit-${visit.id}@winmovers.com`,
       dtstart:        visit.scheduledDate,
       summary:        `Visita ${visit.visitNumber} — ${clientLabel}`,
-      description:    `Referencia: ${visit.visitNumber}\nCliente: ${clientLabel}${visit.observations ? '\n\nNotas: ' + visit.observations : ''}`,
+      description:    [
+        `Referencia: ${visit.visitNumber}`,
+        `Cliente: ${clientLabel}`,
+        contactPhone ? `Teléfono: ${contactPhone}` : '',
+        contactEmail ? `Correo: ${contactEmail}` : '',
+        visit.observations ? `\nNotas: ${visit.observations}` : '',
+      ].filter(Boolean).join('\n'),
       location,
       organizerEmail: from,
       organizerName:  'WinMovers Operations',
@@ -108,6 +118,8 @@ async function notifyVisitAssigned(visit, action = 'created') {
       <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
         <tr><td style="padding:4px 12px 4px 0;color:#64748b">Cliente</td><td><strong>${clientLabel}</strong></td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#64748b">Fecha y hora</td><td>${formatDate(visit.scheduledDate)}</td></tr>
+        ${contactPhone ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Teléfono</td><td>${contactPhone}</td></tr>` : ''}
+        ${contactEmail ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Correo</td><td>${contactEmail}</td></tr>` : ''}
         ${location ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Dirección</td><td>${location}</td></tr>` : ''}
         ${visit.serviceType ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Servicio</td><td>${visit.serviceType.replace(/_/g, ' ')}</td></tr>` : ''}
         ${visit.observations ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Observaciones</td><td>${visit.observations}</td></tr>` : ''}

@@ -117,7 +117,7 @@ router.post('/', async (req, res, next) => {
         originAgentId: originAgentId || null,
         destAgentId: destAgentId || null,
       },
-      include: { assignedTo: { select: { id: true, name: true, email: true } }, client: { select: { id: true, name: true } }, corporateClient: { select: { id: true, name: true } } },
+      include: { assignedTo: { select: { id: true, name: true, email: true } }, client: { select: { id: true, name: true, phone: true, email: true } }, corporateClient: { select: { id: true, name: true, phone: true, email: true } } },
     })
     // Fire-and-forget calendar invite to assignee
     if (assignedToId) notifyVisitAssigned(visit, 'created')
@@ -164,7 +164,7 @@ router.put('/:id', async (req, res, next) => {
         originAgentId: originAgentId !== undefined ? (originAgentId || null) : undefined,
         destAgentId: destAgentId !== undefined ? (destAgentId || null) : undefined,
       },
-      include: { assignedTo: { select: { id: true, name: true, email: true } }, client: { select: { id: true, name: true } }, corporateClient: { select: { id: true, name: true } } },
+      include: { assignedTo: { select: { id: true, name: true, email: true } }, client: { select: { id: true, name: true, phone: true, email: true } }, corporateClient: { select: { id: true, name: true, phone: true, email: true } } },
     })
 
     // Notify when assignee changed OR scheduled date changed (and someone is assigned)

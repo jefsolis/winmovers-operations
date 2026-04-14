@@ -339,6 +339,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 @media (max-width: 768px) {
   /* Show topbar, hide static sidebar */
   .topbar { display: flex; }
+  .topbar-user { display: none; }
   .main-content { height: calc(100vh - 52px); margin-top: 0; }
 
   /* Sidebar becomes a slide-in drawer */

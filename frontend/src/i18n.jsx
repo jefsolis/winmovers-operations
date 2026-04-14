@@ -62,9 +62,13 @@ const translations = {
       missingDoc: 'Missing',
       dueIn: 'Due in',
       days: 'days',
+      myAppointmentsTitle: 'My Appointments',
+      myAppointmentsNone: 'No upcoming visits assigned to you.',
+      myCoordinationsTitle: 'My Coordinations',
+      myCoordinationsNone: 'No open files assigned to you as coordinator.',
       store: {
         title: 'Customize Dashboard',
-        subtitle: 'Choose which cards to display. Preferences are saved in this browser — they\'ll sync to your profile once login is available.',
+        subtitle: 'Choose which cards to display. Preferences are saved to your user profile.',
         resetBtn: 'Reset to defaults',
         done: 'Done',
         comingSoon: 'Coming Soon',
@@ -496,9 +500,13 @@ const translations = {
       missingDoc: 'Faltante',
       dueIn: 'Vence en',
       days: 'días',
+      myAppointmentsTitle: 'Mis Citas',
+      myAppointmentsNone: 'No tienes visitas próximas asignadas.',
+      myCoordinationsTitle: 'Mis Coordinaciones',
+      myCoordinationsNone: 'No tienes expedientes abiertos asignados como coordinador/a.',
       store: {
         title: 'Personalizar Panel',
-        subtitle: 'Elige qué tarjetas mostrar. Las preferencias se guardan en este navegador y se sincronizarán con tu perfil cuando el inicio de sesión esté disponible.',
+        subtitle: 'Elige qué tarjetas mostrar. Las preferencias se guardan en tu perfil de usuario.',
         resetBtn: 'Restaurar predeterminados',
         done: 'Listo',
         comingSoon: 'Próximamente',
@@ -875,7 +883,7 @@ const translations = {
 const LanguageContext = createContext(null)
 
 export function LanguageProvider({ children }) {
-  const [lang, setLang] = useState(() => localStorage.getItem('wm-lang') || 'en')
+  const [lang, setLang] = useState(() => localStorage.getItem('wm-lang') || 'es')
 
   const toggleLang = () => {
     const next = lang === 'en' ? 'es' : 'en'

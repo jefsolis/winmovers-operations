@@ -193,6 +193,8 @@ model StaffMember {
   passwordHash  String?
   role          String?   // 'ADMIN' | 'STAFF'
 
+  dashboardLayout Json?   // { hiddenCards: string[] }
+
   visits           Visit[]
   coordinatedFiles MovingFile[] @relation("FileCoordinator")
   coordinatedJobs  Job[]        @relation("JobCoordinator")
