@@ -14,13 +14,19 @@ import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMEN
 export default function FileAttachments({ fileId, fileCategory, fechaEntrega, job, bookerRole, onStatusChange, onAllRequiredDone, onPctChange }) {
   const { t } = useLanguage()
   const FILE_CATS = getFileCategories(t)
-  const isOaExport = bookerRole === 'OA' && fileCategory === 'EXPORT'
-  const requiredCats = isOaExport
-    ? [...(REQUIRED_ATTACHMENTS[fileCategory] || []), 'TARIFF_CONTESTATION']
-    : (REQUIRED_ATTACHMENTS[fileCategory] || [])
-  const optionalCats = isOaExport
-    ? (OPTIONAL_ATTACHMENTS[fileCategory] || []).filter(c => c !== 'TARIFF_CONTESTATION')
-    : (OPTIONAL_ATTACHMENTS[fileCategory] || [])
+
+  // Determine which optional categories are promoted to required based on bookerRole
+  const promotedToRequired = []
+  if (bookerRole === 'BOOKER') promotedToRequired.push('SIGNED_QUOTATION')
+  if (bookerRole === 'OA')     promotedToRequired.push('TARIFF_CONTESTATION')
+
+  const baseRequired = REQUIRED_ATTACHMENTS[fileCategory] || []
+  const baseOptional = OPTIONAL_ATTACHMENTS[fileCategory] || []
+  const requiredCats = [
+    ...baseRequired,
+    ...promotedToRequired.filter(c => !baseRequired.includes(c) && baseOptional.includes(c)),
+  ]
+  const optionalCats = baseOptional.filter(c => !promotedToRequired.includes(c))
 
   const [attachments, setAttachments]   = useState([])
   const [loading, setLoading]           = useState(true)
@@ -29,8 +35,9 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
   const fileInputRef                    = useRef(null)
   const pendingCategoryRef              = useRef(null)
 
-  // Categories satisfied by linked system records (Quote / Work Order)
+  // Categories satisfied by linked system records (Visit / Quote / Work Order)
   const linkedDoneMap = {
+    ...(job?.visit ? { SURVEY_REPORT: { number: job.visit.visitNumber, route: `/visits/${job.visit.id}` } } : {}),
     ...(job?.quote ? { QUOTATION:   { number: job.quote.quoteNumber, route: `/quotes/${job.quote.id}` } } : {}),
     ...(job         ? { WORK_ORDER: { number: job.jobNumber,        route: `/jobs/${job.id}?tab=workorder` } } : {}),
   }

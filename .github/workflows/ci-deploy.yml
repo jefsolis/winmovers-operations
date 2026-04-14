@@ -63,7 +63,8 @@ jobs:
             az webapp config appsettings set --resource-group Sistema --name winmoversops-app --settings \
               AZURE_TENANT_ID="${{ secrets.AZURE_TENANT }}" \
               AZURE_CLIENT_ID="${{ secrets.AZURE_CLIENT_ID }}" \
-              AZURE_CLIENT_SECRET="${{ secrets.AZURE_CLIENT_SECRET }}"
+              AZURE_CLIENT_SECRET="${{ secrets.AZURE_CLIENT_SECRET }}" \
+              AZURE_MAIL_FROM="${{ secrets.AZURE_MAIL_FROM }}"
             az webapp restart --resource-group Sistema --name winmoversops-app
 
   

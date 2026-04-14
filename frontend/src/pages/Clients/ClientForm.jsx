@@ -2,16 +2,14 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { getClientTypes } from '../../constants'
 
-const EMPTY = { clientType: 'CORPORATE', name: '', firstName: '', lastName: '', accountNum: '', email: '', phone: '', address: '', country: '', notes: '' }
+const EMPTY = { clientType: 'CORPORATE', name: '', firstName: '', lastName: '', email: '', phone: '', address: '', country: '', notes: '' }
 
 export default function ClientForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
   const { t } = useLanguage()
-  const CLIENT_TYPES = getClientTypes(t)
 
   const [form, setForm] = useState(EMPTY)
   const [loading, setLoading] = useState(isEdit)
@@ -24,7 +22,7 @@ export default function ClientForm() {
       .then(c => setForm({
         clientType: c.clientType || 'CORPORATE',
         name: c.name || '', firstName: c.firstName || '', lastName: c.lastName || '',
-        accountNum: c.accountNum || '', email: c.email || '', phone: c.phone || '',
+        email: c.email || '', phone: c.phone || '',
         address: c.address || '', country: c.country || '', notes: c.notes || ''
       }))
       .catch(e => setError(e.message))
@@ -48,7 +46,7 @@ export default function ClientForm() {
     try {
       const payload = {
         ...form,
-        accountNum: form.accountNum || null, email: form.email || null,
+        email: form.email || null,
         phone: form.phone || null, address: form.address || null,
         country: form.country || null, notes: form.notes || null
       }
@@ -79,11 +77,22 @@ export default function ClientForm() {
           <div className="form-section">
             <div className="form-section-title">{t('clients.companyDetails')}</div>
             <div className="form-grid">
-              <div className="form-group">
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label className="form-label">{t('clients.clientType')} *</label>
-                <select className="form-control" value={form.clientType} onChange={e => set('clientType', e.target.value)}>
-                  {CLIENT_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
-                </select>
+                <div style={{ display: 'flex', gap: 24, marginTop: 4 }}>
+                  {['CORPORATE', 'INDIVIDUAL'].map(type => (
+                    <label key={type} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+                      <input
+                        type="radio"
+                        name="clientType"
+                        value={type}
+                        checked={form.clientType === type}
+                        onChange={() => set('clientType', type)}
+                      />
+                      {t(`clients.clientTypes.${type}`)}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {isIndividual ? (
@@ -104,10 +113,6 @@ export default function ClientForm() {
                 </div>
               )}
 
-              <div className="form-group">
-                <label className="form-label">{t('clients.accountNum')}</label>
-                <input {...field('accountNum')} placeholder={t('clients.accountNumPlaceholder')} />
-              </div>
               <div className="form-group">
                 <label className="form-label">{t('common.country')}</label>
                 <input {...field('country')} placeholder={t('clients.countryPlaceholder')} />

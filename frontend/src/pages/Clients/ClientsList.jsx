@@ -4,6 +4,8 @@ import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { clientTypeMeta } from '../../constants'
 
+const FILE_PATH = { EXPORT: 'export', IMPORT: 'import', LOCAL: 'local' }
+
 export default function ClientsList() {
   const { t } = useLanguage()
   const [clients, setClients] = useState([])
@@ -72,7 +74,7 @@ export default function ClientsList() {
                 <tr>
                   <th>{t('clients.companyName')}</th>
                   <th>{t('clients.clientType')}</th>
-                  <th>{t('clients.accountNum')}</th>
+                  <th>{t('clients.openFiles')}</th>
                   <th>{t('common.email')}</th>
                   <th>{t('common.phone')}</th>
                   <th>{t('common.country')}</th>
@@ -90,7 +92,26 @@ export default function ClientsList() {
                         {typeBadge.label}
                       </span>
                     </td>
-                    <td>{c.accountNum || '—'}</td>
+                    <td>
+                      {(() => {
+                        const files = [...(c.movingFiles || []), ...(c.corporateMovingFiles || [])]
+                        if (!files.length) return <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        return (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {files.map(f => (
+                              <Link
+                                key={f.id}
+                                to={`/files/${FILE_PATH[f.category]}/${f.id}`}
+                                className="badge"
+                                style={{ background: '#e0f2fe', color: '#0369a1', textDecoration: 'none', fontSize: 11, fontWeight: 600 }}
+                              >
+                                {f.fileNumber}
+                              </Link>
+                            ))}
+                          </div>
+                        )
+                      })()}
+                    </td>
                     <td>{c.email || '—'}</td>
                     <td>{c.phone || '—'}</td>
                     <td>{c.country || '—'}</td>

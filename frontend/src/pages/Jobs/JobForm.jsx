@@ -42,6 +42,7 @@ export default function JobForm() {
   const [staffMembers, setStaffMembers] = useState([])
   const [coordinatorStaff, setCoordinatorStaff] = useState([])
   const [linkedQuoteId, setLinkedQuoteId] = useState(null)
+  const [linkedVisitId, setLinkedVisitId] = useState(null)
   const [availableQuotes, setAvailableQuotes] = useState([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
@@ -100,10 +101,12 @@ export default function JobForm() {
       tasks.push(
         api.get(`/quotes/${fromQuoteId}`).then(q => {
           const v = q.visit
+          if (v?.id) setLinkedVisitId(v.id)
           const autoPhone   = v?.client?.phone || v?.contact?.phone || ''
           const autoQuoteTo = v?.client?.name
             || (v?.client ? `${v.client.firstName || ''} ${v.client.lastName || ''}`.trim() : '')
             || v?.prospectName || ''
+          const autoCompany = v?.corporateClient?.name || ''
           let jobType = 'IMPORT'
           if (v?.serviceType === 'LOCAL_MOVE') jobType = 'DOMESTIC'
           else if (['DOOR_TO_PORT', 'DOOR_TO_DOOR'].includes(v?.serviceType)) jobType = 'EXPORT'
@@ -112,6 +115,7 @@ export default function JobForm() {
             ...prev,
             type:          jobType,
             clientId:      v?.clientId      || '',
+            companyName:   autoCompany      || prev.companyName,
             originAddress: v?.originAddress || '',
             originCity:    v?.originCity    || '',
             originCountry: v?.originCountry || '',
@@ -194,7 +198,7 @@ export default function JobForm() {
 
   const handleClientChange = (clientId) => {
     const client = clients.find(c => c.id === clientId)
-    const isCorporate = client && (client.clientType === 'CORPORATE' || client.clientType === 'BROKER')
+    const isCorporate = client && client.clientType === 'CORPORATE'
     const autoCompany = isCorporate ? client.name : ''   // don't fill Company for INDIVIDUAL clients
     const autoPhone   = client?.phone || ''
     const autoQuoteTo = client
@@ -240,7 +244,7 @@ export default function JobForm() {
         ...form,
         clientId: form.clientId || null,
         quoteId: !isEdit ? (quoteToLink || null) : undefined,
-        visitId: (!isEdit && fromVisitId) ? fromVisitId : undefined,
+        visitId: (!isEdit && (fromVisitId || linkedVisitId)) ? (fromVisitId || linkedVisitId) : undefined,
         movingFileId: (!isEdit && fromFileId) ? fromFileId : undefined,
         language,
       }

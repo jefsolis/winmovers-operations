@@ -102,4 +102,55 @@ async function searchAzureUsers(query) {
   }))
 }
 
-module.exports = { searchAzureUsers }
+/**
+ * Send an email via Microsoft Graph on behalf of the AZURE_MAIL_FROM mailbox.
+ *
+ * @param {object} opts
+ * @param {string|string[]} opts.to           - Recipient address(es)
+ * @param {string}          opts.subject      - Email subject
+ * @param {string}          opts.html         - HTML body
+ * @param {string}          [opts.replyTo]    - Reply-to address (coordinator's email)
+ * @param {string}          [opts.replyToName]- Reply-to display name
+ *
+ * Requires Application permission: Mail.Send (admin consented)
+ */
+async function sendMail({ to, subject, html, replyTo, replyToName, _attachments }) {
+  const from = process.env.AZURE_MAIL_FROM
+  if (!from) throw new Error('AZURE_MAIL_FROM is not configured')
+
+  const toAddresses = (Array.isArray(to) ? to : [to]).map(addr => ({
+    emailAddress: { address: addr },
+  }))
+
+  const message = {
+    subject,
+    body:         { contentType: 'HTML', content: html },
+    from:         { emailAddress: { address: from } },
+    toRecipients: toAddresses,
+  }
+
+  if (replyTo) {
+    message.replyTo = [{ emailAddress: { address: replyTo, name: replyToName || replyTo } }]
+  }
+
+  if (_attachments?.length) {
+    message.attachments = _attachments
+  }
+
+  const token = await getGraphToken()
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(from)}/sendMail`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, saveToSentItems: true }),
+    }
+  )
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`sendMail failed (${res.status}): ${body}`)
+  }
+}
+
+module.exports = { searchAzureUsers, sendMail }

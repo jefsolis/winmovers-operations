@@ -38,7 +38,6 @@ export function typeMeta(value, t) {
 const CLIENT_TYPE_META = [
   { value: 'CORPORATE', bg: '#dbeafe', color: '#1e40af' },
   { value: 'INDIVIDUAL', bg: '#dcfce7', color: '#166534' },
-  { value: 'BROKER',     bg: '#ede9fe', color: '#6d28d9' },
 ]
 
 export function getClientTypes(t) {
@@ -92,6 +91,8 @@ const FILE_CATEGORY_META = [
   { value: 'DELIVERY_INFO_EMAIL',    bg: '#ccfbf1', color: '#0f766e' },
   { value: 'DELIVERY_REPORT',        bg: '#fce7f3', color: '#be185d' },
   { value: 'TARIFF_CONTESTATION',    bg: '#fef3c7', color: '#b45309' },
+  { value: 'PRE_ADVICE_EMAIL',        bg: '#fde68a', color: '#92400e' },
+  { value: 'WAYBILL_EMAIL',           bg: '#e9d5ff', color: '#6b21a8' },
   { value: 'OTHER',                  bg: '#e2e8f0', color: '#475569' },
 ]
 
@@ -116,9 +117,11 @@ export const FILE_CATEGORIES = ['EXPORT', 'IMPORT', 'LOCAL']
 
 export const REQUIRED_ATTACHMENTS = {
   EXPORT: ['SURVEY_REPORT', 'QUOTATION', 'WORK_ORDER', 'PRE_ADVICE',
+           'PRE_ADVICE_EMAIL', 'WAYBILL_EMAIL',
            'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT',
            'SIGNED_PACKING_LIST', 'INVOICE', 'DELIVERY_CONFIRMATION'],
   IMPORT: ['QUOTATION', 'WORK_ORDER', 'SHIPPING_INSTRUCTIONS', 'TRANSPORT_DOCUMENT', 'INVOICE',
+           'PRE_ADVICE_EMAIL', 'WAYBILL_EMAIL',
            'TARIFF_REPLY_EMAIL', 'DELIVERY_DOCS_EMAIL', 'DELIVERY_INFO_EMAIL', 'DELIVERY_REPORT'],
   LOCAL:  ['INVOICE'],
 }

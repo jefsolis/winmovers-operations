@@ -1,4 +1,4 @@
-import { getAccessToken } from './auth/tokenHelper'
+import { getAccessToken, triggerLoginRedirect } from './auth/tokenHelper'
 
 const BASE = '/api'
 
@@ -15,6 +15,10 @@ export async function apiFetch(path, { method = 'GET', body } = {}) {
   if (body !== undefined) opts.body = JSON.stringify(body)
   const res = await fetch(`${BASE}${path}`, opts)
   if (res.status === 204) return null
+  if (res.status === 401) {
+    triggerLoginRedirect()
+    throw new Error('Session expired. Redirecting to login…')
+  }
   const data = await res.json().catch(() => ({ error: res.statusText }))
   if (!res.ok) throw new Error(data.error || res.statusText)
   return data

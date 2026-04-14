@@ -25,4 +25,19 @@ export async function getAccessToken() {
   }
 }
 
+let _redirectInProgress = false
+
+export function triggerLoginRedirect() {
+  if (_redirectInProgress) return
+  _redirectInProgress = true
+  const accounts = msalInstance.getAllAccounts()
+  const promise = accounts.length
+    ? msalInstance.acquireTokenRedirect({ scopes: apiScopes })
+    : msalInstance.loginRedirect()
+  promise.catch(err => {
+    if (err?.errorCode !== 'interaction_in_progress') console.error(err)
+    _redirectInProgress = false
+  })
+}
+
 export { msalInstance }

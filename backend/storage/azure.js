@@ -20,7 +20,8 @@ function parseCredentials() {
 
 async function uploadFile(jobId, originalName, buffer, mimetype) {
   const ext      = path.extname(originalName)
-  const blobName = `${jobId}/${uuidv4()}${ext}`
+  const year     = new Date().getUTCFullYear()
+  const blobName = `${year}/${jobId}/${uuidv4()}${ext}`
   const client   = BlobServiceClient.fromConnectionString(connectionString)
   const container = client.getContainerClient(containerName)
   const blob      = container.getBlockBlobClient(blobName)

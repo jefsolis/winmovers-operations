@@ -7,6 +7,7 @@ export const msalConfig = {
     authority: `https://login.microsoftonline.com/${tenantId}`,
     redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
+    silentRedirectUri: `${window.location.origin}/blank.html`,
   },
   cache: {
     cacheLocation: 'sessionStorage',

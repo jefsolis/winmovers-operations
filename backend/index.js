@@ -27,6 +27,7 @@ app.use('/api/files',                    require('./routes/movingFiles'))
 app.use('/api/jobs',                     require('./routes/jobs'))
 app.use('/api/surveys',                  require('./routes/surveys'))
 app.use('/api/admin',                    require('./routes/admin'))
+app.use('/api/email',                    require('./routes/email'))
 
 // Legacy health check
 app.get('/api/hello', (req, res) => {

@@ -1,5 +1,6 @@
 const router = require("express").Router()
 const { getPrisma } = require("../db")
+const { notifyFileCoordinator } = require('../services/notifications')
 
 const CATEGORY_PREFIX = { EXPORT: "E", IMPORT: "DF", LOCAL: "M" }
 
@@ -77,7 +78,7 @@ router.get("/:id", async (req, res, next) => {
       include: {
         client:          true,
         corporateClient: { select: { id: true, name: true } },
-        job:         { select: { id: true, jobNumber: true, status: true, type: true, shipmentMode: true, volumeCbm: true, weightKg: true, serviceDate: true, originAddress: true, originCity: true, originCountry: true, destAddress: true, destCity: true, destCountry: true, companyName: true, clientPhone: true, clientHomePhone: true, coordinator: { select: { id: true, name: true } }, quote: { select: { id: true, quoteNumber: true, status: true } } } },
+        job:         { select: { id: true, jobNumber: true, status: true, type: true, shipmentMode: true, volumeCbm: true, weightKg: true, serviceDate: true, originAddress: true, originCity: true, originCountry: true, destAddress: true, destCity: true, destCountry: true, companyName: true, clientPhone: true, clientHomePhone: true, coordinator: { select: { id: true, name: true } }, quote: { select: { id: true, quoteNumber: true, status: true } }, visit: { select: { id: true, visitNumber: true } } } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
         coordinator: { select: { id: true, name: true } },
@@ -85,6 +86,16 @@ router.get("/:id", async (req, res, next) => {
       },
     })
     if (!file) return res.status(404).json({ error: "Not found" })
+
+    // Fallback: if job has no direct visitId, resolve visit through quote→visit chain
+    if (file.job && !file.job.visit && file.job.quote?.id) {
+      const q = await getPrisma().quote.findUnique({
+        where: { id: file.job.quote.id },
+        select: { visit: { select: { id: true, visitNumber: true } } },
+      })
+      if (q?.visit) file.job.visit = q.visit
+    }
+
     res.json(file)
   } catch (e) { next(e) }
 })
@@ -162,10 +173,13 @@ router.post("/", async (req, res, next) => {
       include: {
         client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
         corporateClient: { select: { id: true, name: true } },
+        coordinator:     { select: { id: true, name: true, email: true } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
       },
     })
+    // Fire-and-forget coordinator notification
+    if (coordinatorId) notifyFileCoordinator(file, 'created')
     res.status(201).json(file)
   } catch (e) { next(e) }
 })
@@ -185,6 +199,12 @@ router.put("/:id", async (req, res, next) => {
             fechaLlegada, fechaTrasladoBodega, fechaTraslado, fechaEntrega,
             anticipado,
             coordinatorId } = req.body
+
+    // Capture previous coordinatorId before update (for change detection)
+    const prevFile = coordinatorId !== undefined
+      ? await getPrisma().movingFile.findUnique({ where: { id: req.params.id }, select: { coordinatorId: true } }).catch(() => null)
+      : null
+
     const file = await getPrisma().movingFile.update({
       where: { id: req.params.id },
       data: {
@@ -228,10 +248,15 @@ router.put("/:id", async (req, res, next) => {
       include: {
         client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
         corporateClient: { select: { id: true, name: true } },
+        coordinator:     { select: { id: true, name: true, email: true } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
       },
     })
+    // Notify coordinator if they were reassigned
+    if (coordinatorId !== undefined && coordinatorId && coordinatorId !== prevFile?.coordinatorId) {
+      notifyFileCoordinator(file, 'reassigned')
+    }
     res.json(file)
   } catch (e) { next(e) }
 })

@@ -163,7 +163,13 @@ export default function FileForm() {
     try {
       // Auto-create individual client if new name was entered
       let clientId = form.indClient.clientId
-      if (!clientId && form.indClient.name.trim()) {
+      if (clientId) {
+        // Update existing client's contact info in the background
+        await api.patch(`/clients/${clientId}`, {
+          phone: form.indClient.phone || null,
+          email: form.indClient.email || null,
+        })
+      } else if (form.indClient.name.trim()) {
         const parts = form.indClient.name.trim().split(/\s+/)
         const newCl = await api.post('/clients', {
           clientType: 'INDIVIDUAL',
@@ -272,10 +278,8 @@ export default function FileForm() {
                 <input
                   className="form-control"
                   value={form.indClient.phone || ''}
-                  readOnly={Boolean(form.indClient.clientId)}
                   onChange={e => set('indClient', { ...form.indClient, phone: e.target.value })}
                   placeholder="+57 300 000 0000"
-                  style={form.indClient.clientId ? { background: 'var(--input-bg)' } : undefined}
                 />
               </div>
 
@@ -285,10 +289,8 @@ export default function FileForm() {
                 <input
                   className="form-control"
                   value={form.indClient.email || ''}
-                  readOnly={Boolean(form.indClient.clientId)}
                   onChange={e => set('indClient', { ...form.indClient, email: e.target.value })}
                   type="email"
-                  style={form.indClient.clientId ? { background: 'var(--input-bg)' } : undefined}
                 />
               </div>
 

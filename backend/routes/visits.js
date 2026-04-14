@@ -1,5 +1,6 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
+const { notifyVisitAssigned } = require('../services/notifications')
 
 async function generateVisitNumber() {
   const year = new Date().getFullYear()
@@ -116,7 +117,10 @@ router.post('/', async (req, res, next) => {
         originAgentId: originAgentId || null,
         destAgentId: destAgentId || null,
       },
+      include: { assignedTo: { select: { id: true, name: true, email: true } }, client: { select: { id: true, name: true } }, corporateClient: { select: { id: true, name: true } } },
     })
+    // Fire-and-forget calendar invite to assignee
+    if (assignedToId) notifyVisitAssigned(visit, 'created')
     res.status(201).json(visit)
   } catch (err) { next(err) }
 })
@@ -132,6 +136,10 @@ router.put('/:id', async (req, res, next) => {
       serviceType, scheduledDate, observations, language,
       bookerRole, originAgentId, destAgentId,
     } = req.body
+
+    // Fetch previous state to detect assignee / date changes
+    const prev = await getPrisma().visit.findUnique({ where: { id: req.params.id }, select: { assignedToId: true, scheduledDate: true } })
+
     const visit = await getPrisma().visit.update({
       where: { id: req.params.id },
       data: {
@@ -156,7 +164,16 @@ router.put('/:id', async (req, res, next) => {
         originAgentId: originAgentId !== undefined ? (originAgentId || null) : undefined,
         destAgentId: destAgentId !== undefined ? (destAgentId || null) : undefined,
       },
+      include: { assignedTo: { select: { id: true, name: true, email: true } }, client: { select: { id: true, name: true } }, corporateClient: { select: { id: true, name: true } } },
     })
+
+    // Notify when assignee changed OR scheduled date changed (and someone is assigned)
+    const assigneeChanged = assignedToId && assignedToId !== prev?.assignedToId
+    const dateChanged     = scheduledDate && toDate(scheduledDate)?.getTime() !== prev?.scheduledDate?.getTime()
+    if (assignedToId && (assigneeChanged || dateChanged)) {
+      notifyVisitAssigned(visit, 'updated')
+    }
+
     res.json(visit)
   } catch (err) { next(err) }
 })
