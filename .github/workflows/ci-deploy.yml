@@ -52,6 +52,7 @@ jobs:
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VITE_AZURE_TENANT_ID=${{ secrets.AZURE_TENANT }}
             VITE_AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
+            VITE_BUILD_ID=${{ github.sha }}
 
       - name: Azure CLI - update Web App container
         uses: azure/cli@v1

@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { fileStatusMeta, getFileProgressionStatuses, stripFilePrefix } from '../../constants'
 import FileAttachments from './FileAttachments'
+import AuditHistory from '../../components/AuditHistory'
 
 const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
 
@@ -248,6 +249,9 @@ export default function FileDetail() {
         <button style={tabStyle('attachments')} onClick={() => setActiveTab('attachments')}>
           {t('movingFiles.attachmentsTab')}
         </button>
+        <button style={tabStyle('history')} onClick={() => setActiveTab('history')}>
+          {t('audit.historyTab')}
+        </button>
       </div>
 
       {/* Summary Tab */}
@@ -451,6 +455,11 @@ export default function FileDetail() {
           <FileAttachments fileId={id} fileCategory={file.category} fechaEntrega={file.fechaEntrega} job={file.job} bookerRole={file.bookerRole} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} onPctChange={setAttachmentPct} />
         </div>
       </div>
+
+      {/* History Tab */}
+      {activeTab === 'history' && (
+        <AuditHistory entityType="MovingFile" entityId={id} />
+      )}
 
       {/* Exception Close Modal */}
       {exceptionModalOpen && (

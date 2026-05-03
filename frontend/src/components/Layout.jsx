@@ -26,7 +26,10 @@ export default function Layout() {
     { to: '/clients',        label: t('nav.clients'),     icon: '🏢' },
     { to: '/agents',    label: t('nav.agents'),    icon: '🤝' },
     { to: '/staff',     label: t('nav.staff'),     icon: '👷' },
-    ...(isAdmin ? [{ to: '/admin', label: t('nav.admin'), icon: '⚙️' }] : []),
+    ...(isAdmin ? [
+      { to: '/admin',       label: t('nav.admin'),    icon: '⚙️' },
+      { to: '/admin/audit', label: t('nav.auditLog'), icon: '📋' },
+    ] : []),
   ]
 
   return (
@@ -68,9 +71,14 @@ export default function Layout() {
               }}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
-              <span style={{ fontSize: 12, color: 'var(--sidebar-text)', opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              <NavLink
+                to="/profile"
+                onClick={() => setOpen(false)}
+                title={t('nav.myProfile')}
+                style={{ fontSize: 12, color: 'var(--sidebar-text)', opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textDecoration: 'none' }}
+              >
                 {displayName}
-              </span>
+              </NavLink>
               <button
                 onClick={handleLogout}
                 title={t('nav.signOut')}

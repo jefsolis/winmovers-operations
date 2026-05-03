@@ -143,7 +143,7 @@ export default function FilesList({ category }) {
                         )}
                         {category !== 'LOCAL' && (
                           <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                            {category === 'IMPORT' ? (f.coordinator?.name || '—') : (f.job?.coordinator?.name || '—')}
+                            {f.coordinator?.name || (category === 'EXPORT' ? f.job?.coordinator?.name : null) || '—'}
                           </td>
                         )}
                         <td>{f._count?.attachments ?? 0}</td>

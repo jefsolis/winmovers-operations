@@ -193,6 +193,16 @@ export default function QuoteForm() {
 
   const visitLabel = visit?.client?.name || visit?.prospectName || visit?.visitNumber || visitId
 
+  // Derive creator signature for the live preview from already-loaded data
+  const creatorStaff = staffMembers.find(s => s.name === meta.creatorName)
+  const derivedCreator = creatorStaff ? {
+    name: creatorStaff.name,
+    emailSignature:   creatorStaff.emailSignature || null,
+    signatureImageUrl: currentStaff?.name === creatorStaff.name
+      ? (currentStaff.signatureImageUrl || null)
+      : null,
+  } : null
+
   return (
     <div>
       {/* Sticky toolbar */}
@@ -323,6 +333,7 @@ export default function QuoteForm() {
           language={language}
           quoteNumber={quoteNumber || t('quotes.newQuoteTitle')}
           sectionKeys={rawServiceType === 'LOCAL_MOVE' ? LOCAL_SECTION_KEYS : SECTION_KEYS}
+          creator={derivedCreator}
         />
       </div>
     </div>

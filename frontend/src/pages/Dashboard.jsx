@@ -65,6 +65,7 @@ export default function Dashboard() {
   // Dashboard layout — must be here (before early returns) to satisfy Rules of Hooks
   const { isVisible, toggle, hiddenCards, reset } = useDashboardLayout()
   const [storeOpen, setStoreOpen] = useState(false)
+  const [noInvoiceTab, setNoInvoiceTab] = useState(() => localStorage.getItem('winmovers_noinvoice_tab') || 'EXPORT')
 
   useEffect(() => {
     api.get('/dashboard')
@@ -82,8 +83,9 @@ export default function Dashboard() {
     openVisits, pendingQuotes, conversionRate,
     pipeline, upcomingVisits, pendingQuotesList,
     filesByCompletion,
-    localNoInvoiceRecent,
-    localNoInvoiceOld,
+    exportNoInvoiceRecent, exportNoInvoiceOld,
+    importNoInvoiceRecent, importNoInvoiceOld,
+    localNoInvoiceRecent, localNoInvoiceOld,
     deliveryDocAlerts,
     myAppointments,
     myCoordinations,
@@ -294,104 +296,93 @@ export default function Dashboard() {
       </div>
       )}
 
-      {/* Local files without invoice */}
-      {isVisible('local_no_invoice') && (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-
-        {/* Recent (≤ 30 days) */}
-        <div className="card">
-          <div className="card-body" style={{ paddingBottom: 0 }}>
-            <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>{t('dashboard.localNoInvoiceRecent')}</span>
-              {(localNoInvoiceRecent || []).length > 0 && (
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 12, padding: '1px 8px' }}>
-                  {(localNoInvoiceRecent || []).length}
-                </span>
-              )}
+      {/* Files without invoice — tabbed (Export / Import / Local) */}
+      {isVisible('files_no_invoice') && (
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-body" style={{ paddingBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="section-label">{t('dashboard.filesNoInvoiceTitle')}</div>
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+              {[
+                { key: 'EXPORT', label: t('types.EXPORT') },
+                { key: 'IMPORT', label: t('types.IMPORT') },
+                { key: 'LOCAL',  label: 'Local' },
+              ].map(({ key, label }) => (
+                <button key={key} type="button"
+                  onClick={() => { setNoInvoiceTab(key); localStorage.setItem('winmovers_noinvoice_tab', key) }}
+                  style={{
+                    padding: '4px 14px', border: 'none', cursor: 'pointer', fontSize: 12,
+                    background: noInvoiceTab === key ? 'var(--primary)' : 'transparent',
+                    color: noInvoiceTab === key ? '#fff' : 'var(--text)',
+                  }}
+                >{label}</button>
+              ))}
             </div>
-          </div>
-          {(localNoInvoiceRecent || []).length === 0
-            ? <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.noLocalNoInvoice')}</div>
-            : <div className="table-wrapper">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{t('dashboard.fileNumber')}</th>
-                      <th>{t('dashboard.client')}</th>
-                      <th style={{ textAlign: 'right' }}>{t('dashboard.daysOld')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(localNoInvoiceRecent || []).map(f => {
-                      const days = Math.floor((Date.now() - new Date(f.createdAt)) / 86400000)
-                      const cname = f.client
-                        ? (f.client.clientType === 'INDIVIDUAL'
-                            ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
-                            : f.client.name)
-                        : '—'
-                      return (
-                        <tr key={f.id}>
-                          <td><Link to={`/files/local/${f.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{stripFilePrefix(f.fileNumber)}</Link></td>
-                          <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{cname}</td>
-                          <td style={{ textAlign: 'right', fontSize: 13, color: 'var(--text-muted)' }}>{days}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-          }
-          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
-            <Link to="/files/local" style={{ fontSize: 12, color: 'var(--primary)' }}>{t('movingFiles.localTitle')} →</Link>
           </div>
         </div>
-
-        {/* Older (30+ days) — needs attention */}
-        <div className="card" style={(localNoInvoiceOld || []).length > 0 ? { border: '1.5px solid #fca5a5' } : {}}>
-          <div className="card-body" style={{ paddingBottom: 0 }}>
-            <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>{t('dashboard.localNoInvoiceOld')}</span>
-              {(localNoInvoiceOld || []).length > 0 && (
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 12, padding: '1px 8px' }}>
-                  {(localNoInvoiceOld || []).length}
-                </span>
-              )}
-            </div>
-          </div>
-          {(localNoInvoiceOld || []).length === 0
-            ? <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.noLocalNoInvoice')}</div>
-            : <div className="table-wrapper">
-                <table>
-                  <thead>
-                    <tr>
+        {(() => {
+          const tabRoute = noInvoiceTab === 'EXPORT' ? '/files/export' : noInvoiceTab === 'IMPORT' ? '/files/import' : '/files/local'
+          const recent = noInvoiceTab === 'EXPORT' ? (exportNoInvoiceRecent || []) : noInvoiceTab === 'IMPORT' ? (importNoInvoiceRecent || []) : (localNoInvoiceRecent || [])
+          const old    = noInvoiceTab === 'EXPORT' ? (exportNoInvoiceOld    || []) : noInvoiceTab === 'IMPORT' ? (importNoInvoiceOld    || []) : (localNoInvoiceOld    || [])
+          const renderRows = (items, color) => items.map(f => {
+            const days = Math.floor((Date.now() - new Date(f.createdAt)) / 86400000)
+            const cname = f.client
+              ? (f.client.clientType === 'INDIVIDUAL'
+                  ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
+                  : f.client.name)
+              : '—'
+            return (
+              <tr key={f.id}>
+                <td><Link to={`${tabRoute}/${f.id}`} style={{ color, fontWeight: 600 }}>{stripFilePrefix(f.fileNumber)}</Link></td>
+                <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{cname}</td>
+                <td style={{ textAlign: 'right', fontSize: 13, color, ...(color === '#dc2626' ? { fontWeight: 600 } : {}) }}>{days}</td>
+              </tr>
+            )
+          })
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--border)' }}>
+              <div style={{ borderRight: '1px solid var(--border)' }}>
+                <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{t('dashboard.filesNoInvoiceRecent')}</span>
+                  {recent.length > 0 && (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 12, padding: '1px 8px' }}>{recent.length}</span>
+                  )}
+                </div>
+                {recent.length === 0
+                  ? <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.filesNoInvoiceNone')}</div>
+                  : <div className="table-wrapper"><table><thead><tr>
                       <th>{t('dashboard.fileNumber')}</th>
                       <th>{t('dashboard.client')}</th>
                       <th style={{ textAlign: 'right' }}>{t('dashboard.daysOld')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(localNoInvoiceOld || []).map(f => {
-                      const days = Math.floor((Date.now() - new Date(f.createdAt)) / 86400000)
-                      const cname = f.client
-                        ? (f.client.clientType === 'INDIVIDUAL'
-                            ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
-                            : f.client.name)
-                        : '—'
-                      return (
-                        <tr key={f.id}>
-                          <td><Link to={`/files/local/${f.id}`} style={{ color: '#dc2626', fontWeight: 600 }}>{stripFilePrefix(f.fileNumber)}</Link></td>
-                          <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{cname}</td>
-                          <td style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#dc2626' }}>{days}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                    </tr></thead><tbody>{renderRows(recent, 'var(--primary)')}</tbody></table></div>
+                }
               </div>
-          }
-          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
-            <Link to="/files/local" style={{ fontSize: 12, color: 'var(--primary)' }}>{t('movingFiles.localTitle')} →</Link>
-          </div>
+              <div style={old.length > 0 ? { background: '#fff5f5' } : {}}>
+                <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', background: old.length > 0 ? '#fff5f5' : 'var(--surface-2)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: old.length > 0 ? '#dc2626' : 'var(--text-muted)' }}>{t('dashboard.filesNoInvoiceOld')}</span>
+                  {old.length > 0 && (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 12, padding: '1px 8px' }}>{old.length}</span>
+                  )}
+                </div>
+                {old.length === 0
+                  ? <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.filesNoInvoiceNone')}</div>
+                  : <div className="table-wrapper"><table><thead><tr>
+                      <th>{t('dashboard.fileNumber')}</th>
+                      <th>{t('dashboard.client')}</th>
+                      <th style={{ textAlign: 'right' }}>{t('dashboard.daysOld')}</th>
+                    </tr></thead><tbody>{renderRows(old, '#dc2626')}</tbody></table></div>
+                }
+              </div>
+            </div>
+          )
+        })()}
+        <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
+          <Link
+            to={noInvoiceTab === 'EXPORT' ? '/files/export' : noInvoiceTab === 'IMPORT' ? '/files/import' : '/files/local'}
+            style={{ fontSize: 12, color: 'var(--primary)' }}
+          >
+            {noInvoiceTab === 'EXPORT' ? t('movingFiles.exportTitle') : noInvoiceTab === 'IMPORT' ? t('movingFiles.importTitle') : t('movingFiles.localTitle')} →
+          </Link>
         </div>
       </div>
       )}

@@ -194,6 +194,8 @@ model StaffMember {
   role          String?   // 'ADMIN' | 'STAFF'
 
   dashboardLayout Json?   // { hiddenCards: string[] }
+  emailSignature  String? // plain-text or simple HTML signature block for quotes
+  signatureImagePath String? // Azure Blob path for signature image (signatures/{id}.ext)
 
   visits           Visit[]
   coordinatedFiles MovingFile[] @relation("FileCoordinator")
@@ -285,4 +287,22 @@ model Quote {
   job         Job?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// ── Audit Log ────────────────────────────────────────────────────────────────
+model AuditLog {
+  id          String   @id @default(cuid())
+  entityType  String   // "Job" | "Visit" | "Quote" | "MovingFile" | "Client" | "Agent" | "StaffMember"
+  entityId    String
+  action      String   // "CREATE" | "UPDATE" | "DELETE"
+  userId      String?  // StaffMember.id (null if no linked staff record)
+  userName    String?  // snapshot of name at time of action
+  before      Json?    // record snapshot before change (null for CREATE)
+  after       Json?    // record snapshot after change (null for DELETE)
+  changedKeys String[] // top-level keys that differ between before and after
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
 }

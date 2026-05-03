@@ -31,9 +31,9 @@ export const DASHBOARD_CARDS = [
     defaultVisible: true,
   },
   {
-    id: 'local_no_invoice',
-    titleKey: 'dashboard.store.cards.localNoInvoice.title',
-    descKey:  'dashboard.store.cards.localNoInvoice.desc',
+    id: 'files_no_invoice',
+    titleKey: 'dashboard.store.cards.filesNoInvoice.title',
+    descKey:  'dashboard.store.cards.filesNoInvoice.desc',
     defaultVisible: true,
   },
   {

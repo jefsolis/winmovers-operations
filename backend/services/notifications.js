@@ -154,6 +154,19 @@ async function notifyVisitAssigned(visit, action = 'created') {
  * @param {object} file    — full file record (must include coordinator)
  * @param {'created'|'reassigned'} action
  */
+const FILE_CATEGORY_ES = {
+  EXPORT: 'Exportación',
+  IMPORT: 'Importación',
+  LOCAL:  'Local',
+}
+
+const FILE_SERVICE_TYPE_ES = {
+  DOOR_TO_PORT: 'Puerta a Puerto',
+  DOOR_TO_DOOR: 'Puerta a Puerta',
+  PORT_TO_DOOR: 'Puerto a Puerta',
+  LOCAL_MOVE:   'Mudanza Local',
+}
+
 async function notifyFileCoordinator(file, action = 'created') {
   try {
     const coordinator = file.coordinator
@@ -165,7 +178,7 @@ async function notifyFileCoordinator(file, action = 'created') {
               ? `${file.client.firstName || ''} ${file.client.lastName || ''}`.trim() || file.client.name
               : file.client.name)
           : null)
-      || 'Unknown client'
+      || 'Cliente desconocido'
 
     const subject = action === 'created'
       ? `[Expediente] ${file.fileNumber} asignado`
@@ -176,9 +189,9 @@ async function notifyFileCoordinator(file, action = 'created') {
       <p>Eres el/la coordinador/a del expediente <strong>${file.fileNumber}</strong>${action === 'reassigned' ? ' (reasignado)' : ''}.</p>
       <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
         <tr><td style="padding:4px 12px 4px 0;color:#64748b">Expediente</td><td><strong>${file.fileNumber}</strong></td></tr>
-        <tr><td style="padding:4px 12px 4px 0;color:#64748b">Tipo</td><td>${file.category}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#64748b">Tipo</td><td>${FILE_CATEGORY_ES[file.category] || file.category}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#64748b">Cliente</td><td>${clientLabel}</td></tr>
-        ${file.serviceType ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Servicio</td><td>${file.serviceType.replace(/_/g, ' ')}</td></tr>` : ''}
+        ${file.serviceType ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Servicio</td><td>${FILE_SERVICE_TYPE_ES[file.serviceType] || file.serviceType.replace(/_/g, ' ')}</td></tr>` : ''}
         ${file.eta ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">ETA</td><td>${formatDateShort(file.eta)}</td></tr>` : ''}
         ${file.etd ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">ETD</td><td>${formatDateShort(file.etd)}</td></tr>` : ''}
         ${file.notes ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Notas</td><td>${file.notes}</td></tr>` : ''}

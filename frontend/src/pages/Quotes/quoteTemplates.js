@@ -82,7 +82,7 @@ export const TEMPLATES = {
 
     exclusions: `**Exclusions**\nOur rates Excludes: Terminal handling charge (THC), government inspections, storage charges, customs exam fees, x-ray examination, custom duties / import taxes, demurrage charges at destination, hoisting, long carry, shuttle service or any other cost not mentioned before.`,
 
-    goodbye: `We would like to thank you the opportunity that you give us to present to you our offer. I'm at your service to clarify any questions.\n\nSincerely,\n\n\n[Quote Creator]\n\n______________________________\nAcceptance signature and date`,
+    goodbye: `We would like to thank you the opportunity that you give us to present to you our offer. I'm at your service to clarify any questions.\n\nSincerely,`,
   },
 
   ES: {
@@ -104,7 +104,7 @@ export const TEMPLATES = {
 
     exclusions: `Nuestra tarifa no incluye: demoras portuarias. Bodegajes en aduana, servicio de transbordo si son necesarios, gastos portuarios, utilización de equipos especiales para la entrega después de 2do piso inspecciones extras de aduana si el embarque es solicitado.`,
 
-    goodbye: `Agradecemos la oportunidad de brindarle nuestros servicios, si requieren de alguna información adicional quedamos a las ordenes.\n\nAtentamente,\n\n\n[Quote Creator]\n\n______________________________\nFirma de Aceptación`,
+    goodbye: `Agradecemos la oportunidad de brindarle nuestros servicios, si requieren de alguna información adicional quedamos a las ordenes.\n\nAtentamente,`,
   },
 }
 
@@ -204,7 +204,7 @@ export const LOCAL_TEMPLATES = {
 
     exclusions: `Should you require the packing of smaller items such as glassware, dishes, decorations, toys, books, clothing, etc. by our collaborators, this has an additional cost of $5 per packed box, and this service would be carried out one day before the move. The cost per unpacked box after the transfer is $2.50.`,
 
-    goodbye: `Thank you for considering us for your move.\n\n\n\nSincerely,\n[Quote Creator]`,
+    goodbye: `Thank you for considering us for your move.\n\nSincerely,`,
   },
 
   ES: {
@@ -218,7 +218,7 @@ export const LOCAL_TEMPLATES = {
 
     exclusions: `En caso de requerir el empaque de las partidas menores como la cristalería, loza, adornos, juguetes, libros, ropa, etc. por parte de nuestros colaboradores este tiene un costo adicional de $5 por cada caja empacada y este servicio se realizaría un día antes al de la mudanza y el costo por caja desempacada después del traslado es de $ 2.5.`,
 
-    goodbye: `Agradeciendo el habernos tomado en cuenta me suscribo de usted,\n\n\n\nMuy atentamente\n[Quote Creator]`,
+    goodbye: `Agradeciendo el habernos tomado en cuenta me suscribo de usted,\n\nMuy atentamente,`,
   },
 }
 

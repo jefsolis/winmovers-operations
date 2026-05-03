@@ -430,8 +430,8 @@ export default function FileForm() {
                 )}
               </div>
 
-              {/* Coordinator — IMPORT only */}
-              {category === 'IMPORT' && (
+              {/* Coordinator — EXPORT and IMPORT */}
+              {(category === 'IMPORT' || category === 'EXPORT') && (
                 <div className="form-group form-full">
                   <label className="form-label">{t('movingFiles.coordinator')}</label>
                   <select className="form-control" value={form.coordinatorId} onChange={e => set('coordinatorId', e.target.value)}>

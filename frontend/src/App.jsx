@@ -18,18 +18,22 @@ import QuoteForm from './pages/Quotes/QuoteForm'
 import QuoteDetail from './pages/Quotes/QuoteDetail'
 import StaffList from './pages/Staff/StaffList'
 import StaffForm from './pages/Staff/StaffForm'
+import MyProfilePage from './pages/Profile/MyProfilePage'
 import FilesList from './pages/Files/FilesList'
 import FileDetail from './pages/Files/FileDetail'
 import FileForm from './pages/Files/FileForm'
 import SurveyForm from './pages/Surveys/SurveyForm'
 import SurveyDetail from './pages/Surveys/SurveyDetail'
 import AdminPage from './pages/Admin/AdminPage'
+import AuditLogPage from './pages/Admin/AuditLogPage'
 import RequireAdmin from './auth/RequireAdmin'
+import ReloadBanner from './components/ReloadBanner'
 
 export default function App() {
   return (
     <LanguageProvider>
     <BrowserRouter>
+      <ReloadBanner />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
@@ -55,6 +59,7 @@ export default function App() {
           <Route path="staff"               element={<StaffList />} />
           <Route path="staff/new"           element={<StaffForm />} />
           <Route path="staff/:id/edit"      element={<StaffForm />} />
+          <Route path="profile"             element={<MyProfilePage />} />
           <Route path="files/export"             element={<FilesList category="EXPORT" />} />
           <Route path="files/export/new"         element={<FileForm />} />
           <Route path="files/export/:id"         element={<FileDetail />} />
@@ -71,6 +76,7 @@ export default function App() {
           <Route path="surveys/:id"              element={<SurveyDetail />} />
           <Route path="surveys/:id/edit"         element={<SurveyForm />} />
           <Route path="admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
+          <Route path="admin/audit" element={<RequireAdmin><AuditLogPage /></RequireAdmin>} />
         </Route>
       </Routes>
     </BrowserRouter>

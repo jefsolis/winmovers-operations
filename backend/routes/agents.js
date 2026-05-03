@@ -1,5 +1,6 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
+const { logAudit } = require('../audit')
 
 // GET all
 router.get('/', async (req, res, next) => {
@@ -40,6 +41,7 @@ router.post('/', async (req, res, next) => {
     const agent = await getPrisma().agent.create({
       data: { name, country: country || null, city: city || null, email: email || null, phone: phone || null, notes: notes || null }
     })
+    logAudit(req, 'Agent', agent.id, 'CREATE', null, agent)
     res.status(201).json(agent)
   } catch (err) { next(err) }
 })
@@ -48,10 +50,12 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { name, country, city, email, phone, notes } = req.body
+    const before = await getPrisma().agent.findUnique({ where: { id: req.params.id } })
     const agent = await getPrisma().agent.update({
       where: { id: req.params.id },
       data: { name, country: country || null, city: city || null, email: email || null, phone: phone || null, notes: notes || null }
     })
+    logAudit(req, 'Agent', req.params.id, 'UPDATE', before, agent)
     res.json(agent)
   } catch (err) { next(err) }
 })
@@ -59,7 +63,9 @@ router.put('/:id', async (req, res, next) => {
 // DELETE
 router.delete('/:id', async (req, res, next) => {
   try {
+    const before = await getPrisma().agent.findUnique({ where: { id: req.params.id } })
     await getPrisma().agent.delete({ where: { id: req.params.id } })
+    logAudit(req, 'Agent', req.params.id, 'DELETE', before, null)
     res.status(204).end()
   } catch (err) { next(err) }
 })

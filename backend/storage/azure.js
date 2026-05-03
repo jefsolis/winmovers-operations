@@ -53,4 +53,16 @@ async function deleteFile(storagePath) {
   await blob.deleteIfExists()
 }
 
-module.exports = { uploadFile, getDownloadUrl, deleteFile }
+async function uploadSignatureImage(staffId, buffer, mimetype) {
+  const ext      = mimetype === 'image/png' ? '.png' : '.jpg'
+  const blobName = `signatures/${staffId}${ext}`
+  const client    = BlobServiceClient.fromConnectionString(connectionString)
+  const container = client.getContainerClient(containerName)
+  const blob      = container.getBlockBlobClient(blobName)
+  await blob.upload(buffer, buffer.length, {
+    blobHTTPHeaders: { blobContentType: mimetype },
+  })
+  return blobName
+}
+
+module.exports = { uploadFile, getDownloadUrl, deleteFile, uploadSignatureImage }

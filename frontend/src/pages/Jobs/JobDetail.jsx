@@ -6,6 +6,7 @@ import { statusMeta, typeMeta, formatDate, stripFilePrefix } from '../../constan
 import JobDocument from './JobDocument'
 import DamageReport, { EMPTY_DR } from '../Files/DamageReport'
 import ServiceEvaluation, { EMPTY_SE } from '../Files/ServiceEvaluation'
+import AuditHistory from '../../components/AuditHistory'
 
 export default function JobDetail() {
   const { id } = useParams()
@@ -214,6 +215,7 @@ export default function JobDetail() {
             { key: 'damage',     label: t('movingFiles.damageReportTab') },
             { key: 'evaluation', label: t('movingFiles.evaluationTab') },
           ] : []),
+          { key: 'history',     label: t('audit.historyTab') },
         ].map(tb => (
           <button
             key={tb.key}
@@ -301,6 +303,11 @@ export default function JobDetail() {
             onChange={setSeData}
           />
         </>
+      )}
+
+      {/* History tab */}
+      {tab === 'history' && (
+        <AuditHistory entityType="Job" entityId={id} />
       )}
 
       {/* Overview tab */}

@@ -1,5 +1,7 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
+const { logAudit } = require('../audit')
+const { getDownloadUrl } = require('../storage/azure')
 
 async function generateQuoteNumber() {
   const year = new Date().getFullYear()
@@ -46,7 +48,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET one (includes full visit for pre-fill)
+// GET one (includes full visit for pre-fill + creator signature)
 router.get('/:id', async (req, res, next) => {
   try {
     const quote = await getPrisma().quote.findUnique({
@@ -57,7 +59,26 @@ router.get('/:id', async (req, res, next) => {
       },
     })
     if (!quote) return res.status(404).json({ error: 'Not found' })
-    res.json(quote)
+
+    // Attach the creator's signature data (looked up by name)
+    let creator = null
+    if (quote.creatorName) {
+      const staff = await getPrisma().staffMember.findFirst({
+        where: { name: quote.creatorName, isActive: true },
+        select: { emailSignature: true, signatureImagePath: true },
+      })
+      if (staff) {
+        creator = {
+          name: quote.creatorName,
+          emailSignature: staff.emailSignature || null,
+          signatureImageUrl: staff.signatureImagePath
+            ? await getDownloadUrl(staff.signatureImagePath)
+            : null,
+        }
+      }
+    }
+
+    res.json({ ...quote, creator })
   } catch (err) { next(err) }
 })
 
@@ -83,6 +104,7 @@ router.post('/', async (req, res, next) => {
         creatorName: creatorName || null,
       },
     })
+    logAudit(req, 'Quote', quote.id, 'CREATE', null, quote)
     res.status(201).json(quote)
   } catch (err) { next(err) }
 })
@@ -91,6 +113,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { status, totalAmount, currency, validUntil, notes, language, content, creatorName } = req.body
+    const before = await getPrisma().quote.findUnique({ where: { id: req.params.id } })
     const quote = await getPrisma().quote.update({
       where: { id: req.params.id },
       data: {
@@ -108,6 +131,7 @@ router.put('/:id', async (req, res, next) => {
     if (status === 'REJECTED' && quote.visitId) {
       await getPrisma().visit.update({ where: { id: quote.visitId }, data: { status: 'CLOSED' } })
     }
+    logAudit(req, 'Quote', req.params.id, 'UPDATE', before, quote)
     res.json(quote)
   } catch (err) { next(err) }
 })
@@ -115,7 +139,9 @@ router.put('/:id', async (req, res, next) => {
 // DELETE
 router.delete('/:id', async (req, res, next) => {
   try {
+    const before = await getPrisma().quote.findUnique({ where: { id: req.params.id } })
     await getPrisma().quote.delete({ where: { id: req.params.id } })
+    logAudit(req, 'Quote', req.params.id, 'DELETE', before, null)
     res.json({ ok: true })
   } catch (err) { next(err) }
 })

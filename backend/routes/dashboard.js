@@ -49,6 +49,8 @@ router.get('/', async (req, res, next) => {
       upcomingVisits, pendingQuotesList,
       openFilesWithAttachments,
       openLocalFiles,
+      openExportFiles,
+      openImportFiles,
       deliveryDocFiles,
       myAppointments,
       myCoordinations,
@@ -116,6 +118,28 @@ router.get('/', async (req, res, next) => {
       // Open LOCAL files (for no-invoice cards)
       p.movingFile.findMany({
         where: { status: 'OPEN', category: 'LOCAL' },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true, fileNumber: true, createdAt: true,
+          client:          { select: { name: true, firstName: true, lastName: true, clientType: true } },
+          corporateClient: { select: { name: true, firstName: true, lastName: true, clientType: true } },
+          attachments: { select: { category: true } },
+        },
+      }),
+      // Open EXPORT files (for no-invoice card)
+      p.movingFile.findMany({
+        where: { status: 'OPEN', category: 'EXPORT' },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true, fileNumber: true, createdAt: true,
+          client:          { select: { name: true, firstName: true, lastName: true, clientType: true } },
+          corporateClient: { select: { name: true, firstName: true, lastName: true, clientType: true } },
+          attachments: { select: { category: true } },
+        },
+      }),
+      // Open IMPORT files (for no-invoice card)
+      p.movingFile.findMany({
+        where: { status: 'OPEN', category: 'IMPORT' },
         orderBy: { createdAt: 'asc' },
         select: {
           id: true, fileNumber: true, createdAt: true,
@@ -225,6 +249,20 @@ router.get('/', async (req, res, next) => {
     const localNoInvoiceRecent = localNoInvoice.filter(f => new Date(f.createdAt) >= thirtyDaysAgo).reverse()
     const localNoInvoiceOld    = localNoInvoice.filter(f => new Date(f.createdAt) <  thirtyDaysAgo)
 
+    // Export files without invoice
+    const exportNoInvoice = openExportFiles
+      .filter(f => !f.attachments.some(a => a.category === 'INVOICE'))
+      .map(f => ({ id: f.id, fileNumber: f.fileNumber, createdAt: f.createdAt, client: f.corporateClient || f.client || null }))
+    const exportNoInvoiceRecent = exportNoInvoice.filter(f => new Date(f.createdAt) >= thirtyDaysAgo).reverse()
+    const exportNoInvoiceOld    = exportNoInvoice.filter(f => new Date(f.createdAt) <  thirtyDaysAgo)
+
+    // Import files without invoice
+    const importNoInvoice = openImportFiles
+      .filter(f => !f.attachments.some(a => a.category === 'INVOICE'))
+      .map(f => ({ id: f.id, fileNumber: f.fileNumber, createdAt: f.createdAt, client: f.corporateClient || f.client || null }))
+    const importNoInvoiceRecent = importNoInvoice.filter(f => new Date(f.createdAt) >= thirtyDaysAgo).reverse()
+    const importNoInvoiceOld    = importNoInvoice.filter(f => new Date(f.createdAt) <  thirtyDaysAgo)
+
     // Delivery doc alerts — files past fechaEntrega missing TARIFF_REPLY_EMAIL or DELIVERY_DOCS_EMAIL
     const now = Date.now()
     const deliveryDocAlerts = deliveryDocFiles
@@ -276,6 +314,10 @@ router.get('/', async (req, res, next) => {
       filesByCompletion,
       localNoInvoiceRecent,
       localNoInvoiceOld,
+      exportNoInvoiceRecent,
+      exportNoInvoiceOld,
+      importNoInvoiceRecent,
+      importNoInvoiceOld,
       deliveryDocAlerts,
       myAppointments,
       myCoordinations,

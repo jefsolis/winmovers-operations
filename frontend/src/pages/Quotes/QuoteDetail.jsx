@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { quoteStatusMeta, visitStatusMeta, formatDate } from '../../constants'
 import { useLanguage } from '../../i18n'
 import QuickCreateClientModal from '../../components/QuickCreateClientModal'
+import AuditHistory from '../../components/AuditHistory'
 import QuoteDocument from './QuoteDocument'
 import { buildDefaultSections, buildVarsFromVisit, SECTION_KEYS, LOCAL_SECTION_KEYS } from './quoteTemplates'
 
@@ -21,6 +22,7 @@ export default function QuoteDetail() {
   const [exporting, setExporting] = useState(false)
   const [interceptPending, setInterceptPending] = useState(false)
   const [showCreateClient, setShowCreateClient] = useState(false)
+  const [activeTab, setActiveTab] = useState('document')
 
   const load = () => api.get(`/quotes/${id}`)
     .then(q => {
@@ -229,7 +231,32 @@ export default function QuoteDetail() {
         </div>
       )}
 
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', marginBottom: 16 }}>
+        {[
+          { key: 'document', label: t('quotes.documentTab') },
+          { key: 'history',  label: t('audit.historyTab') },
+        ].map(tb => (
+          <button
+            key={tb.key}
+            onClick={() => setActiveTab(tb.key)}
+            style={{
+              padding: '8px 20px', background: 'none', border: 'none',
+              borderBottom: activeTab === tb.key ? '2px solid var(--primary)' : '2px solid transparent',
+              marginBottom: -2, cursor: 'pointer', fontSize: 14,
+              fontWeight: activeTab === tb.key ? 600 : 400,
+              color: activeTab === tb.key ? 'var(--primary)' : 'var(--text-muted)',
+            }}
+          >
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'history' && <AuditHistory entityType="Quote" entityId={id} />}
+
       {/* Document view */}
+      {activeTab === 'document' && (
       <div className="quote-document-wrapper">
         <QuoteDocument
           ref={docRef}
@@ -239,8 +266,10 @@ export default function QuoteDetail() {
           language={quote.language || 'EN'}
           quoteNumber={quote.quoteNumber}
           sectionKeys={visit?.serviceType === 'LOCAL_MOVE' ? LOCAL_SECTION_KEYS : SECTION_KEYS}
+          creator={quote.creator || null}
         />
       </div>
+      )}
 
       <QuickCreateClientModal
         open={showCreateClient}

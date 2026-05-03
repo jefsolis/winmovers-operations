@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { visitStatusMeta, quoteStatusMeta, formatDate, formatDateTime } from '../../constants'
 import { useLanguage } from '../../i18n'
 import QuickCreateClientModal from '../../components/QuickCreateClientModal'
+import AuditHistory from '../../components/AuditHistory'
 
 function Field({ label, value }) {
   return (
@@ -22,6 +23,7 @@ export default function VisitDetail() {
   const [loading, setLoading] = useState(true)
   const [acting, setActing]   = useState(false)
   const [showCreateClient, setShowCreateClient] = useState(false)
+  const [activeTab, setActiveTab] = useState('details')
 
   const load = () => api.get(`/visits/${id}`).then(setVisit).catch(() => navigate('/visits')).finally(() => setLoading(false))
   useEffect(() => { load() }, [id]) // eslint-disable-line
@@ -199,6 +201,32 @@ export default function VisitDetail() {
         )}
       </div>
 
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', marginBottom: 16 }}>
+        {[
+          { key: 'details', label: t('files.overview') },
+          { key: 'history', label: t('audit.historyTab') },
+        ].map(tb => (
+          <button
+            key={tb.key}
+            onClick={() => setActiveTab(tb.key)}
+            style={{
+              padding: '8px 20px', background: 'none', border: 'none',
+              borderBottom: activeTab === tb.key ? '2px solid var(--primary)' : '2px solid transparent',
+              marginBottom: -2, cursor: 'pointer', fontSize: 14,
+              fontWeight: activeTab === tb.key ? 600 : 400,
+              color: activeTab === tb.key ? 'var(--primary)' : 'var(--text-muted)',
+            }}
+          >
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'history' && <AuditHistory entityType="Visit" entityId={id} />}
+
+      {activeTab === 'details' && (<>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="chart-grid">
         {/* Prospect / Client info */}
         <div className="card card-body">
@@ -307,6 +335,8 @@ export default function VisitDetail() {
         }
       </div>
       )}
+
+      </>)}
 
       <QuickCreateClientModal
         open={showCreateClient}

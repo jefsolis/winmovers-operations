@@ -13,6 +13,48 @@ export default function AdminPage() {
   const [saved, setSaved]       = useState(false)
   const [error, setError]       = useState(null)
 
+  // Purge state
+  const [purgeInfo, setPurgeInfo]     = useState(null)   // { count, retentionDays, cutoff }
+  const [purgeChecking, setPurgeChecking] = useState(false)
+  const [purging, setPurging]         = useState(false)
+  const [purgeResult, setPurgeResult] = useState(null)
+  const [purgeError, setPurgeError]   = useState(null)
+
+  const checkPurge = async () => {
+    setPurgeChecking(true)
+    setPurgeError(null)
+    setPurgeResult(null)
+    try {
+      const data = await api.get('/admin/audit/purge')
+      setPurgeInfo(data)
+    } catch (e) {
+      setPurgeError(e.message)
+    } finally {
+      setPurgeChecking(false)
+    }
+  }
+
+  const handlePurge = async () => {
+    if (!purgeInfo || purgeInfo.count === 0) return
+    const cutoffStr = new Date(purgeInfo.cutoff).toLocaleDateString()
+    if (!window.confirm(
+      t('admin.purgeConfirm')
+        .replace('{{count}}', purgeInfo.count)
+        .replace('{{cutoff}}', cutoffStr)
+    )) return
+    setPurging(true)
+    setPurgeError(null)
+    try {
+      const data = await api.post('/admin/audit/purge')
+      setPurgeResult(data.purgedCount)
+      setPurgeInfo(null)
+    } catch (e) {
+      setPurgeError(e.message)
+    } finally {
+      setPurging(false)
+    }
+  }
+
   useEffect(() => {
     api.get('/admin/version').then(setVersion).catch(() => {})
     api.get('/admin/counters')
@@ -124,6 +166,55 @@ export default function AdminPage() {
           </button>
         </div>
       </form>
+
+      {/* Audit Log Purge */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <div className="card-body">
+          <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 10 }}>
+            {t('admin.purgeSection')}
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>{t('admin.purgeHint')}</p>
+
+          {purgeError && <div className="alert alert-error" style={{ marginBottom: 12, fontSize: 13 }}>{purgeError}</div>}
+          {purgeResult != null && (
+            <div className="alert alert-success" style={{ marginBottom: 12, fontSize: 13 }}>
+              {t('admin.purgeSuccess').replace('{{count}}', purgeResult)}
+            </div>
+          )}
+
+          {purgeInfo && (
+            <div style={{ display: 'flex', gap: 32, fontSize: 13, marginBottom: 16, flexWrap: 'wrap' }}>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>{t('admin.purgeRetentionLabel')}: </span>
+                <strong>{t('admin.purgeRetentionDays').replace('{{days}}', purgeInfo.retentionDays)}</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>{t('admin.purgeCutoffLabel')}: </span>
+                <strong>{new Date(purgeInfo.cutoff).toLocaleDateString()}</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>{t('admin.purgeEligibleLabel')}: </span>
+                <strong style={{ color: purgeInfo.count > 0 ? '#dc2626' : 'inherit' }}>
+                  {purgeInfo.count > 0
+                    ? t('admin.purgeEligibleCount').replace('{{count}}', purgeInfo.count)
+                    : t('admin.purgeNoneEligible')}
+                </strong>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-secondary" onClick={checkPurge} disabled={purgeChecking || purging}>
+              {purgeChecking ? t('common.loading') : t('admin.purgeCheckButton')}
+            </button>
+            {purgeInfo && purgeInfo.count > 0 && (
+              <button className="btn btn-danger" onClick={handlePurge} disabled={purging}>
+                {purging ? t('common.saving') : t('admin.purgeButton')}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

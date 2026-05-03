@@ -72,4 +72,49 @@ router.put('/counters', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+const DEFAULT_RETENTION_DAYS = 730 // 2 years
+
+/**
+ * GET /api/admin/audit/purge?dryRun=true
+ * Returns the count of entries that would be purged.
+ */
+router.get('/audit/purge', async (req, res, next) => {
+  try {
+    const retentionDays = parseInt(process.env.AUDIT_RETENTION_DAYS || DEFAULT_RETENTION_DAYS, 10)
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - retentionDays)
+    const count = await getPrisma().auditLog.count({ where: { createdAt: { lt: cutoff } } })
+    res.json({ count, retentionDays, cutoff })
+  } catch (err) { next(err) }
+})
+
+/**
+ * POST /api/admin/audit/purge
+ * Deletes AuditLog entries older than AUDIT_RETENTION_DAYS and writes a meta-audit entry.
+ */
+router.post('/audit/purge', async (req, res, next) => {
+  try {
+    const retentionDays = parseInt(process.env.AUDIT_RETENTION_DAYS || DEFAULT_RETENTION_DAYS, 10)
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - retentionDays)
+
+    const { count } = await getPrisma().auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } })
+
+    // Write a meta-audit entry so the purge itself is on record
+    await getPrisma().auditLog.create({
+      data: {
+        entityType: 'AuditLog',
+        entityId:   'purge',
+        action:     'DELETE',
+        userId:     req.user?.oid   || null,
+        userName:   req.user?.name  || null,
+        after:      { purgedCount: count, retentionDays, cutoff: cutoff.toISOString() },
+        changedKeys: [],
+      },
+    })
+
+    res.json({ purgedCount: count, retentionDays, cutoff })
+  } catch (err) { next(err) }
+})
+
 module.exports = router

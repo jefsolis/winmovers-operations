@@ -1,5 +1,6 @@
 const router = require("express").Router()
 const { getPrisma } = require("../db")
+const { logAudit } = require("../audit")
 const { generateFileNumber } = require("./movingFiles")
 
 function toDate(val) {
@@ -195,6 +196,7 @@ router.post("/", async (req, res, next) => {
       coordinatorId:  coordinatorId   || null,    }
 
     const job = await getPrisma().job.create({ data })
+    logAudit(req, 'Job', job.id, 'CREATE', null, job)
     res.status(201).json(job)
   } catch (err) { next(err) }
 })
@@ -216,6 +218,8 @@ router.put("/:id", async (req, res, next) => {
       coordinatorId,
       visitId,
     } = req.body
+
+    const before = await getPrisma().job.findUnique({ where: { id: req.params.id } })
 
     const job = await getPrisma().job.update({
       where: { id: req.params.id },
@@ -256,6 +260,7 @@ router.put("/:id", async (req, res, next) => {
         visitId:        visitId         !== undefined ? (visitId         || null) : undefined,
       },
     })
+    logAudit(req, 'Job', req.params.id, 'UPDATE', before, job)
     res.json(job)
   } catch (err) { next(err) }
 })
@@ -286,7 +291,9 @@ router.patch("/:id/status", async (req, res, next) => {
 // DELETE
 router.delete("/:id", async (req, res, next) => {
   try {
+    const before = await getPrisma().job.findUnique({ where: { id: req.params.id } })
     await getPrisma().job.delete({ where: { id: req.params.id } })
+    logAudit(req, 'Job', req.params.id, 'DELETE', before, null)
     res.status(204).end()
   } catch (err) { next(err) }
 })

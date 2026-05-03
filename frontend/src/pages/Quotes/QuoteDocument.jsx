@@ -38,7 +38,7 @@ function autoResize(el) {
 }
 
 const QuoteDocument = forwardRef(function QuoteDocument(
-  { sections = {}, editMode = false, onChange, language = 'EN', quoteNumber, headerRef, sectionKeys = SECTION_KEYS },
+  { sections = {}, editMode = false, onChange, language = 'EN', quoteNumber, headerRef, sectionKeys = SECTION_KEYS, creator },
   ref
 ) {
   const labels = SECTION_UI_LABELS[language] || SECTION_UI_LABELS.EN
@@ -96,8 +96,26 @@ const QuoteDocument = forwardRef(function QuoteDocument(
           </div>
         ))}
 
-        {/* Signature footer spacer */}
-        <div style={{ height: 40 }} />
+        {/* Signature footer */}
+        <div style={{ marginTop: 40 }}>
+          {creator?.signatureImageUrl && (
+            <img
+              src={creator.signatureImageUrl}
+              alt=""
+              style={{ display: 'block', height: 60, maxWidth: 220, objectFit: 'contain', marginBottom: 8 }}
+            />
+          )}
+          {creator?.emailSignature ? (
+            <div style={{ fontSize: 12.5, whiteSpace: 'pre-line', lineHeight: 1.6 }}>
+              {creator.emailSignature}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+              <div style={{ fontWeight: 600 }}>WinMovers International</div>
+              {contactLines.slice(0, 3).map((line, i) => <div key={i}>{line}</div>)}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

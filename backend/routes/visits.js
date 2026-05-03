@@ -1,5 +1,6 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
+const { logAudit } = require('../audit')
 const { notifyVisitAssigned } = require('../services/notifications')
 
 async function generateVisitNumber() {
@@ -121,6 +122,7 @@ router.post('/', async (req, res, next) => {
     })
     // Fire-and-forget calendar invite to assignee
     if (assignedToId) notifyVisitAssigned(visit, 'created')
+    logAudit(req, 'Visit', visit.id, 'CREATE', null, visit)
     res.status(201).json(visit)
   } catch (err) { next(err) }
 })
@@ -137,8 +139,8 @@ router.put('/:id', async (req, res, next) => {
       bookerRole, originAgentId, destAgentId,
     } = req.body
 
-    // Fetch previous state to detect assignee / date changes
-    const prev = await getPrisma().visit.findUnique({ where: { id: req.params.id }, select: { assignedToId: true, scheduledDate: true } })
+    // Fetch previous state to detect assignee / date changes (also serves as audit before-snapshot)
+    const prev = await getPrisma().visit.findUnique({ where: { id: req.params.id } })
 
     const visit = await getPrisma().visit.update({
       where: { id: req.params.id },
@@ -174,6 +176,7 @@ router.put('/:id', async (req, res, next) => {
       notifyVisitAssigned(visit, 'updated')
     }
 
+    logAudit(req, 'Visit', req.params.id, 'UPDATE', prev, visit)
     res.json(visit)
   } catch (err) { next(err) }
 })
@@ -181,7 +184,9 @@ router.put('/:id', async (req, res, next) => {
 // DELETE
 router.delete('/:id', async (req, res, next) => {
   try {
+    const before = await getPrisma().visit.findUnique({ where: { id: req.params.id } })
     await getPrisma().visit.delete({ where: { id: req.params.id } })
+    logAudit(req, 'Visit', req.params.id, 'DELETE', before, null)
     res.json({ ok: true })
   } catch (err) { next(err) }
 })

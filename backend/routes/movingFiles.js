@@ -1,4 +1,5 @@
 const router = require("express").Router()
+const { logAudit } = require('../audit')
 const { getPrisma } = require("../db")
 const { notifyFileCoordinator } = require('../services/notifications')
 
@@ -180,6 +181,7 @@ router.post("/", async (req, res, next) => {
     })
     // Fire-and-forget coordinator notification
     if (coordinatorId) notifyFileCoordinator(file, 'created')
+    logAudit(req, 'MovingFile', file.id, 'CREATE', null, file)
     res.status(201).json(file)
   } catch (e) { next(e) }
 })
@@ -200,10 +202,8 @@ router.put("/:id", async (req, res, next) => {
             anticipado,
             coordinatorId } = req.body
 
-    // Capture previous coordinatorId before update (for change detection)
-    const prevFile = coordinatorId !== undefined
-      ? await getPrisma().movingFile.findUnique({ where: { id: req.params.id }, select: { coordinatorId: true } }).catch(() => null)
-      : null
+    // Capture previous state before update (for coordinator notification and audit)
+    const prevFile = await getPrisma().movingFile.findUnique({ where: { id: req.params.id } }).catch(() => null)
 
     const file = await getPrisma().movingFile.update({
       where: { id: req.params.id },
@@ -257,6 +257,7 @@ router.put("/:id", async (req, res, next) => {
     if (coordinatorId !== undefined && coordinatorId && coordinatorId !== prevFile?.coordinatorId) {
       notifyFileCoordinator(file, 'reassigned')
     }
+    logAudit(req, 'MovingFile', req.params.id, 'UPDATE', prevFile, file)
     res.json(file)
   } catch (e) { next(e) }
 })
@@ -264,7 +265,9 @@ router.put("/:id", async (req, res, next) => {
 // DELETE /api/files/:id
 router.delete("/:id", async (req, res, next) => {
   try {
+    const before = await getPrisma().movingFile.findUnique({ where: { id: req.params.id } })
     await getPrisma().movingFile.delete({ where: { id: req.params.id } })
+    logAudit(req, 'MovingFile', req.params.id, 'DELETE', before, null)
     res.status(204).end()
   } catch (e) { next(e) }
 })

@@ -1,6 +1,18 @@
 const router = require('express').Router()
+const { logAudit } = require('../audit')
 const { getPrisma } = require('../db')
 const { searchAzureUsers } = require('../services/graph')
+const multer  = require('multer')
+const storage = require('../storage/azure')
+
+const signatureUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'image/png' || file.mimetype === 'image/jpeg') cb(null, true)
+    else cb(new Error('Only PNG and JPEG images are allowed'))
+  },
+})
 
 // GET /me — returns the StaffMember linked to the current logged-in user (by azureOid)
 router.get('/me', async (req, res, next) => {
@@ -8,7 +20,46 @@ router.get('/me', async (req, res, next) => {
     const oid = req.user?.oid
     if (!oid) return res.json(null)
     const member = await getPrisma().staffMember.findUnique({ where: { azureOid: oid } })
-    res.json(member ?? null)
+    if (!member) return res.json(null)
+    let signatureImageUrl = null
+    if (member.signatureImagePath) {
+      try { signatureImageUrl = await storage.getDownloadUrl(member.signatureImagePath) } catch (_) {}
+    }
+    res.json({ ...member, signatureImageUrl })
+  } catch (err) { next(err) }
+})
+
+// POST /me/signature-image — upload or replace the user's signature image
+router.post('/me/signature-image', signatureUpload.single('file'), async (req, res, next) => {
+  try {
+    const oid = req.user?.oid
+    if (!oid) return res.status(401).json({ error: 'Not authenticated' })
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' })
+    const member = await getPrisma().staffMember.findUnique({ where: { azureOid: oid }, select: { id: true, signatureImagePath: true } })
+    if (!member) return res.status(404).json({ error: 'No staff record linked to this account' })
+    // Delete previous blob if it exists and extension differs (png vs jpg)
+    if (member.signatureImagePath && member.signatureImagePath !== `signatures/${member.id}${req.file.mimetype === 'image/png' ? '.png' : '.jpg'}`) {
+      try { await storage.deleteFile(member.signatureImagePath) } catch (_) {}
+    }
+    const blobPath = await storage.uploadSignatureImage(member.id, req.file.buffer, req.file.mimetype)
+    await getPrisma().staffMember.update({ where: { id: member.id }, data: { signatureImagePath: blobPath } })
+    const signatureImageUrl = await storage.getDownloadUrl(blobPath)
+    res.json({ signatureImagePath: blobPath, signatureImageUrl })
+  } catch (err) { next(err) }
+})
+
+// DELETE /me/signature-image — remove the user's signature image
+router.delete('/me/signature-image', async (req, res, next) => {
+  try {
+    const oid = req.user?.oid
+    if (!oid) return res.status(401).json({ error: 'Not authenticated' })
+    const member = await getPrisma().staffMember.findUnique({ where: { azureOid: oid }, select: { id: true, signatureImagePath: true } })
+    if (!member) return res.status(404).json({ error: 'No staff record linked to this account' })
+    if (member.signatureImagePath) {
+      try { await storage.deleteFile(member.signatureImagePath) } catch (_) {}
+      await getPrisma().staffMember.update({ where: { id: member.id }, data: { signatureImagePath: null } })
+    }
+    res.status(204).end()
   } catch (err) { next(err) }
 })
 
@@ -36,6 +87,21 @@ router.put('/me/dashboard-layout', async (req, res, next) => {
       where: { azureOid: oid },
       data: { dashboardLayout: { hiddenCards } },
     })
+    res.status(204).end()
+  } catch (err) { next(err) }
+})
+
+// PUT /me/profile — lets the current user update their own self-service fields
+router.put('/me/profile', async (req, res, next) => {
+  try {
+    const oid = req.user?.oid
+    if (!oid) return res.status(401).json({ error: 'Not authenticated' })
+    const { emailSignature } = req.body
+    const updated = await getPrisma().staffMember.updateMany({
+      where: { azureOid: oid },
+      data: { emailSignature: emailSignature || null },
+    })
+    if (updated.count === 0) return res.status(404).json({ error: 'No staff record linked to this account' })
     res.status(204).end()
   } catch (err) { next(err) }
 })
@@ -94,7 +160,7 @@ router.post('/', async (req, res, next) => {
   try {
     const { name, email, phone, isActive,
             canBeAssignedToVisit, canCreateQuotes, canBeCreatorInWorkOrder,
-            canCoordinateFiles, role, azureOid } = req.body
+            canCoordinateFiles, role, azureOid, emailSignature } = req.body
     if (!name?.trim()) return res.status(400).json({ error: 'Name is required.' })
     if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' })
     const member = await getPrisma().staffMember.create({
@@ -109,8 +175,10 @@ router.post('/', async (req, res, next) => {
         canCoordinateFiles:      Boolean(canCoordinateFiles),
         role: role || null,
         azureOid: azureOid || null,
+        emailSignature: emailSignature || null,
       },
     })
+    logAudit(req, 'StaffMember', member.id, 'CREATE', null, member)
     res.status(201).json(member)
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ error: 'A staff member with that email already exists.' })
@@ -123,9 +191,10 @@ router.put('/:id', async (req, res, next) => {
   try {
     const { name, email, phone, isActive,
             canBeAssignedToVisit, canCreateQuotes, canBeCreatorInWorkOrder,
-            canCoordinateFiles, role, azureOid } = req.body
+            canCoordinateFiles, role, azureOid, emailSignature } = req.body
     if (!name?.trim()) return res.status(400).json({ error: 'Name is required.' })
     if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' })
+    const before = await getPrisma().staffMember.findUnique({ where: { id: req.params.id } })
     const member = await getPrisma().staffMember.update({
       where: { id: req.params.id },
       data: {
@@ -139,8 +208,10 @@ router.put('/:id', async (req, res, next) => {
         canCoordinateFiles:      Boolean(canCoordinateFiles),
         role: role || null,
         azureOid: azureOid || null,
+        emailSignature: emailSignature || null,
       },
     })
+    logAudit(req, 'StaffMember', req.params.id, 'UPDATE', before, member)
     res.json(member)
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ error: 'A staff member with that email already exists.' })
@@ -151,7 +222,9 @@ router.put('/:id', async (req, res, next) => {
 // DELETE
 router.delete('/:id', async (req, res, next) => {
   try {
+    const before = await getPrisma().staffMember.findUnique({ where: { id: req.params.id } })
     await getPrisma().staffMember.delete({ where: { id: req.params.id } })
+    logAudit(req, 'StaffMember', req.params.id, 'DELETE', before, null)
     res.json({ ok: true })
   } catch (err) { next(err) }
 })

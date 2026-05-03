@@ -11,6 +11,11 @@ const port = process.env.PORT || 3000
 app.use(cors())
 app.use(express.json())
 
+// Public endpoints — must be registered before the auth middleware
+app.get('/api/version', (_req, res) => {
+  res.json({ buildId: process.env.GIT_SHA || 'dev' })
+})
+
 // Protect all API routes
 app.use('/api', authMiddleware)
 
@@ -27,6 +32,7 @@ app.use('/api/files',                    require('./routes/movingFiles'))
 app.use('/api/jobs',                     require('./routes/jobs'))
 app.use('/api/surveys',                  require('./routes/surveys'))
 app.use('/api/admin',                    require('./routes/admin'))
+app.use('/api/audit',                    require('./routes/audit'))
 app.use('/api/email',                    require('./routes/email'))
 
 // Legacy health check
