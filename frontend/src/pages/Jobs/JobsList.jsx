@@ -106,7 +106,7 @@ export default function JobsList() {
                         <tr key={job.id}>
                           <td><Link to={`/jobs/${job.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.jobNumber}</Link></td>
                           <td style={{ color: 'var(--text-muted)' }}>{job.client?.name || '—'}</td>
-                          <td><span className="badge" style={{ background: job.type === 'INTERNATIONAL' ? '#eff6ff' : '#f0fdf4', color: job.type === 'INTERNATIONAL' ? '#1e40af' : '#166534' }}>{tm.label}</span></td>
+                          <td><span className="badge" style={{ background: tm.bg, color: tm.color }}>{tm.label}</span></td>
                           <td style={{ color: 'var(--text-muted)' }}>{[job.originCity, job.destCity].filter(Boolean).join(' → ') || '—'}</td>
                           <td style={{ color: 'var(--text-muted)' }}>{formatDate(job.serviceDate)}</td>
                           <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{job.coordinator?.name || '—'}</td>

@@ -1,7 +1,7 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
 const { logAudit } = require('../audit')
-const { getDownloadUrl } = require('../storage/azure')
+const { getDownloadUrl, downloadBlob } = require('../storage/azure')
 
 async function generateQuoteNumber() {
   const year = new Date().getFullYear()
@@ -27,10 +27,11 @@ function toDate(val) {
 // GET all
 router.get('/', async (req, res, next) => {
   try {
-    const { status, visitId } = req.query
+    const { status, visitId, movingFileId } = req.query
     const where = {}
-    if (status)  where.status  = status
-    if (visitId) where.visitId = visitId
+    if (status)       where.status       = status
+    if (visitId)      where.visitId      = visitId
+    if (movingFileId) where.movingFileId = movingFileId
     const quotes = await getPrisma().quote.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -41,6 +42,7 @@ router.get('/', async (req, res, next) => {
             client: { select: { id: true, name: true } },
           },
         },
+        movingFile: { select: { id: true, fileNumber: true, category: true, client: { select: { id: true, name: true, firstName: true, lastName: true } } } },
         job: { select: { id: true, jobNumber: true } },
       },
     })
@@ -48,14 +50,15 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET one (includes full visit for pre-fill + creator signature)
+// GET one (includes full visit or movingFile for pre-fill + creator signature)
 router.get('/:id', async (req, res, next) => {
   try {
     const quote = await getPrisma().quote.findUnique({
       where: { id: req.params.id },
       include: {
-        visit: { include: { client: true, corporateClient: true } },
-        job:   { select: { id: true, jobNumber: true } },
+        visit:       { include: { client: true, corporateClient: true } },
+        movingFile:  { select: { id: true, fileNumber: true, category: true, client: true, corporateClient: { select: { id: true, name: true } }, originAddress: true, originCity: true, originCountry: true, destAddress: true, destCity: true, destCountry: true } },
+        job:         { select: { id: true, jobNumber: true } },
       },
     })
     if (!quote) return res.status(404).json({ error: 'Not found' })
@@ -82,18 +85,41 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST create — also marks the linked visit as QUOTED
+// GET creator signature image — proxied from Azure to avoid CORS issues in the browser
+router.get('/:id/creator-signature', async (req, res, next) => {
+  try {
+    const quote = await getPrisma().quote.findUnique({
+      where: { id: req.params.id },
+      select: { creatorName: true },
+    })
+    if (!quote?.creatorName) return res.status(404).end()
+    const staff = await getPrisma().staffMember.findFirst({
+      where: { name: quote.creatorName, isActive: true },
+      select: { signatureImagePath: true },
+    })
+    if (!staff?.signatureImagePath) return res.status(404).end()
+    const { readableStream, contentType } = await downloadBlob(staff.signatureImagePath)
+    res.setHeader('Content-Type', contentType)
+    res.setHeader('Cache-Control', 'private, max-age=3600')
+    readableStream.pipe(res)
+  } catch (err) { next(err) }
+})
+
+// POST create — also marks the linked visit as QUOTED (if visitId provided)
 router.post('/', async (req, res, next) => {
   try {
-    const { visitId, status, totalAmount, currency, validUntil, notes, language, content, creatorName } = req.body
-    if (!visitId) return res.status(400).json({ error: 'visitId is required' })
+    const { visitId, movingFileId, status, totalAmount, currency, validUntil, notes, language, content, creatorName, serviceMode } = req.body
+    if (!visitId && !movingFileId) return res.status(400).json({ error: 'visitId or movingFileId is required' })
     const quoteNumber = await generateQuoteNumber()
-    // Mark visit as QUOTED
-    await getPrisma().visit.update({ where: { id: visitId }, data: { status: 'QUOTED' } })
+    // Mark visit as QUOTED (only for visit-linked quotes)
+    if (visitId) {
+      await getPrisma().visit.update({ where: { id: visitId }, data: { status: 'QUOTED' } })
+    }
     const quote = await getPrisma().quote.create({
       data: {
         quoteNumber,
-        visitId,
+        visitId: visitId || null,
+        movingFileId: movingFileId || null,
         status: status || 'DRAFT',
         totalAmount: totalAmount ? parseFloat(totalAmount) : null,
         currency: currency || 'USD',
@@ -102,6 +128,7 @@ router.post('/', async (req, res, next) => {
         language: language || 'EN',
         content: content || null,
         creatorName: creatorName || null,
+        serviceMode: serviceMode || 'SEA_ROAD',
       },
     })
     logAudit(req, 'Quote', quote.id, 'CREATE', null, quote)
@@ -112,7 +139,7 @@ router.post('/', async (req, res, next) => {
 // PUT update
 router.put('/:id', async (req, res, next) => {
   try {
-    const { status, totalAmount, currency, validUntil, notes, language, content, creatorName } = req.body
+    const { status, totalAmount, currency, validUntil, notes, language, content, creatorName, serviceMode, movingFileId } = req.body
     const before = await getPrisma().quote.findUnique({ where: { id: req.params.id } })
     const quote = await getPrisma().quote.update({
       where: { id: req.params.id },
@@ -125,6 +152,8 @@ router.put('/:id', async (req, res, next) => {
         language: language || undefined,
         content: content !== undefined ? content : undefined,
         creatorName: creatorName !== undefined ? creatorName : undefined,
+        serviceMode: serviceMode || undefined,
+        movingFileId: movingFileId !== undefined ? (movingFileId || null) : undefined,
       },
     })
     // When a quote is rejected, close its linked visit

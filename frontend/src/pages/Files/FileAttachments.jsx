@@ -11,7 +11,7 @@ import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMEN
  *   fileCategory String   EXPORT | IMPORT | LOCAL
  *   onStatusChange fn(status)   called when file auto-closes or re-opens
  */
-export default function FileAttachments({ fileId, fileCategory, fechaEntrega, job, bookerRole, onStatusChange, onAllRequiredDone, onPctChange }) {
+export default function FileAttachments({ fileId, fileCategory, fechaEntrega, job, quote, bookerRole, onStatusChange, onAllRequiredDone, onPctChange }) {
   const { t } = useLanguage()
   const FILE_CATS = getFileCategories(t)
 
@@ -36,10 +36,11 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
   const pendingCategoryRef              = useRef(null)
 
   // Categories satisfied by linked system records (Visit / Quote / Work Order)
+  const resolvedQuote = quote || job?.quote
   const linkedDoneMap = {
-    ...(job?.visit ? { SURVEY_REPORT: { number: job.visit.visitNumber, route: `/visits/${job.visit.id}` } } : {}),
-    ...(job?.quote ? { QUOTATION:   { number: job.quote.quoteNumber, route: `/quotes/${job.quote.id}` } } : {}),
-    ...(job         ? { WORK_ORDER: { number: job.jobNumber,        route: `/jobs/${job.id}?tab=workorder` } } : {}),
+    ...(job?.visit       ? { SURVEY_REPORT: { number: job.visit.visitNumber, route: `/visits/${job.visit.id}` } } : {}),
+    ...(resolvedQuote    ? { QUOTATION:     { number: resolvedQuote.quoteNumber, route: `/quotes/${resolvedQuote.id}` } } : {}),
+    ...(job              ? { WORK_ORDER:    { number: job.jobNumber,            route: `/jobs/${job.id}?tab=workorder` } } : {}),
   }
 
   // Notify parent when all required docs are uploaded

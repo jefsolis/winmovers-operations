@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
+import { getAccessToken } from '../../auth/tokenHelper'
 import { quoteStatusMeta, visitStatusMeta, formatDate } from '../../constants'
 import { useLanguage } from '../../i18n'
 import QuickCreateClientModal from '../../components/QuickCreateClientModal'
@@ -13,13 +14,15 @@ export default function QuoteDetail() {
   const navigate = useNavigate()
   const { t } = useLanguage()
   const docRef    = useRef(null)
-  const headerRef  = useRef(null)
+  const headerRef = useRef(null)
+  const footerRef = useRef(null)
 
   const [quote, setQuote]       = useState(null)
   const [sections, setSections] = useState({})
   const [loading, setLoading]   = useState(true)
   const [acting, setActing]     = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [signatureDataUrl, setSignatureDataUrl] = useState(null)
   const [interceptPending, setInterceptPending] = useState(false)
   const [showCreateClient, setShowCreateClient] = useState(false)
   const [activeTab, setActiveTab] = useState('document')
@@ -39,10 +42,30 @@ export default function QuoteDetail() {
   const buildFallback = (q) => {
     const lang = q.language || 'EN'
     const m = { totalAmount: q.totalAmount, currency: q.currency, validUntil: q.validUntil ? new Date(q.validUntil).toISOString().slice(0, 10) : '', creatorName: q.creatorName }
-    setSections(buildDefaultSections(lang, buildVarsFromVisit(q.visit, m, lang), q.visit?.serviceType))
+    const isImp = Boolean(q.movingFileId)
+    setSections(buildDefaultSections(lang, buildVarsFromVisit(q.visit, m, lang), q.visit?.serviceType, q.serviceMode || 'SEA_ROAD', isImp ? 'IMPORT' : 'EXPORT'))
   }
 
   useEffect(() => { load() }, [id]) // eslint-disable-line
+
+  // Pre-fetch signature via backend proxy (avoids CORS issues with Azure Blob URLs)
+  useEffect(() => {
+    if (!quote?.creator?.signatureImageUrl) { setSignatureDataUrl(null); return }
+    let cancelled = false
+    getAccessToken().then(token => {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+      return fetch(`/api/quotes/${id}/creator-signature`, { headers })
+    })
+      .then(r => r.ok ? r.blob() : null)
+      .then(blob => blob ? new Promise(resolve => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.readAsDataURL(blob)
+      }) : null)
+      .then(dataUrl => { if (!cancelled) setSignatureDataUrl(dataUrl) })
+      .catch(() => { if (!cancelled) setSignatureDataUrl(null) })
+    return () => { cancelled = true }
+  }, [id, quote?.creator?.signatureImageUrl]) // eslint-disable-line
 
   const setStatus = async (status) => {
     setActing(true)
@@ -52,8 +75,13 @@ export default function QuoteDetail() {
   }
 
   const handleConvertToJob = () => {
-    if (!visit?.clientId) { setInterceptPending(true) }
-    else { navigate(`/jobs/new?fromQuote=${id}`) }
+    if (isImport) {
+      // Import quote: pre-fill job from the linked file, also link this quote
+      navigate(`/jobs/new?fromFile=${movingFile.id}&type=IMPORT&fromQuote=${id}`)
+    } else {
+      if (!visit?.clientId) { setInterceptPending(true) }
+      else { navigate(`/jobs/new?fromQuote=${id}`) }
+    }
   }
 
   const handleClientCreated = async (newClient) => {
@@ -62,83 +90,93 @@ export default function QuoteDetail() {
     navigate(`/jobs/new?fromQuote=${id}`)
   }
 
+  const buildPDF = async () => {
+    if (!docRef.current || !headerRef.current || !footerRef.current) return null
+    const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+      import('html2canvas'),
+      import('jspdf'),
+    ])
+    const captureOpts = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }
+    const [headerCanvas, footerCanvas, docCanvas] = await Promise.all([
+      html2canvas(headerRef.current, captureOpts),
+      html2canvas(footerRef.current, captureOpts),
+      html2canvas(docRef.current, captureOpts),
+    ])
+
+    const pdf   = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+    const pageW = pdf.internal.pageSize.getWidth()
+    const pageH = pdf.internal.pageSize.getHeight()
+
+    const mTop    = 30
+    const mSide   = 28
+    const mBottom = 16
+    const gap     = 8
+
+    const contentW      = pageW - mSide * 2
+    const headerPt      = (headerCanvas.height / headerCanvas.width) * contentW
+    const footerPt      = (footerCanvas.height / footerCanvas.width) * contentW
+    const contentStartY = mTop + headerPt + gap
+    const footerY       = pageH - mBottom - footerPt
+    const slicePtH      = footerY - gap - contentStartY
+
+    const docPxW   = docCanvas.width
+    const docPxH   = docCanvas.height
+    const slicePxH = Math.round((slicePtH / contentW) * docPxW)
+
+    const headerDataUrl = headerCanvas.toDataURL('image/jpeg', 0.95)
+    const footerDataUrl = footerCanvas.toDataURL('image/jpeg', 0.95)
+
+    let page     = 0
+    let offsetPx = 0
+
+    while (offsetPx < docPxH) {
+      if (page > 0) pdf.addPage()
+
+      pdf.addImage(headerDataUrl, 'JPEG', mSide, mTop, contentW, headerPt)
+      pdf.addImage(footerDataUrl, 'JPEG', mSide, footerY, contentW, footerPt)
+
+      const thisSlicePx = Math.min(slicePxH, docPxH - offsetPx)
+      const sliceCanvas = document.createElement('canvas')
+      sliceCanvas.width  = docPxW
+      sliceCanvas.height = thisSlicePx
+      const ctx = sliceCanvas.getContext('2d')
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, docPxW, thisSlicePx)
+      ctx.drawImage(docCanvas, 0, offsetPx, docPxW, thisSlicePx, 0, 0, docPxW, thisSlicePx)
+
+      const thisSlicePt = (thisSlicePx / docPxW) * contentW
+      pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', mSide, contentStartY, contentW, thisSlicePt)
+
+      offsetPx += slicePxH
+      page++
+    }
+
+    return pdf
+  }
+
   const exportPDF = async () => {
-    if (!docRef.current || !headerRef.current) return
     setExporting(true)
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ])
-      const captureOpts = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }
-      const [headerCanvas, docCanvas] = await Promise.all([
-        html2canvas(headerRef.current, captureOpts),
-        html2canvas(docRef.current, captureOpts),
-      ])
-
-      const pdf   = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
-      const pageW = pdf.internal.pageSize.getWidth()   // 595 pt
-      const pageH = pdf.internal.pageSize.getHeight()  // 842 pt
-
-      const mTop    = 30  // top margin (pt)
-      const mSide   = 28  // left/right margin (pt)
-      const mBottom = 30  // bottom margin (pt)
-      const gap     = 8   // gap between header and content (pt)
-
-      const contentW = pageW - mSide * 2
-
-      // Header dimensions in pt (preserve aspect ratio scaled to contentW)
-      const headerPt = (headerCanvas.height / headerCanvas.width) * contentW
-
-      // Content area available per page (in pt)
-      const contentStartY = mTop + headerPt + gap
-      const slicePtH      = pageH - contentStartY - mBottom
-
-      // Source doc canvas dimensions
-      const docPxW    = docCanvas.width
-      const docPxH    = docCanvas.height
-
-      // Height (in doc canvas pixels) that corresponds to one page's content slice
-      const slicePxH  = Math.round((slicePtH / contentW) * docPxW)
-
-      const headerDataUrl = headerCanvas.toDataURL('image/jpeg', 0.95)
-
-      let page      = 0
-      let offsetPx  = 0
-
-      while (offsetPx < docPxH) {
-        if (page > 0) pdf.addPage()
-
-        // Draw header on every page
-        pdf.addImage(headerDataUrl, 'JPEG', mSide, mTop, contentW, headerPt)
-
-        // Extract the exact pixel slice for this page into a fresh canvas
-        const thisSlicePx = Math.min(slicePxH, docPxH - offsetPx)
-        const sliceCanvas = document.createElement('canvas')
-        sliceCanvas.width  = docPxW
-        sliceCanvas.height = thisSlicePx
-        const ctx = sliceCanvas.getContext('2d')
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, docPxW, thisSlicePx)
-        ctx.drawImage(
-          docCanvas,
-          0, offsetPx, docPxW, thisSlicePx,   // source: the slice
-          0, 0,        docPxW, thisSlicePx    // dest: full temp canvas
-        )
-
-        // Height of this slice in pt (same ratio as full doc)
-        const thisSlicePt = (thisSlicePx / docPxW) * contentW
-
-        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG',
-          mSide, contentStartY, contentW, thisSlicePt)
-
-        offsetPx += slicePxH
-        page++
-      }
-
-      pdf.save(`${quote.quoteNumber || 'quote'}.pdf`)
+      const pdf = await buildPDF()
+      if (pdf) pdf.save(`${quote.quoteNumber || 'quote'}.pdf`)
     } catch (err) {
       console.error('PDF export error', err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const printPDF = async () => {
+    setExporting(true)
+    try {
+      const pdf = await buildPDF()
+      if (!pdf) return
+      pdf.autoPrint()
+      const blob = pdf.output('blob')
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    } catch (err) {
+      console.error('PDF print error', err)
     } finally {
       setExporting(false)
     }
@@ -150,6 +188,8 @@ export default function QuoteDetail() {
   const qm = quoteStatusMeta(quote.status, t)
   const visit = quote.visit
   const vm = visit ? visitStatusMeta(visit.status, t) : null
+  const movingFile = quote.movingFile || null
+  const isImport = Boolean(movingFile)
 
   return (
     <>
@@ -168,7 +208,7 @@ export default function QuoteDetail() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link to="/quotes" className="btn btn-secondary btn-sm">{t('quotes.backToQuotes')}</Link>
           <Link to={`/quotes/${id}/edit`} className="btn btn-secondary btn-sm">{t('common.edit')}</Link>
-          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+          <button className="btn btn-secondary btn-sm" onClick={printPDF} disabled={exporting}>
             🖨 {t('common.print')}
           </button>
           <button className="btn btn-primary btn-sm" onClick={exportPDF} disabled={exporting}>
@@ -206,13 +246,21 @@ export default function QuoteDetail() {
             </Link>
           </div>
         )}
-        {/* Linked visit badge */}
+        {/* Linked visit or import file badge */}
         {visit && (
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('quotes.fromVisit')}:</span>
             <Link to={`/visits/${visit.id}`} className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               {visit.visitNumber}
               {vm && <span className="badge" style={{ background: vm.bg, color: vm.color, fontSize: 10 }}>{vm.label}</span>}
+            </Link>
+          </div>
+        )}
+        {isImport && movingFile && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('quotes.linkedFile')}:</span>
+            <Link to={`/files/import/${movingFile.id}`} className="btn btn-secondary btn-sm">
+              {movingFile.fileNumber}
             </Link>
           </div>
         )}
@@ -261,12 +309,14 @@ export default function QuoteDetail() {
         <QuoteDocument
           ref={docRef}
           headerRef={headerRef}
+          footerRef={footerRef}
           sections={sections}
           editMode={false}
           language={quote.language || 'EN'}
           quoteNumber={quote.quoteNumber}
           sectionKeys={visit?.serviceType === 'LOCAL_MOVE' ? LOCAL_SECTION_KEYS : SECTION_KEYS}
           creator={quote.creator || null}
+          signatureDataUrl={signatureDataUrl}
         />
       </div>
       )}

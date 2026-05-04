@@ -222,6 +222,52 @@ AuditLog {
 
 ---
 
+---
+
+## 6. Quote Templates — Aerial & Import
+
+### ~~QT-04~~ ✅ — Aerial freight quote template (Export, EN + ES)
+
+**User story:** As a coordinator, I want to generate a quote using an Aerial (air freight) template when the service is by air, so the wording correctly reflects air freight instead of sea/road freight.
+
+**Context:**
+- Currently there are two international Export templates: `TEMPLATES.EN` and `TEMPLATES.ES` (sea/road).
+- A new parallel set `AERIAL_TEMPLATES` (EN + ES) is needed with air-freight-specific wording for sections such as International Freight and Service Schedule.
+- The template structure (section keys) stays the same as `TEMPLATES`; only the default text per section differs.
+
+**Acceptance criteria:**
+- A new `AERIAL_TEMPLATES` export is added to `quoteTemplates.js` with `EN` and `ES` variants.
+- The Quote form includes a **Service Mode** selector (e.g. Sea/Road vs. Aerial) that appears only for international (Export) quotes.
+- Selecting Aerial loads the `AERIAL_TEMPLATES` defaults instead of `TEMPLATES`.
+- The selected mode is saved on the Quote record (new `serviceMode` field: `SEA_ROAD | AERIAL`).
+- The `QuoteDocument` renders identically for both modes; only the pre-filled text differs.
+- Existing quotes without a `serviceMode` value default to `SEA_ROAD` so nothing breaks.
+- Template texts for EN and ES to be provided separately.
+
+---
+
+### ~~QT-05~~ ✅ — Quote for Import files
+
+**User story:** As a coordinator, I want to create a quote directly from an Import Moving File, so I can send a formal import service proposal to clients who already have an inbound shipment.
+
+**Context:**
+- Today, quotes are always tied to a Visit (`visitId` is required). Import files have no pre-sale visit.
+- Import quotes need a different entry point and a different template (import-specific sections).
+- The Import quote template exists only in Spanish; an English translation is needed.
+
+**Acceptance criteria:**
+- The Quote schema (Prisma + backend) gains an optional `movingFileId` field so a quote can be linked to a MovingFile instead of (or in addition to) a Visit.
+- A **"Create Quote"** button is added to the Import file detail page (similar to how it appears on Visit detail pages).
+- Clicking it opens the existing Quote form pre-populated with client, origin, destination from the file; `visitId` is left blank; `movingFileId` is set.
+- A new `IMPORT_TEMPLATES` export is added to `quoteTemplates.js` with `EN` and `ES` variants.
+- The Quote form detects it is an Import quote (via `fileId` query param or `movingFileId`) and loads `IMPORT_TEMPLATES` instead of `TEMPLATES`.
+- `visitId` is not required when `movingFileId` is present; backend validation is updated accordingly.
+- The `QuoteDocument` renders Import quotes correctly (section headings, placeholders match import wording).
+- Import quotes appear in the Quotes list and are linked back from the Import file detail page.
+- Template texts for EN and ES to be provided separately.
+
+---
+
 ### ✅ AL-04 — Audit log entries are retained for a configurable period
 
 **User story:** As an administrator, I want to be confident that audit data is kept for at least 2 years, and that very old records can be archived or purged without disrupting the app.

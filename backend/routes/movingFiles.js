@@ -84,6 +84,7 @@ router.get("/:id", async (req, res, next) => {
         destAgent:   { select: { id: true, name: true } },
         coordinator: { select: { id: true, name: true } },
         attachments: { orderBy: { uploadedAt: "desc" } },
+        quotes:      { orderBy: { createdAt: 'desc' }, select: { id: true, quoteNumber: true, status: true, totalAmount: true, currency: true, language: true, createdAt: true } },
       },
     })
     if (!file) return res.status(404).json({ error: "Not found" })

@@ -108,6 +108,98 @@ export const TEMPLATES = {
   },
 }
 
+export const IMPORT_TEMPLATES = {
+  EN: {
+    clientInfo: `[Date]\n\n[Client Name]\n[Company]`,
+
+    salutation: `Dear [Client Name]:\n\nWe would like to thank you for considering us to provide professional services for the transportation of your household goods and personal effects, door to door, from your residence in [Origin] to your new residence in [Destiny].\n\nBelow is a breakdown of the services we will provide:`,
+
+    originPackingServices: `**Packing Services**\n\n- Packing will be carried out at your residence by professional packers using new materials such as bubble wrap, white paper, Styrofoam, corrugated cardboard, and special boxes for packaging.\n- Conditioning of household goods and vehicle in the container.\n- Free storage for 15 days at our warehouses (if required).\n- Preparation of packing lists.\n- Container conditioning and export procedures.\n- Once packing is complete, all items will be placed inside the container and dispatched to [Destiny].`,
+
+    customsPaperWork: `**Customs Procedures for Export**\n\nWe will prepare all necessary forms to comply with customs formalities for the export of the household goods.`,
+
+    internationalFreight: `**International Freight — Ocean**\n\nWe will coordinate land/ocean freight from your residence in [Origin] to the port of [Destiny], in a 40-foot container.`,
+
+    destinationServices: `**Destination Services**\n\nIn [Destiny] we will handle customs procedures for the nationalization of the shipment, transport from the port to your new residence, including unloading, unpacking, arranging items, and removal of all packing materials used.`,
+
+    price: `**Costs and Conditions**\n\nThe cost of our Door to Door services by ocean freight is [Currency][Price]. This rate is based on an estimated ___ cubic meters in a 40-foot container. This rate excludes import taxes, bonded warehouse storage, extra shipping line charges for handling electric batteries, THC/port charges, and customs inspections.\n\nAdditionally, we offer Door to Door insurance at 4% of the declared value of the shipment, with PAC Global Insurance Co. For this, you will need to provide a list of items with detailed values.`,
+
+    serviceSchedule: ``,
+
+    exclusions: ``,
+
+    goodbye: `We hope to have the opportunity to assist you and remain at your service.\n\nSincerely,`,
+  },
+
+  ES: {
+    clientInfo: `[Date]\n\nSeñor (a): [Client Name]\n[Company]`,
+
+    salutation: `Estimado (a) Sr. [Client Name]:\n\nDeseamos agradecerle el considerarnos en la oferta de servicios profesionales para el traslado de su menaje de casa y efectos personales en un servicio puerta a puerta desde su residencia en [Origin] hasta su nueva residencia en [Destiny].\n\nA continuación, el desglose de los servicios que brindaremos:`,
+
+    originPackingServices: `**Servicios de Embalaje**\n\n-Se efectuará en sus instalaciones con empacadores profesionales quienes utilizan materiales nuevos tales como plástico de burbujas, papel blanco, estereofón, cartón corrugado, además de cajas para el embalaje.\n- Acondicionamiento del menaje de casa y auto en el contenedor.\n- Almacenaje libre por 15 días en nuestras bodegas (en caso de requerirlo).\n-Preparación de listas de empaque.\n- Acondicionamiento y trámites de exportación.\n-Una vez finalizado el embalaje se acondicionarán los bultos dentro del contenedor para luego ser despachados hacia [Destiny].`,
+
+    customsPaperWork: `**Trámites de Aduana para la Exportación**\n\nConfeccionaremos todos los formularios para cumplir con las formalidades aduaneras para la exportación del menaje de casa.`,
+
+    internationalFreight: `**Flete Internacional — Vía Marítimo**\n\nCoorinaremos el flete Terrestre/Marítimo desde su residencia en [Origin] hasta [Destiny] en un contenedor de 40 pies.`,
+
+    destinationServices: `**Servicios de Destino**\n\nEn [Destiny] realizaremos los trámites de aduana para la nacionalización del embarque, traslado de este desde el puerto a la nueva residencia, descarga, desempaque, acomodo y el retiro de materiales de empaque usados.`,
+
+    price: `**Costos y Condiciones**\n\nEl costo por nuestros servicios de Puerta a Puerta por vía marítimo es de [Currency][Price]. Esta tarifa es en base a un estimado de ___ metros cúbicos en un contenedor de 40 pies. Esta tarifa excluye impuestos de importación, bodegajes en almacén fiscal, cargos extras de navieras por manejo de baterías eléctricas, THC/cargos portuarios e inspecciones aduanales.\n\nAdicionalmente ofrecemos un seguro Puerta a Puerta a razón del 4% del valor declarado del embarque con la compañía Pac Global Insurance Co. Para ello es necesario nos proporcione una lista de los artículos con valores detallados.`,
+
+    serviceSchedule: ``,
+
+    exclusions: ``,
+
+    goodbye: `Esperamos nos brinde la oportunidad de asistirle y quedando a sus gratas órdenes, nos suscribimos sus seguros servidores.\n\nMuy atentamente,`,
+  },
+}
+
+export const AERIAL_TEMPLATES = {
+  EN: {
+    clientInfo: `[Date]\n\n[Client Name]\n[Company]`,
+
+    salutation: `Dear [Client Name]:\n\nWe want to thank you for considering us in offering our professional services to transport your household goods and personal effects on a door to door service, from [Origin] to [Destiny].\n\nThe services we provide will be detailed as follows:`,
+
+    originPackingServices: `**Packing Services**\n\n-The packaging will be done at your residence with professional packers who use new materials such as bubble wrap, white paper, Styrofoam, corrugated cardboard, plus special boxes for packaging of glassware, china, ornaments, books, clothing, etc.\n-Special wooden boxes will be prepared to provide greater security for fragile items such as pictures, marble, glass and mirrors.\n-All services provided will be strictly supervised.\n-You can have free storage in our warehouse for 30 days, if required.\n-We will provide a detailed packing list.\n-Once packaging is complete, items will be conditioned inside a certified wooden van.`,
+
+    customsPaperWork: `**Customs Procedures for Export**\n\n-We will fill out all the forms to comply with customs formalities for household goods in [Origin] and the exit customs office. To carry out this procedure, only a photocopy of your passport and signature of the shipper forms for PROCOMER is required.`,
+
+    internationalFreight: `**International Air Freight**\n\n-We will coordinate air freight from [Origin] to [Destiny], with an estimated transit time of approximately 10 days.`,
+
+    destinationServices: `**Destination Services**\n\n-Our correspondent in [Destiny] will handle customs clearance for the nationalization of the household goods shipment, transporting it from the airport to your residence, including unloading, unpacking, arranging items, and removal of all packing materials.`,
+
+    price: `**Costs and Conditions**\n\nThe cost of our Door to Door services by air is [Currency][Price]. Our price is based on a shipment of ___ Kilos / ___ cubic meters.\n\nAdditionally, we offer Door to Door insurance at 4% of the declared value of the shipment, with PAC Global Insurance Co. This requires you to provide a detailed item list with the declared value of each article.`,
+
+    serviceSchedule: `This quote is valid for: [Quote Valid Days].\nPayment method: Before shipping.`,
+
+    exclusions: `**Exclusions**\n\nOur price does not include: taxes, temporary storage, port charges, costs for use of special equipment such as forklifts, THC, special trucks for inaccessibility, customs inspections, port delay extra costs, or any other cost that has not been mentioned above. These charges must be paid to our agent at destination.`,
+
+    goodbye: `We hope to have the opportunity to serve you and we remain at your service.\n\nBest Regards,`,
+  },
+
+  ES: {
+    clientInfo: `Fecha: [Date]\n\nSeñor (a) [Client Name]\n[Company]`,
+
+    salutation: `Estimado (a) [Client Name]\n\nDeseamos agradecerle el considerarnos en la oferta de servicios profesionales para el traslado de su menaje de casa y efectos personales en un servicio Puerta a Puerta desde [Origin] hasta [Destiny].\n\nA continuación, el desglose de los servicios que brindaremos:`,
+
+    originPackingServices: `**Servicios de Embalaje**\n\n-Se efectuará en su residencia con empacadores profesionales, quienes utilizan materiales nuevos tales como plástico con burbujas, papel blanco, estereofón, cartón corrugado, además de cajas para el embalaje (empaque) de cristalería, loza, adornos, libros, ropa, etc.\n-Se confeccionarán cajas especiales de madera para brindar mayor seguridad a los artículos frágiles tales como cuadros, mármol, vidrios y espejos.\n-Habrá supervisión personal del servicio que se esté brindando.\n-Podrá contar con almacenaje libre por 30 días en nuestras bodegas, si así lo requiere.\n-Preparación de lista de empaque.\n-Una vez finalizado el embalaje se acondicionarán los bultos dentro de un van de madera certificada.`,
+
+    customsPaperWork: `**Trámites de Aduana para la Exportación**\n\n-Confeccionaremos todos los formularios para cumplir con las formalidades aduaneras para el menaje de casa en [Origin] y la aduana de salida. Para realizar este trámite es necesario únicamente la fotocopia de su pasaporte y la firma del embarcador de formularios para PROCOMER.`,
+
+    internationalFreight: `**Flete Internacional Vía Aérea**\n\n-Coordinaremos el flete aéreo desde [Origin] hasta [Destiny], con un tiempo de tránsito estimado de 2 días.`,
+
+    destinationServices: `**Servicios de Destino**\n\n-Nuestro corresponsal realizará los trámites de aduana para la nacionalización del embarque de menaje de casa, trasladando el mismo desde el aeropuerto a su residencia en [Destiny], descarga, desempaque, acomodo y retiro de los materiales utilizados.`,
+
+    price: `**Costos y Condiciones**\n\nEl costo de nuestros servicios de Puerta a Puerta por vía aérea es de [Currency][Price]. Hemos basado nuestra tarifa en un embarque de ___ Kilos / ___ metros cúbicos.\n\nAdicionalmente ofrecemos un Seguro puerta a puerta a razón del 4% sobre el valor declarado del embarque, con la compañía Pac Global Insurance Co. Para ello es necesario que nos proporcione una lista de artículos con valores detallados.`,
+
+    serviceSchedule: `Cotización válida por: [Quote Valid Days].\nForma de pago: antes del despacho.`,
+
+    exclusions: `**Exclusiones**\n\nNuestro costo no incluye: impuestos, bodegajes, tasas arancelarias, cargos de aeropuerto, costos por uso de equipo especial para la entrega tales como montacargas, camiones especiales por dificultad de acceso, inspecciones aduanales, costos extra por atrasos portuarios, o cualquier otro costo que no haya sido mencionado anteriormente.`,
+
+    goodbye: `Esperamos nos brinde la oportunidad de asistirle y quedando a sus gratas órdenes, nos suscribimos sus seguros servidores.\n\nMuy Atentamente,`,
+  },
+}
+
 // ─── Number → Words ────────────────────────────────────────────────────────────
 
 const ONES_EN = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE',
@@ -222,10 +314,15 @@ export const LOCAL_TEMPLATES = {
   },
 }
 
-export function buildDefaultSections(language, vars, serviceType) {
+export function buildDefaultSections(language, vars, serviceType, serviceMode, quoteType) {
   const lang = language === 'ES' ? 'ES' : 'EN'
-  const isLocal = serviceType === 'LOCAL_MOVE'
-  const template = isLocal ? LOCAL_TEMPLATES[lang] : TEMPLATES[lang]
+  const isLocal  = serviceType === 'LOCAL_MOVE'
+  const isImport = quoteType === 'IMPORT'
+  const isAerial = !isLocal && !isImport && serviceMode === 'AERIAL'
+  const template = isLocal ? LOCAL_TEMPLATES[lang]
+    : isImport  ? IMPORT_TEMPLATES[lang]
+    : isAerial  ? AERIAL_TEMPLATES[lang]
+    : TEMPLATES[lang]
   const keys = isLocal ? LOCAL_SECTION_KEYS : SECTION_KEYS
   const result = {}
   keys.forEach(key => {

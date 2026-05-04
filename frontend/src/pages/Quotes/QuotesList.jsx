@@ -28,7 +28,8 @@ export default function QuotesList() {
             q.quoteNumber.toLowerCase().includes(search.toLowerCase()) ||
             q.visit?.visitNumber?.toLowerCase().includes(search.toLowerCase()) ||
             q.visit?.prospectName?.toLowerCase().includes(search.toLowerCase()) ||
-            q.visit?.client?.name?.toLowerCase().includes(search.toLowerCase())
+            q.visit?.client?.name?.toLowerCase().includes(search.toLowerCase()) ||
+            q.movingFile?.fileNumber?.toLowerCase().includes(search.toLowerCase())
           )
         : data
       setQuotes(filtered)
@@ -51,6 +52,10 @@ export default function QuotesList() {
   const clientName = (q) => {
     if (q.visit?.client?.name) return q.visit.client.name
     if (q.visit?.prospectName) return q.visit.prospectName
+    if (q.movingFile?.client) {
+      const c = q.movingFile.client
+      return c.firstName ? `${c.firstName} ${c.lastName || ''}`.trim() : c.name
+    }
     return '—'
   }
 
@@ -100,7 +105,8 @@ export default function QuotesList() {
                   <thead>
                     <tr>
                       <th>{t('quotes.quoteNumber')}</th>
-                      <th>{t('quotes.linkedVisit')}</th>
+                      <th>{t('common.type')}</th>
+                      <th>{t('quotes.reference')}</th>
                       <th>{t('visits.prospectName')}</th>
                       <th>{t('quotes.totalAmount')}</th>
                       <th>{t('quotes.validUntil')}</th>
@@ -118,10 +124,27 @@ export default function QuotesList() {
                         <tr key={q.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/quotes/${q.id}`)}>
                           <td><strong>{q.quoteNumber}</strong></td>
                           <td>
+                            {q.movingFileId
+                              ? <span className="badge" style={{ background: '#dbeafe', color: '#1e40af' }}>{t('quotes.typeImport')}</span>
+                              : <span className="badge" style={{ background: '#dcfce7', color: '#166534' }}>{t('quotes.typeExport')}</span>
+                            }
+                          </td>
+                          <td>
                             {q.visit && (
-                              <Link to={`/visits/${q.visit.id}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--primary)' }}>
-                                {q.visit.visitNumber}
-                              </Link>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                <span className="badge" style={{ background: '#f0fdf4', color: '#166534', fontSize: 10, padding: '1px 5px' }}>{t('quotes.visitBadge')}</span>
+                                <Link to={`/visits/${q.visit.id}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--primary)' }}>
+                                  {q.visit.visitNumber}
+                                </Link>
+                              </span>
+                            )}
+                            {q.movingFile && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                <span className="badge" style={{ background: '#eff6ff', color: '#1d4ed8', fontSize: 10, padding: '1px 5px' }}>{t('quotes.typeImport')}</span>
+                                <Link to={`/files/import/${q.movingFile.id}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--primary)' }}>
+                                  {q.movingFile.fileNumber}
+                                </Link>
+                              </span>
                             )}
                           </td>
                           <td>{clientName(q)}</td>

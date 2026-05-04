@@ -97,6 +97,35 @@ export default function JobForm() {
           })
         }).catch(e => setError(e.message)).finally(() => setLoading(false))
       )
+    } else if (fromFileId) {
+      tasks.push(
+        api.get(`/files/${fromFileId}`).then(f => {
+          const indName = f.client
+            ? (f.client.clientType === 'INDIVIDUAL'
+                ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
+                : f.client.name)
+            : ''
+          const corpName = f.corporateClient?.name || ''
+          setForm(prev => ({
+            ...prev,
+            type:        fromType || 'IMPORT',
+            clientId:    f.clientId     || '',
+            companyName: corpName       || '',
+            clientPhone: f.client?.phone || '',
+            quoteTo:     indName || corpName,
+            volumeCbm:   f.volumeCbm ?? '',
+            weightKg:    f.weightKg  ?? '',
+            notes:       f.notes     || '',
+            coordinatorId: (fromType === 'IMPORT' || (!fromType && f.category === 'IMPORT')) ? (f.coordinatorId || '') : prev.coordinatorId,
+            originAddress: f.originAddress || '',
+            originCity:    f.originCity    || '',
+            originCountry: f.originCountry || '',
+            destAddress:   f.destAddress   || '',
+            destCity:      f.destCity      || '',
+            destCountry:   f.destCountry   || '',
+          }))
+        }).catch(() => {})
+      )
     } else if (fromQuoteId) {
       tasks.push(
         api.get(`/quotes/${fromQuoteId}`).then(q => {
@@ -125,35 +154,6 @@ export default function JobForm() {
             notes:         v?.observations  || '',
             clientPhone:   autoPhone   || prev.clientPhone,
             quoteTo:       autoQuoteTo || prev.quoteTo,
-          }))
-        }).catch(() => {})
-      )
-    } else if (fromFileId) {
-      tasks.push(
-        api.get(`/files/${fromFileId}`).then(f => {
-          const indName = f.client
-            ? (f.client.clientType === 'INDIVIDUAL'
-                ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
-                : f.client.name)
-            : ''
-          const corpName = f.corporateClient?.name || ''
-          setForm(prev => ({
-            ...prev,
-            type:        fromType || 'IMPORT',
-            clientId:    f.clientId     || '',
-            companyName: corpName       || '',
-            clientPhone: f.client?.phone || '',
-            quoteTo:     indName || corpName,
-            volumeCbm:   f.volumeCbm ?? '',
-            weightKg:    f.weightKg  ?? '',
-            notes:       f.notes     || '',
-            coordinatorId: (fromType === 'IMPORT' || (!fromType && f.category === 'IMPORT')) ? (f.coordinatorId || '') : prev.coordinatorId,
-            originAddress: f.originAddress || '',
-            originCity:    f.originCity    || '',
-            originCountry: f.originCountry || '',
-            destAddress:   f.destAddress   || '',
-            destCity:      f.destCity      || '',
-            destCountry:   f.destCountry   || '',
           }))
         }).catch(() => {})
       )

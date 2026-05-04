@@ -38,7 +38,7 @@ function autoResize(el) {
 }
 
 const QuoteDocument = forwardRef(function QuoteDocument(
-  { sections = {}, editMode = false, onChange, language = 'EN', quoteNumber, headerRef, sectionKeys = SECTION_KEYS, creator },
+  { sections = {}, editMode = false, onChange, language = 'EN', quoteNumber, headerRef, footerRef, sectionKeys = SECTION_KEYS, creator, signatureDataUrl },
   ref
 ) {
   const labels = SECTION_UI_LABELS[language] || SECTION_UI_LABELS.EN
@@ -98,9 +98,9 @@ const QuoteDocument = forwardRef(function QuoteDocument(
 
         {/* Signature footer */}
         <div style={{ marginTop: 40 }}>
-          {creator?.signatureImageUrl && (
+          {(signatureDataUrl || creator?.signatureImageUrl) && (
             <img
-              src={creator.signatureImageUrl}
+              src={signatureDataUrl || creator.signatureImageUrl}
               alt=""
               style={{ display: 'block', height: 60, maxWidth: 220, objectFit: 'contain', marginBottom: 8 }}
             />
@@ -115,6 +115,26 @@ const QuoteDocument = forwardRef(function QuoteDocument(
               {contactLines.slice(0, 3).map((line, i) => <div key={i}>{line}</div>)}
             </div>
           )}
+        </div>
+
+        {/* Certifications banner — end of quote only */}
+        <div style={{ marginTop: 48, textAlign: 'center' }}>
+          <img
+            src="/certifications-banner.png"
+            alt="AMSA · lacma · IAM · FIDI · FAIM Plus"
+            style={{ width: '100%', height: 110, objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+            onError={e => { e.currentTarget.style.display = 'none' }}
+          />
+        </div>
+      </div>
+
+      {/* Page footer — contact info repeated on every PDF page */}
+      <div ref={footerRef} style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8, paddingBottom: 4, textAlign: 'center', backgroundColor: '#ffffff' }}>
+        <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.7 }}>
+          Tel (506) 2215 3536 &nbsp;·&nbsp; Fax (506) 2215 3530 &nbsp;·&nbsp; sales@winmovers.com
+        </div>
+        <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.7 }}>
+          Escazú, 800 mts norte Multiplaza · Complejo Attica Bodega 10, San José, Costa Rica
         </div>
       </div>
     </div>

@@ -31,8 +31,16 @@ export function statusMeta(value, t) {
   return { ...meta, label: t ? t(`statuses.${value}`) : value }
 }
 
+const TYPE_META = {
+  EXPORT:        { bg: '#dcfce7', color: '#166534' },
+  IMPORT:        { bg: '#dbeafe', color: '#1e40af' },
+  INTERNATIONAL: { bg: '#ede9fe', color: '#5b21b6' },
+  DOMESTIC:      { bg: '#fef9c3', color: '#854d0e' },
+}
+
 export function typeMeta(value, t) {
-  return { value, label: t ? t(`types.${value}`) : value }
+  const colors = TYPE_META[value] || { bg: '#e2e8f0', color: '#475569' }
+  return { value, ...colors, label: t ? t(`types.${value}`) : value }
 }
 
 const CLIENT_TYPE_META = [

@@ -40,6 +40,10 @@ export default function QuoteForm() {
   const { t } = useLanguage()
 
   const [language, setLanguage]           = useState('EN')
+  const [serviceMode, setServiceMode]     = useState('SEA_ROAD')
+  const [isImport, setIsImport]           = useState(false)
+  const [movingFileId, setMovingFileId]   = useState(searchParams.get('fileId') || '')
+  const [movingFile, setMovingFile]       = useState(null)
   const [meta, setMeta]                   = useState({ ...EMPTY_META, validUntil: daysFromNow(30) })
   const [vars, setVars]                   = useState({ ...EMPTY_VARS })
   const [sections, setSections]           = useState({})
@@ -89,8 +93,9 @@ export default function QuoteForm() {
     }
   }
 
-  const rebuildSections = (lang, currentVars, currentMeta, rawST) => {
-    setSections(buildDefaultSections(lang, buildTplVars(lang, currentVars, currentMeta), rawST))
+  const rebuildSections = (lang, currentVars, currentMeta, rawST, mode, qType) => {
+    const qt = qType ?? (isImport ? 'IMPORT' : 'EXPORT')
+    setSections(buildDefaultSections(lang, buildTplVars(lang, currentVars, currentMeta), rawST, mode ?? serviceMode, qt))
   }
 
   useEffect(() => {
@@ -99,6 +104,10 @@ export default function QuoteForm() {
         .then(q => {
           const lang = q.language || 'EN'
           setLanguage(lang)
+          setServiceMode(q.serviceMode || 'SEA_ROAD')
+          const isImp = Boolean(q.movingFileId)
+          setIsImport(isImp)
+          if (isImp) { setMovingFileId(q.movingFileId); setMovingFile(q.movingFile || null) }
           setQuoteNumber(q.quoteNumber)
           setVisitId(q.visitId)
           const m = {
@@ -115,16 +124,46 @@ export default function QuoteForm() {
           const rawST = q.visit?.serviceType || ''
           setRawServiceType(rawST)
           if (q.content) {
-            try { setSections(JSON.parse(q.content)) } catch { rebuildSections(lang, v, m, rawST) }
+            try { setSections(JSON.parse(q.content)) } catch { rebuildSections(lang, v, m, rawST, q.serviceMode || 'SEA_ROAD', isImp ? 'IMPORT' : 'EXPORT') }
           } else {
-            rebuildSections(lang, v, m, rawST)
+            rebuildSections(lang, v, m, rawST, q.serviceMode || 'SEA_ROAD', isImp ? 'IMPORT' : 'EXPORT')
           }
         })
         .catch(e => setError(e.message))
         .finally(() => setLoading(false))
     } else {
+      const fid = searchParams.get('fileId') || ''
       const vid = searchParams.get('visitId') || ''
-      if (vid) {
+      if (fid) {
+        // Import quote from a MovingFile
+        setIsImport(true)
+        setMovingFileId(fid)
+        const initMeta = { ...EMPTY_META, validUntil: daysFromNow(30) }
+        api.get(`/files/${fid}`)
+          .then(f => {
+            setMovingFile(f)
+            const lang = 'ES'
+            setLanguage(lang)
+            const clientRaw = f.client
+            const clientName = clientRaw
+              ? (clientRaw.clientType === 'INDIVIDUAL'
+                  ? `${clientRaw.firstName || ''} ${clientRaw.lastName || ''}`.trim() || clientRaw.name
+                  : clientRaw.name)
+              : ''
+            const initVars = {
+              clientName,
+              company:     f.corporateClient?.name || '',
+              origin:      [f.originAddress, f.originCity, f.originCountry].filter(Boolean).join(', '),
+              destiny:     [f.destAddress, f.destCity, f.destCountry].filter(Boolean).join(', '),
+              serviceType: '',
+            }
+            setVars(initVars)
+            setMeta(initMeta)
+            rebuildSections(lang, initVars, initMeta, '', 'SEA_ROAD', 'IMPORT')
+          })
+          .catch(() => {})
+          .finally(() => setLoading(false))
+      } else if (vid) {
         const initMeta = { ...EMPTY_META, validUntil: daysFromNow(30) }
         api.get(`/visits/${vid}`)
           .then(v => {
@@ -142,7 +181,7 @@ export default function QuoteForm() {
           .catch(() => {})
           .finally(() => setLoading(false))
       } else {
-        rebuildSections('EN', vars, meta, '')
+        rebuildSections('EN', vars, meta, '', 'SEA_ROAD', 'EXPORT')
         setLoading(false)
       }
     }
@@ -158,21 +197,28 @@ export default function QuoteForm() {
       newVars.serviceType = SERVICE_TYPE_LABELS[lang]?.[visit.serviceType] || vars.serviceType
     }
     setVars(newVars)
-    if (!isEdit) rebuildSections(lang, newVars, meta, rawServiceType)
+    if (!isEdit) rebuildSections(lang, newVars, meta, rawServiceType, serviceMode, isImport ? 'IMPORT' : 'EXPORT')
+  }
+
+  const handleServiceModeChange = (mode) => {
+    setServiceMode(mode)
+    if (!isEdit) rebuildSections(language, vars, meta, rawServiceType, mode, isImport ? 'IMPORT' : 'EXPORT')
   }
 
   const handleSubmit = async () => {
-    if (!visitId) { setError(t('quotes.visitRequired')); return }
+    if (!visitId && !movingFileId) { setError(t('quotes.visitRequired')); return }
     setSaving(true); setError(null)
     try {
       const payload = {
-        visitId,
+        visitId:      visitId || null,
+        movingFileId: movingFileId || null,
         status:      meta.status || 'DRAFT',
         totalAmount: meta.totalAmount !== '' ? parseFloat(meta.totalAmount) : null,
         currency:    meta.currency || 'USD',
         validUntil:  meta.validUntil || null,
         creatorName: meta.creatorName || null,
         language,
+        serviceMode,
         content:     JSON.stringify(sections),
       }
       if (isEdit) {
@@ -192,6 +238,7 @@ export default function QuoteForm() {
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
 
   const visitLabel = visit?.client?.name || visit?.prospectName || visit?.visitNumber || visitId
+  const fileLabel  = movingFile?.fileNumber || movingFileId
 
   // Derive creator signature for the live preview from already-loaded data
   const creatorStaff = staffMembers.find(s => s.name === meta.creatorName)
@@ -225,7 +272,7 @@ export default function QuoteForm() {
               onClick={() => handleLanguageChange('ES')}>ES</button>
           </div>
           <Link
-            to={isEdit ? `/quotes/${id}` : (visitId ? `/visits/${visitId}` : '/quotes')}
+            to={isEdit ? `/quotes/${id}` : isImport ? `/files/import/${movingFileId}` : (visitId ? `/visits/${visitId}` : '/quotes')}
             className="btn btn-secondary btn-sm"
           >{t('common.cancel')}</Link>
           <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={saving}>
@@ -318,10 +365,19 @@ export default function QuoteForm() {
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <button type="button" className="btn btn-secondary btn-sm"
             title={t('quotes.refreshTemplate')}
-            onClick={() => rebuildSections(language, vars, meta, rawServiceType)}>
+            onClick={() => rebuildSections(language, vars, meta, rawServiceType, serviceMode)}>
             ↺ {t('quotes.refreshTemplate')}
           </button>
         </div>
+        {rawServiceType !== 'LOCAL_MOVE' && !isImport && (
+          <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
+            <label className="form-label">{t('quotes.serviceMode')}</label>
+            <select className="form-control" value={serviceMode} onChange={e => handleServiceModeChange(e.target.value)}>
+              <option value="SEA_ROAD">{t('quotes.serviceModeSeaRoad')}</option>
+              <option value="AERIAL">{t('quotes.serviceModeAerial')}</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Document editor */}

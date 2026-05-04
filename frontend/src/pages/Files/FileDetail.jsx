@@ -303,6 +303,12 @@ export default function FileDetail() {
                   </InfoRow>
                   <InfoRow label={t('movingFiles.fechaTraslado')}>{fmt(file.fechaTraslado)}</InfoRow>
                   <InfoRow label={t('movingFiles.fechaEntrega')}>{fmt(file.fechaEntrega)}</InfoRow>
+                  <InfoRow label={t('movingFiles.linkedQuote')}>
+                    {file.quotes?.length > 0
+                      ? <Link to={`/quotes/${file.quotes[0].id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{file.quotes[0].quoteNumber}</Link>
+                      : <Link to={`/quotes/new?fileId=${id}`} className="btn btn-ghost btn-sm">+ {t('quotes.createImportQuote')}</Link>
+                    }
+                  </InfoRow>
                 </>)
               })()}
 
@@ -393,6 +399,42 @@ export default function FileDetail() {
             )}
           </div>
 
+          {/* Import Quotes section */}
+          {file.category === 'IMPORT' && file.quotes?.length > 0 && (
+            <div className="card card-body" style={{ marginTop: 0, borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 12 }}>
+                {t('quotes.quotesSection')}
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ textAlign: 'left', padding: '4px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('quotes.quoteNumber')}</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('quotes.totalAmount')}</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('jobs.status')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {file.quotes.map(q => {
+                    const amount = q.totalAmount != null
+                      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: q.currency || 'USD' }).format(q.totalAmount)
+                      : '—'
+                    return (
+                      <tr key={q.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '6px 8px' }}>
+                          <Link to={`/quotes/${q.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{q.quoteNumber}</Link>
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>{amount}</td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1' }}>{t(`quoteStatuses.${q.status}`)}</span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {/* Ready to Close card — all categories while active */}
           {file.status !== 'CLOSED' && file.status !== 'VOID' && (
             <div className="card card-body" style={{
@@ -452,7 +494,7 @@ export default function FileDetail() {
           <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 16 }}>
             {t('files.title')}
           </div>
-          <FileAttachments fileId={id} fileCategory={file.category} fechaEntrega={file.fechaEntrega} job={file.job} bookerRole={file.bookerRole} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} onPctChange={setAttachmentPct} />
+          <FileAttachments fileId={id} fileCategory={file.category} fechaEntrega={file.fechaEntrega} job={file.job} quote={file.quotes?.[0] || null} bookerRole={file.bookerRole} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} onPctChange={setAttachmentPct} />
         </div>
       </div>
 

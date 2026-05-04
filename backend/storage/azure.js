@@ -65,4 +65,12 @@ async function uploadSignatureImage(staffId, buffer, mimetype) {
   return blobName
 }
 
-module.exports = { uploadFile, getDownloadUrl, deleteFile, uploadSignatureImage }
+module.exports = { uploadFile, getDownloadUrl, deleteFile, uploadSignatureImage, downloadBlob }
+
+async function downloadBlob(storagePath) {
+  const client    = BlobServiceClient.fromConnectionString(connectionString)
+  const container = client.getContainerClient(containerName)
+  const blob      = container.getBlockBlobClient(storagePath)
+  const download  = await blob.download(0)
+  return { readableStream: download.readableStreamBody, contentType: download.contentType || 'application/octet-stream' }
+}
