@@ -197,6 +197,7 @@ model StaffMember {
   dashboardLayout Json?   // { hiddenCards: string[] }
   emailSignature  String? // plain-text or simple HTML signature block for quotes
   signatureImagePath String? // Azure Blob path for signature image (signatures/{id}.ext)
+  attachColorMode    String? // 'colorful' | 'monochrome' — per-user attachment view preference
 
   visits           Visit[]
   coordinatedFiles MovingFile[] @relation("FileCoordinator")
@@ -309,4 +310,19 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([userId])
   @@index([createdAt])
+}
+
+// ── Email Log ────────────────────────────────────────────────────────────────
+model EmailLog {
+  id         String   @id @default(cuid())
+  entityType String   // "Visit" | "MovingFile"
+  entityId   String
+  recipient  String
+  subject    String
+  status     String   // "SENT" | "FAILED"
+  error      String?
+  sentAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([sentAt])
 }

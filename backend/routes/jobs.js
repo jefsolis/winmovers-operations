@@ -2,6 +2,7 @@ const router = require("express").Router()
 const { getPrisma } = require("../db")
 const { logAudit } = require("../audit")
 const { generateFileNumber } = require("./movingFiles")
+const { notifyFileCoordinator } = require('../services/notifications')
 
 function toDate(val) {
   if (!val) return null
@@ -260,6 +261,26 @@ router.put("/:id", async (req, res, next) => {
         visitId:        visitId         !== undefined ? (visitId         || null) : undefined,
       },
     })
+    // If coordinator changed, sync to the linked MovingFile and send notification
+    const coordinatorChanged = coordinatorId !== undefined && coordinatorId !== (before?.coordinatorId ?? null)
+    if (coordinatorChanged) {
+      const linkedFileId = job.movingFileId ?? before?.movingFileId ?? null
+      if (linkedFileId) {
+        const updatedFile = await getPrisma().movingFile.update({
+          where: { id: linkedFileId },
+          data:  { coordinatorId: coordinatorId || null },
+          include: {
+            client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+            corporateClient: { select: { id: true, name: true } },
+            coordinator:     { select: { id: true, name: true, email: true } },
+          },
+        })
+        if (updatedFile.coordinator?.email) {
+          notifyFileCoordinator(updatedFile, 'reassigned')
+        }
+      }
+    }
+
     logAudit(req, 'Job', req.params.id, 'UPDATE', before, job)
     res.json(job)
   } catch (err) { next(err) }

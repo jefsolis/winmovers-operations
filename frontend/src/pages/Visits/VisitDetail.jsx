@@ -154,12 +154,13 @@ export default function VisitDetail() {
           </div>
           <div className="page-subtitle">{t('visits.backSubtitle')}</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} className="no-print">
           <Link to="/visits" className="btn btn-secondary">{t('visits.backToVisits')}</Link>
           <Link to={`/visits/${id}/edit`} className="btn btn-secondary">{t('common.edit')}</Link>
           {visit.scheduledDate && (
             <button className="btn btn-secondary" onClick={downloadIcs}>📅 {t('visits.downloadIcs')}</button>
           )}
+          <button className="btn btn-secondary" onClick={() => window.print()}>🖨️ {t('visits.print')}</button>
         </div>
       </div>
 
@@ -335,6 +336,81 @@ export default function VisitDetail() {
         }
       </div>
       )}
+
+      {/* ====== PRINT DOCUMENT (hidden on screen) ====== */}
+      <div className="visit-print-doc">
+        <div className="vpd-header">
+          <img src="/winmovers-logo.jpg" className="vpd-logo" alt="WinMovers"
+               onError={e => { e.currentTarget.style.display = 'none' }} />
+          <div className="vpd-contact">
+            Tel: (506) 2215-3536 &nbsp;&middot;&nbsp; Fax: (506) 2215-3530<br />
+            sales@winmovers.com<br />
+            Autopista a Santa Ana, 800 Mts. Norte de Multiplaza<br />
+            Complejo Attica, Bodega N&ordm; 10, San Jos&eacute;, Costa Rica
+          </div>
+        </div>
+
+        <div className="vpd-doc-title">{visit.visitNumber}</div>
+        <div className="vpd-doc-subtitle">{t('visits.backSubtitle')} &nbsp;&middot;&nbsp; {sm.label}</div>
+
+        <div className="vpd-section-hdr">{t('visits.visitNumber')}</div>
+        <table className="vpd-table"><tbody>
+          {visit.scheduledDate && <tr><td>{t('visits.scheduledDate')}</td><td>{formatDateTime(visit.scheduledDate)}</td></tr>}
+          {visit.serviceType   && <tr><td>{t('visits.serviceType')}</td><td>{t(`serviceTypes.${visit.serviceType}`)}</td></tr>}
+          {visit.assignedTo    && <tr><td>{t('visits.assignedTo')}</td><td>{visit.assignedTo.name}</td></tr>}
+          {visit.bookerRole    && <tr><td>{t('visits.bookerRole')}</td><td>{t(`visits.bookerRoles.${visit.bookerRole}`)}</td></tr>}
+          {visit.language      && <tr><td>{t('visits.clientLanguage')}</td><td>{visit.language}</td></tr>}
+        </tbody></table>
+
+        <div className="vpd-section-hdr">{t('visits.prospectInfo')}</div>
+        <table className="vpd-table"><tbody>
+          {clientName && <tr><td>{t('visits.prospectName')}</td><td>{clientName}</td></tr>}
+          {visit.corporateClient && <tr><td>{t('visits.companyClient')}</td><td>{visit.corporateClient.name}</td></tr>}
+          {(visit.prospectPhone || visit.contact?.phone || visit.client?.phone) &&
+            <tr><td>{t('visits.prospectPhone')}</td><td>{visit.prospectPhone || visit.contact?.phone || visit.client?.phone}</td></tr>}
+          {(visit.prospectEmail || visit.contact?.email || visit.client?.email) &&
+            <tr><td>{t('visits.prospectEmail')}</td><td>{visit.prospectEmail || visit.contact?.email || visit.client?.email}</td></tr>}
+        </tbody></table>
+
+        <div className="vpd-section-hdr">{t('visits.originInfo')}</div>
+        <table className="vpd-table"><tbody>
+          {visit.originAddress && <tr><td>{t('visits.originAddress')}</td><td>{visit.originAddress}</td></tr>}
+          {visit.originCity    && <tr><td>{t('jobs.originCity')}</td><td>{visit.originCity}</td></tr>}
+          {visit.originCountry && <tr><td>{t('jobs.originCountry')}</td><td>{visit.originCountry}</td></tr>}
+        </tbody></table>
+
+        <div className="vpd-section-hdr">{t('visits.destInfo')}</div>
+        <table className="vpd-table"><tbody>
+          {visit.destAddress && <tr><td>{t('visits.destAddress')}</td><td>{visit.destAddress}</td></tr>}
+          {visit.destCity    && <tr><td>{t('jobs.destCity')}</td><td>{visit.destCity}</td></tr>}
+          {visit.destCountry && <tr><td>{t('jobs.destCountry')}</td><td>{visit.destCountry}</td></tr>}
+        </tbody></table>
+
+        {(visit.originAgent || visit.destAgent) && <>
+          <div className="vpd-section-hdr">{t('nav.agents')}</div>
+          <table className="vpd-table"><tbody>
+            {visit.originAgent && <tr><td>{t('visits.originAgent')}</td><td>{visit.originAgent.name}</td></tr>}
+            {visit.destAgent   && <tr><td>{t('visits.destAgent')}</td><td>{visit.destAgent.name}</td></tr>}
+          </tbody></table>
+        </>}
+
+        {visit.observations && <>
+          <div className="vpd-section-hdr">{t('visits.observations')}</div>
+          <div className="vpd-obs">{visit.observations}</div>
+        </>}
+
+        {visit.survey && <>
+          <div className="vpd-section-hdr">{t('visits.survey')}</div>
+          <p style={{ fontSize: '11.5px', margin: '4px 0' }}>
+            {visit.survey.surveyNumber}
+            {visit.survey.totalCf != null ? ` · ${visit.survey.totalCf.toFixed(1)} CF` : ''}
+          </p>
+        </>}
+
+        <div className="vpd-footer">
+          WinMovers Operations &nbsp;&middot;&nbsp; {visit.visitNumber} &nbsp;&middot;&nbsp; {new Date().toLocaleDateString()}
+        </div>
+      </div>
 
       </>)}
 

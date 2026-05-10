@@ -727,6 +727,22 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .se-sig-line-wrap { border-top: 1px solid #000; width: 55%; margin: 0 auto; padding-top: 3px; font-size: 10pt; }
 .se-footer-td { text-align: center; font-weight: 700; padding: 8px; font-size: 10pt; }
 
+/* Visit print document — hidden on screen, shown only when printing */
+.visit-print-doc { display: none; }
+.vpd-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; border-bottom: 2px solid #1a3a6b; padding-bottom: 12px; }
+.vpd-logo { max-height: 58px; }
+.vpd-contact { font-size: 9.5px; color: #555; text-align: right; line-height: 1.65; }
+.vpd-doc-title { font-size: 20px; font-weight: 700; color: #1a3a6b; margin-bottom: 2px; }
+.vpd-doc-subtitle { font-size: 11px; color: #777; margin-bottom: 18px; }
+.vpd-section-hdr { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #1a3a6b; border-bottom: 1px solid #d0d8e8; padding-bottom: 3px; margin: 14px 0 6px; }
+.vpd-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.vpd-table td { padding: 4.5px 8px; vertical-align: top; }
+.vpd-table td:first-child { width: 36%; font-weight: 600; color: #555; white-space: nowrap; }
+.vpd-table td:last-child { color: #111; }
+.vpd-table tr:nth-child(even) { background: #f4f6fb; }
+.vpd-obs { font-size: 11.5px; white-space: pre-wrap; color: #111; border: 1px solid #e0e5ef; padding: 7px 10px; border-radius: 3px; background: #f9fafc; margin-top: 4px; }
+.vpd-footer { margin-top: 22px; font-size: 9px; color: #bbb; border-top: 1px solid #eee; padding-top: 6px; text-align: center; }
+
 /* Print / PDF export — hide chrome, show only the document */
 @media print {
   body * { visibility: hidden; }
@@ -743,6 +759,19 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .qd-textarea { border: none; background: transparent; padding: 0; }
   .jd-cell-input, .jd-cell-textarea { border: none; background: transparent; padding: 0; }
   .no-print { display: none !important; }
+
+  /* Visit print document */
+  .visit-print-doc {
+    display: block;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    padding: 12mm 14mm;
+    box-sizing: border-box;
+    background: #fff;
+    color: #000;
+  }
+  .visit-print-doc, .visit-print-doc * { visibility: visible; }
 }
 
 @media (max-width: 900px) {

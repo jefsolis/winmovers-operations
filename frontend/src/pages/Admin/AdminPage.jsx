@@ -3,8 +3,28 @@ import { api } from '../../api'
 
 import { useLanguage } from '../../i18n'
 
+const LOGIN_TROUBLESHOOTING_STEPS = {
+  en: [
+    { label: 'Account enabled', detail: 'Entra ID → Users → [user] → Account enabled must be Yes.', link: 'https://entra.microsoft.com/#view/Microsoft_AAD_UsersAndTenants/UserManagementMenuBlade/~/AllUsers' },
+    { label: 'Correct tenant', detail: 'Confirm the user belongs to the tenant in AZURE_TENANT_ID (backend .env).' },
+    { label: 'Supported account types', detail: "App Registrations → WinMovers Operations → Authentication → Supported account types — must match the user's account type.", link: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade' },
+    { label: 'User assignment required', detail: 'Enterprise Applications → WinMovers Operations → Properties → User assignment required. If Yes, add the user under Users and groups.', link: 'https://portal.azure.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview' },
+    { label: 'Guest / B2B invite accepted', detail: 'If the user is a guest, verify the invitation has been accepted and the account is not in "Invitation pending" state.' },
+    { label: 'Clear cached tokens', detail: 'Ask the user to open a private/incognito browser window and retry login.' },
+  ],
+  es: [
+    { label: 'Cuenta habilitada', detail: 'Entra ID → Usuarios → [usuario] → Cuenta habilitada debe ser Sí.', link: 'https://entra.microsoft.com/#view/Microsoft_AAD_UsersAndTenants/UserManagementMenuBlade/~/AllUsers' },
+    { label: 'Inquilino correcto', detail: 'Confirma que el usuario pertenece al tenant indicado en AZURE_TENANT_ID (backend .env).' },
+    { label: 'Tipos de cuenta admitidos', detail: 'Registros de aplicaciones → WinMovers Operations → Autenticación → Tipos de cuenta admitidos — debe coincidir con el tipo de cuenta del usuario.', link: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade' },
+    { label: 'Asignación de usuario requerida', detail: 'Aplicaciones empresariales → WinMovers Operations → Propiedades → Asignación de usuario requerida. Si es Sí, agrega al usuario en Usuarios y grupos.', link: 'https://portal.azure.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview' },
+    { label: 'Invitación de invitado aceptada', detail: 'Si el usuario es invitado (B2B), verifica que la invitación fue aceptada y la cuenta no está en estado de invitación pendiente.' },
+    { label: 'Limpiar tokens almacenados', detail: 'Pide al usuario abrir una ventana de navegación privada/incógnita e intentar iniciar sesión de nuevo.' },
+  ],
+}
+
 export default function AdminPage() {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
+  const [loginChecklistOpen, setLoginChecklistOpen] = useState(false)
   const [counters, setCounters] = useState([])
   const [values, setValues]     = useState({})
   const [version, setVersion]   = useState(null)
@@ -19,6 +39,24 @@ export default function AdminPage() {
   const [purging, setPurging]         = useState(false)
   const [purgeResult, setPurgeResult] = useState(null)
   const [purgeError, setPurgeError]   = useState(null)
+
+  // Email log state
+  const [emailLogs, setEmailLogs]           = useState([])
+  const [emailLogsLoading, setEmailLogsLoading] = useState(false)
+  const [emailLogsError, setEmailLogsError] = useState(null)
+
+  const fetchEmailLogs = async () => {
+    setEmailLogsLoading(true)
+    setEmailLogsError(null)
+    try {
+      const data = await api.get('/admin/email-logs')
+      setEmailLogs(data)
+    } catch (e) {
+      setEmailLogsError(e.message)
+    } finally {
+      setEmailLogsLoading(false)
+    }
+  }
 
   const checkPurge = async () => {
     setPurgeChecking(true)
@@ -66,6 +104,7 @@ export default function AdminPage() {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
+    fetchEmailLogs()
   }, [])
 
   const handleSave = async (e) => {
@@ -213,6 +252,117 @@ export default function AdminPage() {
               </button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Email Delivery Log */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <div className="card-body">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+              {t('admin.emailLogSection')}
+            </div>
+            <button className="btn btn-secondary" style={{ fontSize: 12, padding: '4px 12px' }} onClick={fetchEmailLogs} disabled={emailLogsLoading}>
+              {emailLogsLoading ? t('common.loading') : t('admin.emailLogRefresh')}
+            </button>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>{t('admin.emailLogHint')}</p>
+
+          {emailLogsError && <div className="alert alert-danger" style={{ marginBottom: 12, fontSize: 13 }}>{emailLogsError}</div>}
+
+          {!emailLogsLoading && emailLogs.length === 0 && !emailLogsError && (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('admin.emailLogEmpty')}</p>
+          )}
+
+          {emailLogs.length > 0 && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                    <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('admin.emailLogSent')}</th>
+                    <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>{t('admin.emailLogEntity')}</th>
+                    <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>{t('admin.emailLogRecipient')}</th>
+                    <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>{t('admin.emailLogSubject')}</th>
+                    <th style={{ textAlign: 'center', padding: '6px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>{t('admin.emailLogStatus')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emailLogs.map(log => (
+                    <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '8px', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
+                        {new Date(log.sentAt).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 11, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 6px' }}>
+                          {log.entityType}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px' }}>{log.recipient}</td>
+                      <td style={{ padding: '8px', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.subject}>
+                        {log.subject}
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        {log.status === 'SENT' ? (
+                          <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>SENT</span>
+                        ) : (
+                          <span
+                            style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 600, cursor: log.error ? 'help' : 'default' }}
+                            title={log.error || undefined}
+                          >
+                            FAILED
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Login Troubleshooting */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <div className="card-body">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+              {t('admin.loginTroubleshootingSection')}
+            </div>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: 12 }}
+              onClick={() => setLoginChecklistOpen(o => !o)}
+            >
+              {loginChecklistOpen ? t('admin.loginTroubleshootingHideSteps') : t('admin.loginTroubleshootingShowSteps')}
+            </button>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6, marginBottom: loginChecklistOpen ? 16 : 0 }}>
+            {t('admin.loginTroubleshootingHint')}
+          </p>
+
+          {loginChecklistOpen && (
+            <ol style={{ margin: 0, padding: '0 0 0 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {(LOGIN_TROUBLESHOOTING_STEPS[lang] || LOGIN_TROUBLESHOOTING_STEPS.en).map((step, i) => (
+                <li key={i} style={{ fontSize: 13, lineHeight: 1.6 }}>
+                  <span style={{ fontWeight: 600 }}>{step.label}.</span>{' '}
+                  <span style={{ color: 'var(--text-muted)' }}>{step.detail}</span>
+                  {step.link && (
+                    <>{' '}
+                      <a
+                        href={step.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 12, color: 'var(--primary)', whiteSpace: 'nowrap' }}
+                      >
+                        {t('admin.loginTroubleshootingPortal')} ↗
+                      </a>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       </div>
     </div>

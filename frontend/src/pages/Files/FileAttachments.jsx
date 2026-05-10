@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useMsal } from '@azure/msal-react'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
+import { useCurrentStaff, patchCurrentStaff } from '../../hooks/useCurrentStaff'
 import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMENTS, OPTIONAL_ATTACHMENTS, ATTACHMENT_DUE_OFFSETS } from '../../constants'
 
 /**
@@ -13,6 +15,39 @@ import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMEN
  */
 export default function FileAttachments({ fileId, fileCategory, fechaEntrega, job, quote, bookerRole, onStatusChange, onAllRequiredDone, onPctChange }) {
   const { t } = useLanguage()
+  const { accounts } = useMsal()
+  const userOid = accounts[0]?.localAccountId || 'default'
+  const colorModeKey = `wm_attachColorMode_${userOid}`
+  const staff = useCurrentStaff()
+  const [colorMode, setColorMode] = useState(() => localStorage.getItem(colorModeKey) || 'colorful')
+  const [colorModeSynced, setColorModeSynced] = useState(false)
+
+  // Sync from DB once staff record loads — DB is the source of truth
+  useEffect(() => {
+    if (staff === undefined || colorModeSynced) return
+    const dbVal = staff?.attachColorMode
+    if (dbVal && dbVal !== colorMode) {
+      setColorMode(dbVal)
+      localStorage.setItem(colorModeKey, dbVal)
+    }
+    setColorModeSynced(true)
+  }, [staff]) // eslint-disable-line
+
+  const toggleColorMode = () => {
+    const next = colorMode === 'colorful' ? 'monochrome' : 'colorful'
+    setColorMode(next)
+    localStorage.setItem(colorModeKey, next)
+    patchCurrentStaff({ attachColorMode: next })
+    api.patch('/staff/me/preferences', { attachColorMode: next }).catch(() => {})
+  }
+
+  // Helper: apply color mode to a category
+  const catStyle = (cat) => {
+    if (colorMode === 'monochrome' && !cat.done) return { bg: '#f1f5f9', color: '#64748b' }
+    if (colorMode === 'monochrome' && cat.done)  return { bg: '#dcfce7', color: '#166534' }
+    return { bg: cat.bg, color: cat.color }
+  }
+
   const FILE_CATS = getFileCategories(t)
 
   // Determine which optional categories are promoted to required based on bookerRole
@@ -156,6 +191,18 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
     <div>
       <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleFileChosen} />
 
+      {/* Color mode toggle */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={toggleColorMode}
+          title={colorMode === 'colorful' ? t('files.colorModeMonochrome') : t('files.colorModeColorful')}
+          style={{ fontSize: 12, color: 'var(--text-muted)' }}
+        >
+          {colorMode === 'colorful' ? t('files.colorModeMonochrome') : t('files.colorModeColorful')}
+        </button>
+      </div>
+
       {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
 
       {/* Required checklist */}
@@ -197,7 +244,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                   }}
                 >
                   <span style={{ fontSize: 16 }}>{cat.done ? '✅' : '⬜'}</span>
-                  <span className="badge" style={{ background: cat.bg, color: cat.color, fontSize: 11, whiteSpace: 'nowrap' }}>{cat.label}</span>
+                  <span className="badge" style={{ background: catStyle(cat).bg, color: catStyle(cat).color, fontSize: 11, whiteSpace: 'nowrap' }}>{cat.label}</span>
                   {_dueDate && (
                     <span style={{ fontSize: 11, whiteSpace: 'nowrap', color: cat.done ? 'var(--text-muted)' : _isOverdue ? '#dc2626' : '#d97706', fontWeight: _isOverdue && !cat.done ? 600 : 400 }}>
                       {_isOverdue && !cat.done ? `⚠ ${t('files.overdue')}` : `${t('files.dueBy')} ${_dueDate.toLocaleDateString('en-GB', { timeZone: 'UTC' })}`}
@@ -245,7 +292,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                 }}
               >
                 <span style={{ fontSize: 16 }}>{cat.done ? '✅' : '⬜'}</span>
-                <span className="badge" style={{ background: cat.bg, color: cat.color, fontSize: 11, whiteSpace: 'nowrap' }}>{cat.label}</span>
+                <span className="badge" style={{ background: catStyle(cat).bg, color: catStyle(cat).color, fontSize: 11, whiteSpace: 'nowrap' }}>{cat.label}</span>
                 {cat.items.map(att => (
                   <span key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)}>

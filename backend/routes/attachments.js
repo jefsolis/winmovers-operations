@@ -27,9 +27,13 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     const mf = await getPrisma().movingFile.findUnique({ where: { id: fileId } })
     if (!mf) return res.status(404).json({ error: 'File not found' })
 
-    const storagePath = await storage.uploadFile(fileId, req.file.originalname, req.file.buffer, req.file.mimetype)
+    // multer decodes the Content-Disposition filename as latin1 by default;
+    // re-encode as Buffer then decode as utf8 to restore accented characters (ñ, á, é, etc.)
+    const filename = Buffer.from(req.file.originalname, 'latin1').toString('utf8')
+
+    const storagePath = await storage.uploadFile(fileId, filename, req.file.buffer, req.file.mimetype)
     const att = await getPrisma().attachment.create({
-      data: { fileId, category, filename: req.file.originalname, storagePath, sizeBytes: req.file.size },
+      data: { fileId, category, filename, storagePath, sizeBytes: req.file.size },
     })
 
     res.status(201).json(att)

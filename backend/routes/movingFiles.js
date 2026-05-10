@@ -258,6 +258,13 @@ router.put("/:id", async (req, res, next) => {
     if (coordinatorId !== undefined && coordinatorId && coordinatorId !== prevFile?.coordinatorId) {
       notifyFileCoordinator(file, 'reassigned')
     }
+    // Sync coordinator to the linked Job (if any) so both records stay consistent
+    if (coordinatorId !== undefined && coordinatorId !== (prevFile?.coordinatorId ?? null)) {
+      const linkedJob = await getPrisma().job.findFirst({ where: { movingFileId: req.params.id }, select: { id: true } })
+      if (linkedJob) {
+        await getPrisma().job.update({ where: { id: linkedJob.id }, data: { coordinatorId: coordinatorId || null } })
+      }
+    }
     logAudit(req, 'MovingFile', req.params.id, 'UPDATE', prevFile, file)
     res.json(file)
   } catch (e) { next(e) }

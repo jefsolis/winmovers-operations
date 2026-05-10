@@ -1,6 +1,6 @@
 # WinMovers Operations — Feature Backlog
 
-> Last updated: May 1, 2026  
+> Last updated: May 10, 2026  
 > Items are grouped by theme. Priority and sprint assignment to be determined separately.
 
 ---
@@ -277,3 +277,129 @@ AuditLog {
 - A background job (or manual admin action) can purge records older than the retention period.
 - Purge action is itself logged (meta-audit entry) so there is a record of when purges occurred.
 - Purging is never automatic in production without explicit configuration opt-in.
+
+---
+
+## 7. Email & Notifications
+
+### ~~BUG-03~~ ✅ — Email delivery is invisible: no audit trail when emails are sent or fail
+
+**User story:** As an administrator, I want to see a log of every email the system has attempted to send — including whether it succeeded or failed and why — so I can diagnose delivery problems without having to grep server logs.
+
+**Implemented:**
+- `EmailLog` Prisma model added (`entityType`, `entityId`, `recipient`, `subject`, `status`, `error`, `sentAt`). Table created via `prisma db push`.
+- `logEmail()` helper in `notifications.js` — fire-and-forget, never throws; writes `SENT` or `FAILED` after every `sendMail` call.
+- `GET /api/admin/email-logs` endpoint in `admin.js` — last 100 entries newest-first.
+- Read-only Email Delivery Log card added to `AdminPage.jsx` with SENT/FAILED badges and error tooltip.
+- **Additional fix:** When coordinator is assigned/changed on a Work Order (Job), the linked MovingFile's `coordinatorId` is now also updated and the notification email is sent. Conversely, updating the coordinator on a File also syncs back to the linked Job. This two-way sync ensures both records are always consistent regardless of which screen is used.
+
+---
+
+### ~~NTF-01~~ ✅ — Visit notification email includes all visit fields in Spanish
+
+**User story:** As a staff member assigned to a visit, I want the notification email I receive to include every piece of information about the visit — not just the date and client name — so I have everything I need without opening the app.
+
+**Context:**
+- The current HTML table in `notifyVisitAssigned` (`notifications.js`) includes only: client, date/time, phone, email, address, service type (raw enum), and observations.
+- Missing fields: destination address/city/country, `bookerRole`, `language`, origin and destination agent names, prospect name (when no client is linked), and the visit number link.
+- `serviceType` enum values are displayed as-is (e.g. `DOOR_TO_PORT`) instead of translated Spanish labels.
+
+**Acceptance criteria:**
+- The email HTML table is extended to include all of the following (when present): visit number, client or prospect name, contact phone, contact email, scheduled date/time (formatted in Spanish, Costa Rica timezone), origin address + city + country, destination address + city + country, service type (translated to Spanish label), booker role (translated), assigned staff name, language, origin agent name, destination agent name, observations.
+- Service type values are translated using a local map: `DOOR_TO_PORT → Puerta a Puerto`, `DOOR_TO_DOOR → Puerta a Puerta`, `PACKING → Empaque`, `LOCAL_MOVE → Mudanza Local`.
+- Booker role values are translated: `BOOKER → Agente`, `OA → Agente de Origen`, blank → not shown.
+- The ICS calendar invite `DESCRIPTION` field is also updated to include the full detail set.
+- All labels and values are in Spanish regardless of the visit's `language` field (this is an internal staff notification).
+- Existing behavior for visits that have no `scheduledDate` (no email sent) is unchanged.
+
+---
+
+## 8. Visit Enhancements
+
+### ~~VIS-01~~ ✅ — Print / PDF export for visit detail page
+
+**User story:** As a staff member, I want to print or save a visit as a PDF directly from the visit detail page, so I can bring a paper copy to the appointment or share it via email.
+
+**Context:**
+- `VisitDetail.jsx` already has a "Download ICS" button but no print action.
+- The visit detail is a single-page view (no multi-page pagination needed), so a simple `window.print()` with print-specific CSS is appropriate — no need for the html2canvas / jsPDF approach used in quotes.
+
+**Acceptance criteria:**
+- A **"Imprimir"** (print) button is added to the `VisitDetail` page header, next to the existing action buttons.
+- Clicking the button calls `window.print()`.
+- A `@media print` CSS block (in `index.css` or a `<style>` element in `VisitDetail`) hides: the sidebar nav, the top header bar, all action buttons, the tab bar, and any toast/modal overlays.
+- The printable area shows: visit number, status badge, all visit fields (same set as NTF-01), linked client/prospect block, linked quotes table (if any).
+- The WinMovers logo appears at the top of the printed page.
+- Page margins and font sizes are print-appropriate (no scroll-container clipping).
+- The button is labeled in Spanish ("Imprimir") to match the app's primary language.
+
+---
+
+## 9. User Preferences
+
+### ~~UX-02~~ ✅ — Per-user attachment color mode preference
+
+**User story:** As a staff member, I want to choose whether attachment category tiles in the file detail page are shown in full color or in a monochrome (grayscale) style, so the view matches my personal workflow preference.
+
+**Context:**
+- `FileAttachments.jsx` renders each attachment category as a colored tile: the tile background and badge use category-specific colors (green, blue, orange, etc.) regardless of whether a file has been uploaded.
+- Some users find the colorful view helpful at a glance; others find it distracting and prefer all tiles to appear in grey until a document is actually attached, at which point the tile turns green.
+- The preference is purely cosmetic and per-user; it does not affect data or logic.
+
+**Proposed implementation:**
+- Store the preference in `localStorage` under the key `wm_attachColorMode_{userOid}` with values `'colorful'` (default) or `'monochrome'`.
+- The user OID is available from the MSAL account object already used throughout the app.
+- No database schema change is needed.
+
+**Acceptance criteria:**
+- A toggle (labeled "Vista en color / Vista monocroma" or similar) is added inside the `FileAttachments` component header, visible to all users.
+- The preference is read from `localStorage` on mount and applied immediately (no page reload needed).
+- **Colorful mode (default):** tiles and badges use their current category-specific colors regardless of upload status.
+- **Monochrome mode:** tiles and badges for categories with **no file uploaded** are rendered in neutral grey (`bg: '#f1f5f9', color: '#64748b'`). Categories with a file uploaded turn green (`bg: '#dcfce7', color: '#166534'`). The "Other documents" section is unaffected by this setting.
+- The toggle icon/label clearly communicates the current mode and what clicking it will do.
+- The preference persists across page navigations and browser sessions (via `localStorage`).
+- If no preference is stored, the default is `'colorful'` (preserving current behavior for existing users).
+
+---
+
+## 10. Bug Fixes (May 2026)
+
+### ~~BUG-04~~ ✅ — Accented characters in attachment filenames display as garbled text
+
+**User story:** As a user, I want file names with accented characters (tildes, ñ, ü, etc.) to display correctly in the system after upload, so I can identify documents by their proper Spanish names.
+
+**Context:**
+- Multer reads `req.file.originalname` as Latin-1 (`ISO-8859-1`) — this is the Node.js / HTTP spec default.
+- Modern browsers send the filename in the `Content-Disposition` header encoded as UTF-8.
+- The mismatch causes accented characters to be stored as garbled sequences (e.g. `á` becomes `Ã¡`).
+- Affected: the `filename` field stored in the `Attachment` table and displayed in `FileAttachments.jsx`.
+
+**Acceptance criteria:**
+- In the POST handler in `attachments.js`, `req.file.originalname` is re-decoded from Latin-1 to UTF-8 before any use:
+  ```js
+  const filename = Buffer.from(req.file.originalname, 'latin1').toString('utf8')
+  ```
+- The re-decoded `filename` is used for both `storage.uploadFile(...)` and `attachment.create({ data: { filename, ... } })`.
+- `req.file.originalname` is not used directly anywhere else in the handler.
+- Already-stored attachments with garbled names are not affected (no migration); only new uploads are fixed.
+- Manual test: upload a file named `Solicitud de mudanza — Señor García.pdf` and verify the name is stored and displayed correctly.
+
+---
+
+### ~~BUG-05~~ ✅ — Microsoft login error "No podemos iniciar su sesión" for a specific user
+
+**User story:** As an administrator, I want to be able to diagnose and resolve login failures for individual users so they are not blocked from accessing the system.
+
+**Context:**
+- One user is seeing the Azure AD error "No podemos iniciar su sesión. Vuelva a intentarlo." on the Microsoft login page.
+- This error is thrown by Azure AD / Entra ID before our application receives any token; it is not an application-level bug.
+- Common causes: the user's account is disabled or locked, the user is not in the permitted tenant, the App Registration's supported account type does not match the user's account type, or "User assignment required" is enabled on the Enterprise Application and the user has not been assigned.
+
+**Acceptance criteria (admin checklist — no code changes required):**
+1. Verify the user's Azure AD account status: navigate to **Entra ID → Users → [user] → Account enabled** — must be `Yes`.
+2. Confirm the user belongs to the correct tenant (`AZURE_TENANT_ID` in backend `.env`).
+3. Check **App Registrations → WinMovers Operations → Authentication → Supported account types** — should match the user's account type (typically "Accounts in this organizational directory only").
+4. Check **Enterprise Applications → WinMovers Operations → Properties → User assignment required**: if `Yes`, navigate to **Users and groups** and ensure the affected user (or their group) is listed.
+5. If the account is a guest (B2B invite), verify the invitation has been accepted and the guest account is not in an "Invitation pending" state.
+6. After resolving, ask the user to open a private/incognito browser window and retry login to rule out cached token issues.
+7. Document the root cause and resolution in the user's notes or the relevant support ticket.

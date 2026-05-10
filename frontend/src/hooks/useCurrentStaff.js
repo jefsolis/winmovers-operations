@@ -8,6 +8,11 @@ let _cached = undefined // module-level cache: undefined = not yet fetched, null
  * Returns null if the user has no matching StaffMember.
  * Result is cached for the lifetime of the page session.
  */
+/** Patch specific fields in the module-level cache (e.g. after a self-service update). */
+export function patchCurrentStaff(patch) {
+  if (_cached !== null && _cached !== undefined) _cached = { ..._cached, ...patch }
+}
+
 export function useCurrentStaff() {
   const [staff, setStaff] = useState(_cached)
 

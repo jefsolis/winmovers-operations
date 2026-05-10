@@ -12,6 +12,14 @@ import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 const EMPTY_IND = { clientId: '', name: '', phone: '', email: '' }
 const EMPTY_CORP = { clientId: '', name: '' }
 
+/** Format a UTC date string/Date as the value expected by <input type="datetime-local"> (local time, no timezone) */
+function toLocalDatetimeInput(val) {
+  if (!val) return ''
+  const d = new Date(val)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 const EMPTY = {
   status: 'SCHEDULED',
   indClient: { ...EMPTY_IND },
@@ -83,7 +91,7 @@ export default function VisitForm() {
             assignedToId:       v.assignedToId       || '',
             serviceType:        v.serviceType        || '',
             language:      v.language      || 'ES',
-            scheduledDate: v.scheduledDate ? new Date(v.scheduledDate).toISOString().slice(0, 16) : '',
+            scheduledDate: toLocalDatetimeInput(v.scheduledDate),
             bookerRole:    v.bookerRole    || '',
             originAgentId: 'WINMOVERS',
             destAgent:   { agentId: v.destAgentId || '', name: v.destAgent?.name || '' },

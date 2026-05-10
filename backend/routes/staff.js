@@ -106,6 +106,25 @@ router.put('/me/profile', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// PATCH /me/preferences — update individual self-service preference fields
+router.patch('/me/preferences', async (req, res, next) => {
+  try {
+    const oid = req.user?.oid
+    if (!oid) return res.status(401).json({ error: 'Not authenticated' })
+    const { attachColorMode } = req.body
+    const data = {}
+    if (attachColorMode !== undefined) {
+      if (!['colorful', 'monochrome'].includes(attachColorMode))
+        return res.status(400).json({ error: 'Invalid attachColorMode value' })
+      data.attachColorMode = attachColorMode
+    }
+    if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields provided' })
+    const updated = await getPrisma().staffMember.updateMany({ where: { azureOid: oid }, data })
+    if (updated.count === 0) return res.status(404).json({ error: 'No staff record linked to this account' })
+    res.status(204).end()
+  } catch (err) { next(err) }
+})
+
 // GET /azure-users?q= — must be registered BEFORE /:id
 router.get('/azure-users', async (req, res, next) => {
   try {

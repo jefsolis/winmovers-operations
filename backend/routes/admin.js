@@ -117,4 +117,18 @@ router.post('/audit/purge', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+/**
+ * GET /api/admin/email-logs
+ * Returns the last 100 email delivery log entries, newest first.
+ */
+router.get('/email-logs', async (req, res, next) => {
+  try {
+    const logs = await getPrisma().emailLog.findMany({
+      orderBy: { sentAt: 'desc' },
+      take: 100,
+    })
+    res.json(logs)
+  } catch (err) { next(err) }
+})
+
 module.exports = router
