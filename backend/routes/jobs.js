@@ -66,6 +66,7 @@ router.get("/:id", async (req, res, next) => {
       where: { id: req.params.id },
       include: {
         client: true,
+        corporateClient: { select: { id: true, name: true, phone: true } },
         originAgent: true, destAgent: true, customsAgent: true,
         coordinator: { select: { id: true, name: true } },
         quote: { select: { id: true, quoteNumber: true, visit: { select: { id: true, visitNumber: true, serviceType: true, scheduledDate: true } } } },
@@ -101,6 +102,7 @@ router.post("/", async (req, res, next) => {
       movingFileId: manualMovingFileId,
       coordinatorId,
       visitId,
+      corporateClientId,
     } = req.body
 
     // Detect Export: visit serviceType DOOR_TO_PORT or DOOR_TO_DOOR
@@ -130,9 +132,11 @@ router.post("/", async (req, res, next) => {
       const fileNumber = await generateFileNumber("EXPORT")
       const mf = await getPrisma().movingFile.create({
         data: { fileNumber, category: "EXPORT", status: "OPEN", clientId: clientId || null,
+                corporateClientId: corporateClientId || null,
                 volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
                 weightKg:  weightKg  ? parseFloat(weightKg)  : null,
-                bookerRole: visitBookerRole },
+                bookerRole: visitBookerRole,
+                coordinatorId: coordinatorId || null },
       })
       jobNumber    = fileNumber
       movingFileId = mf.id
@@ -141,9 +145,11 @@ router.post("/", async (req, res, next) => {
       const fileNumber = await generateFileNumber("LOCAL")
       const mf = await getPrisma().movingFile.create({
         data: { fileNumber, category: "LOCAL", status: "OPEN", clientId: clientId || null,
+                corporateClientId: corporateClientId || null,
                 volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
                 weightKg:  weightKg  ? parseFloat(weightKg)  : null,
-                bookerRole: visitBookerRole },
+                bookerRole: visitBookerRole,
+                coordinatorId: coordinatorId || null },
       })
       jobNumber    = fileNumber
       movingFileId = mf.id
@@ -194,10 +200,31 @@ router.post("/", async (req, res, next) => {
       quoteId:        quoteId        || null,
       movingFileId,
       visitId:        visitId        || null,
-      coordinatorId:  coordinatorId   || null,    }
+      coordinatorId:  coordinatorId   || null,
+      corporateClientId: corporateClientId || null,    }
 
     const job = await getPrisma().job.create({ data })
     logAudit(req, 'Job', job.id, 'CREATE', null, job)
+
+    // Notify coordinator on creation (fire-and-forget)
+    if (movingFileId && coordinatorId) {
+      try {
+        const fileForNotification = await getPrisma().movingFile.findUnique({
+          where: { id: movingFileId },
+          include: {
+            client: { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+            corporateClient: { select: { id: true, name: true } },
+            coordinator: { select: { id: true, name: true, email: true } },
+          },
+        })
+        if (fileForNotification?.coordinator?.email) {
+          notifyFileCoordinator(fileForNotification, 'assigned')
+        }
+      } catch (notifyErr) {
+        console.error('[jobs] POST notify error:', notifyErr.message)
+      }
+    }
+
     res.status(201).json(job)
   } catch (err) { next(err) }
 })
@@ -218,6 +245,7 @@ router.put("/:id", async (req, res, next) => {
       movingFileId,
       coordinatorId,
       visitId,
+      corporateClientId,
     } = req.body
 
     const before = await getPrisma().job.findUnique({ where: { id: req.params.id } })
@@ -256,28 +284,37 @@ router.put("/:id", async (req, res, next) => {
         personalCount:  personalCount   !== undefined ? (personalCount != null ? parseInt(personalCount) : null)          : undefined,
         transbordo:     transbordo      !== undefined ? transbordo                                                        : undefined,
         quoteId:        quoteId         !== undefined ? (quoteId         || null)                                        : undefined,
-        movingFileId:   movingFileId    !== undefined ? (movingFileId    || null) : undefined,
-        coordinatorId:  coordinatorId   !== undefined ? (coordinatorId   || null) : undefined,
-        visitId:        visitId         !== undefined ? (visitId         || null) : undefined,
+        movingFileId:         movingFileId         !== undefined ? (movingFileId         || null) : undefined,
+        coordinatorId:        coordinatorId        !== undefined ? (coordinatorId        || null) : undefined,
+        visitId:              visitId              !== undefined ? (visitId              || null) : undefined,
+        corporateClientId:    corporateClientId    !== undefined ? (corporateClientId    || null) : undefined,
       },
     })
-    // If coordinator changed, sync to the linked MovingFile and send notification
+    // Determine the coordinator that is currently active after this update
     const coordinatorChanged = coordinatorId !== undefined && coordinatorId !== (before?.coordinatorId ?? null)
-    if (coordinatorChanged) {
-      const linkedFileId = job.movingFileId ?? before?.movingFileId ?? null
-      if (linkedFileId) {
-        const updatedFile = await getPrisma().movingFile.update({
-          where: { id: linkedFileId },
-          data:  { coordinatorId: coordinatorId || null },
-          include: {
-            client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
-            corporateClient: { select: { id: true, name: true } },
-            coordinator:     { select: { id: true, name: true, email: true } },
-          },
-        })
-        if (updatedFile.coordinator?.email) {
-          notifyFileCoordinator(updatedFile, 'reassigned')
-        }
+    const linkedFileId = job.movingFileId ?? before?.movingFileId ?? null
+    const activeCoordinatorId = coordinatorId !== undefined ? (coordinatorId || null) : (before?.coordinatorId ?? null)
+
+    // Sync coordinator to the linked MovingFile only when it actually changes
+    if (coordinatorChanged && linkedFileId) {
+      await getPrisma().movingFile.update({
+        where: { id: linkedFileId },
+        data:  { coordinatorId: coordinatorId || null },
+      })
+    }
+
+    // Notify coordinator on every update (not just on change) — fire-and-forget
+    if (activeCoordinatorId && linkedFileId) {
+      const fileForNotification = await getPrisma().movingFile.findUnique({
+        where: { id: linkedFileId },
+        include: {
+          client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+          corporateClient: { select: { id: true, name: true } },
+          coordinator:     { select: { id: true, name: true, email: true } },
+        },
+      })
+      if (fileForNotification?.coordinator?.email) {
+        notifyFileCoordinator(fileForNotification, coordinatorChanged ? 'assigned' : 'updated')
       }
     }
 

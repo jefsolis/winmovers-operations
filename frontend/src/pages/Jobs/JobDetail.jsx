@@ -18,7 +18,7 @@ export default function JobDetail() {
   const [job, setJob]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [tab, setTab]          = useState(searchParams.get('tab') || 'overview') // 'overview' | 'workorder' | 'damage' | 'evaluation'
+  const [tab, setTab]          = useState(searchParams.get('tab') || 'workorder') // 'workorder' | 'overview' | 'damage' | 'evaluation' | 'history'
   const [closing, setClosing]           = useState(false)
   const [exporting, setExporting]       = useState(false)
   const [importFiles, setImportFiles]   = useState(null)  // null = not loaded
@@ -209,8 +209,8 @@ export default function JobDetail() {
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', marginBottom: 20 }}>
         {[
-          { key: 'overview',    label: t('files.overview') },
           { key: 'workorder',   label: t('jobs.workOrder') },
+          { key: 'overview',    label: t('files.overview') },
           ...(job.type === 'IMPORT' ? [
             { key: 'damage',     label: t('movingFiles.damageReportTab') },
             { key: 'evaluation', label: t('movingFiles.evaluationTab') },

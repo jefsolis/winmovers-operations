@@ -4,10 +4,13 @@ import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import JobDocument from './JobDocument'
 import { useCurrentStaff } from '../../hooks/useCurrentStaff'
+import QuickCreateClientModal from '../../components/QuickCreateClientModal'
+import QuickCreateCorporateClientModal from '../../components/QuickCreateCorporateClientModal'
 
 const EMPTY = {
   type: 'IMPORT', status: 'SURVEY',
   clientId: '',
+  corporateClientId: '',
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '', destCity: '', destCountry: '',
   notes: '',
@@ -34,6 +37,7 @@ export default function JobForm() {
   const fromFileId   = !isEdit ? searchParams.get('fromFile')  : null
   const fromVisitId  = !isEdit ? searchParams.get('fromVisit') : null
   const fromType     = !isEdit ? searchParams.get('type')      : null
+  const isDirect     = !isEdit ? searchParams.get('direct') === 'true' : false
   const { t } = useLanguage()
 
   const [form, setForm] = useState(EMPTY)
@@ -48,6 +52,8 @@ export default function JobForm() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const errorRef = useRef(null)
+  const [clientModalOpen, setClientModalOpen] = useState(false)
+  const [corpModalOpen, setCorpModalOpen]     = useState(false)
   const currentStaff = useCurrentStaff()
 
   // Auto-fill creatorName for new records once staff list + current user are known
@@ -72,7 +78,8 @@ export default function JobForm() {
         api.get(`/jobs/${id}`).then(job => {
           setForm({
             type: job.type, status: job.status,
-            clientId: job.clientId || '',
+            clientId:          job.clientId          || '',
+            corporateClientId: job.corporateClientId  || '',
             originAddress: job.originAddress || '', originCity: job.originCity || '', originCountry: job.originCountry || '',
             destAddress: job.destAddress || '', destCity: job.destCity || '', destCountry: job.destCountry || '',
             notes: job.notes || '',
@@ -108,9 +115,10 @@ export default function JobForm() {
           const corpName = f.corporateClient?.name || ''
           setForm(prev => ({
             ...prev,
-            type:        fromType || 'IMPORT',
-            clientId:    f.clientId     || '',
-            companyName: corpName       || '',
+            type:              fromType || 'IMPORT',
+            clientId:          f.clientId          || '',
+            corporateClientId: f.corporateClientId || '',
+            companyName:       f.corporateClient?.name || '',
             clientPhone: f.client?.phone || '',
             quoteTo:     indName || corpName,
             volumeCbm:   f.volumeCbm ?? '',
@@ -142,9 +150,11 @@ export default function JobForm() {
           else if (v?.serviceType === 'PORT_TO_DOOR') jobType = 'IMPORT'
           setForm(prev => ({
             ...prev,
-            type:          jobType,
-            clientId:      v?.clientId      || '',
-            companyName:   autoCompany      || prev.companyName,
+            type:              jobType,
+            clientId:          v?.clientId          || '',
+            corporateClientId: v?.corporateClientId || '',
+            companyName:       v?.corporateClient?.name || prev.companyName,
+            companyPhone:      v?.corporateClient?.phone || prev.companyPhone,
             originAddress: v?.originAddress || '',
             originCity:    v?.originCity    || '',
             originCountry: v?.originCountry || '',
@@ -169,8 +179,11 @@ export default function JobForm() {
               : v.prospectName || ''
             setForm(prev => ({
               ...prev,
-              type:          'EXPORT',
-              clientId:      v.clientId      || '',
+              type:              'EXPORT',
+              clientId:          v.clientId          || '',
+              corporateClientId: v.corporateClientId || '',
+              companyName:       v.corporateClient?.name || '',
+              companyPhone:      v.corporateClient?.phone || '',
               originAddress: v.originAddress || '',
               originCity:    v.originCity    || '',
               originCountry: v.originCountry || '',
@@ -184,6 +197,8 @@ export default function JobForm() {
           }).catch(() => {})
         )
       } else {
+        // Direct job (no visit/quote): default to EXPORT so the Export File is auto-created
+        if (isDirect) setForm(prev => ({ ...prev, type: 'EXPORT' }))
         tasks.push(
           api.get('/quotes').then(qs => {
             setAvailableQuotes(qs.filter(q => q.status === 'ACCEPTED' && !q.job))
@@ -198,8 +213,6 @@ export default function JobForm() {
 
   const handleClientChange = (clientId) => {
     const client = clients.find(c => c.id === clientId)
-    const isCorporate = client && client.clientType === 'CORPORATE'
-    const autoCompany = isCorporate ? client.name : ''   // don't fill Company for INDIVIDUAL clients
     const autoPhone   = client?.phone || ''
     const autoQuoteTo = client
       ? (client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || '')
@@ -207,9 +220,18 @@ export default function JobForm() {
     setForm(prev => ({
       ...prev,
       clientId,
-      companyName: autoCompany || (isCorporate ? prev.companyName : ''),
       clientPhone: autoPhone   || prev.clientPhone,
       quoteTo:     autoQuoteTo || prev.quoteTo,
+    }))
+  }
+
+  const handleCorpClientChange = (corpClientId) => {
+    const client = clients.find(c => c.id === corpClientId)
+    setForm(prev => ({
+      ...prev,
+      corporateClientId: corpClientId || '',
+      companyName:  client?.name  || prev.companyName,
+      companyPhone: client?.phone || prev.companyPhone,
     }))
   }
 
@@ -225,7 +247,9 @@ export default function JobForm() {
         || v?.prospectName || ''
       setForm(prev => ({
         ...prev,
-        clientId: v?.clientId || '',
+        clientId:          v?.clientId          || '',
+        corporateClientId: v?.corporateClientId || '',
+        companyName:       v?.corporateClient?.name || prev.companyName,
         originAddress: v?.originAddress || '', originCity: v?.originCity || '', originCountry: v?.originCountry || '',
         destAddress: v?.destAddress || '', destCity: v?.destCity || '', destCountry: v?.destCountry || '',
         notes: v?.observations || '',
@@ -242,7 +266,8 @@ export default function JobForm() {
       const quoteToLink = fromQuoteId || linkedQuoteId
       const payload = {
         ...form,
-        clientId: form.clientId || null,
+        clientId:          form.clientId          || null,
+        corporateClientId: form.corporateClientId  || null,
         quoteId: !isEdit ? (quoteToLink || null) : undefined,
         visitId: (!isEdit && (fromVisitId || linkedVisitId)) ? (fromVisitId || linkedVisitId) : undefined,
         movingFileId: (!isEdit && fromFileId) ? fromFileId : undefined,
@@ -279,7 +304,7 @@ export default function JobForm() {
       <div className="card card-body">
         <form onSubmit={handleSubmit}>
 
-          {!isEdit && !fromQuoteId && !fromFileId && (
+          {!isEdit && !fromQuoteId && !fromFileId && !isDirect && (
             <div className="form-section">
               <div className="form-section-title">{t('jobs.linkToQuote')}</div>
               <div className="form-group">
@@ -306,6 +331,9 @@ export default function JobForm() {
               onFormChange={set}
               clients={clients}
               onClientChange={handleClientChange}
+              onCorpClientChange={handleCorpClientChange}
+              onCreateNewClient={!isEdit ? () => setClientModalOpen(true) : undefined}
+              onCreateNewCorp={!isEdit ? () => setCorpModalOpen(true) : undefined}
               resolvedJobNumber={resolvedJobNumber}
               resolvedCreatedDate={resolvedCreatedDate}
               staffMembers={staffMembers}
@@ -329,6 +357,24 @@ export default function JobForm() {
           </div>
         </form>
       </div>
+      <QuickCreateClientModal
+        open={clientModalOpen}
+        onClose={() => setClientModalOpen(false)}
+        onCreated={newClient => {
+          setClients(prev => [...prev, newClient])
+          handleClientChange(newClient.id)
+          setClientModalOpen(false)
+        }}
+      />
+      <QuickCreateCorporateClientModal
+        open={corpModalOpen}
+        onClose={() => setCorpModalOpen(false)}
+        onCreated={newClient => {
+          setClients(prev => [...prev, newClient])
+          handleCorpClientChange(newClient.id)
+          setCorpModalOpen(false)
+        }}
+      />
     </>
   )
 }

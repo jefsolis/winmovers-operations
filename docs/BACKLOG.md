@@ -1,6 +1,6 @@
 # WinMovers Operations — Feature Backlog
 
-> Last updated: May 10, 2026  
+> Last updated: May 16, 2026  
 > Items are grouped by theme. Priority and sprint assignment to be determined separately.
 
 ---
@@ -403,3 +403,327 @@ AuditLog {
 5. If the account is a guest (B2B invite), verify the invitation has been accepted and the guest account is not in an "Invitation pending" state.
 6. After resolving, ask the user to open a private/incognito browser window and retry login to rule out cached token issues.
 7. Document the root cause and resolution in the user's notes or the relevant support ticket.
+
+---
+
+## 11. Bitácora (Operations Schedule)
+
+> **Context:** The operations team currently maintains a physical Excel scheduler ("Bitácora 2026") with 12 monthly sheets. Each sheet is a calendar grid: columns = days, rows = tasks per day. Tasks include packing jobs, moves, container loads, unpacking deliveries, industrial jobs, and manual entries. This feature replaces that spreadsheet with an integrated in-app scheduler that auto-populates from Jobs and Visits.
+
+### Design Decisions
+- **One Job → two entries**: when a Job has `packDate`, create a `EMPAQUE` entry; when it has `moveDate`, create a `MUDANZA` entry. Both are independent schedule entries linked to the same job.
+- **Visits**: when a Visit has `scheduledDate`, create a `VISITA` entry linked to that visit.
+- **Manual entries**: users can create entries not linked to any record (type `OTRO` or any task type).
+- **Permission-gated**: a new `canAccessSchedule` boolean flag on `StaffMember`; only staff with this flag (or admin role) can view and edit the Bitácora.
+- **No recurring tasks** for now.
+- **No import** of historical Excel data.
+- **Both list and calendar views** available, with calendar as default.
+
+---
+
+### SCH-01 — Data model: `ScheduleEntry`
+
+**Schema changes:**
+```prisma
+model ScheduleEntry {
+  id          String   @id @default(cuid())
+  date        DateTime // the day (store at midnight UTC)
+  time        String?  // "08:00", "10:30" — free text
+  taskType    String   // see ScheduleTaskType values below
+  description String   // free-text label shown on calendar
+  notes       String?  // internal notes
+
+  // Optional links — system-created entries have exactly one; manual entries have none
+  jobId        String?
+  visitId      String?
+  movingFileId String?
+  assignedToId String?  // default coordinator/assigned staff
+
+  job        Job?        @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  visit      Visit?      @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  movingFile MovingFile? @relation(fields: [movingFileId], references: [id], onDelete: SetNull)
+  assignedTo StaffMember? @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+**Task type values (stored as String):**
+`EMPAQUE | MUDANZA | DESEMPAQUE | CARGA_CONTENEDOR | TRABAJO_INDUSTRIAL | ENTREGA | VISITA | OTRO`
+
+**StaffMember change:**
+```prisma
+canAccessSchedule Boolean @default(false)  // new — added alongside existing flags
+```
+
+**Back-relations to add:**
+- `Job` → `scheduleEntries ScheduleEntry[]`
+- `Visit` → `scheduleEntries ScheduleEntry[]`
+- `MovingFile` → `scheduleEntries ScheduleEntry[]`
+- `StaffMember` → `scheduleEntries ScheduleEntry[]`
+
+**Acceptance criteria:**
+- `npx prisma db push` succeeds with no destructive changes to existing tables.
+- `ScheduleEntry` table is created; `StaffMember` gains `canAccessSchedule` column (default `false` — all existing staff start without schedule access).
+- Back-relations compile without errors.
+
+---
+
+### SCH-02 — Backend: CRUD routes for schedule entries
+
+**New file:** `backend/routes/schedule.js` — mounted at `GET|POST /api/schedule` and `GET|PUT|DELETE /api/schedule/:id`.
+
+**Endpoints:**
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/schedule?from=&to=` | Entries in date range, with linked job/visit/file names |
+| `GET` | `/api/schedule/:id` | Single entry detail |
+| `POST` | `/api/schedule` | Create manual entry |
+| `PUT` | `/api/schedule/:id` | Update time, description, notes, assignedToId only (taskType and date also editable for manual entries; system-linked entries are protected) |
+| `DELETE` | `/api/schedule/:id` | Delete manual entry only; system-created entries (with jobId/visitId) cannot be deleted directly |
+
+**Auto-sync hooks** — add calls in existing route handlers:
+- `backend/routes/jobs.js` `POST /` → call `syncJobScheduleEntries(job)` after job is created
+- `backend/routes/jobs.js` `PUT /:id` → call `syncJobScheduleEntries(job)` after update (upsert pack + move entries, delete the one whose date was cleared)
+- `backend/routes/visits.js` `POST /` → call `syncVisitScheduleEntry(visit)` after creation
+- `backend/routes/visits.js` `PUT /:id` → call `syncVisitScheduleEntry(visit)` after update
+
+**`syncJobScheduleEntries(job)` helper:**
+```js
+// Upsert EMPAQUE entry if packDate set, delete if cleared
+// Upsert MUDANZA entry if moveDate set, delete if cleared
+// Description auto-generated: "Empaque de {clientName}" / "Mudanza de {clientName}"
+```
+
+**`syncVisitScheduleEntry(visit)` helper:**
+```js
+// Upsert VISITA entry if scheduledDate set, delete if cleared
+// Description: "{prospectName || clientName} — {serviceType label}"
+```
+
+**Permission middleware:**
+```js
+// requireScheduleAccess — checks req.staff.canAccessSchedule || req.staff.role === 'ADMIN'
+// Applied to all /api/schedule routes
+```
+
+**Acceptance criteria:**
+- All five endpoints work correctly with valid data.
+- Creating/updating a Job with packDate=2026-06-10 creates an `EMPAQUE` schedule entry on that date.
+- Clearing the packDate updates the same job → the EMPAQUE entry is deleted.
+- Staff without `canAccessSchedule` receive 403 on all schedule endpoints.
+- GET range query returns entries with `job.jobNumber`, `visit.visitNumber`, `assignedTo.name` joined.
+
+---
+
+### SCH-03 — Staff permission: `canAccessSchedule`
+
+**Backend:**
+- `canAccessSchedule` field is included in all `GET /api/staff`, `GET /api/staff/me`, `POST /api/staff`, and `PUT /api/staff/:id` read/write operations (already covered by generic select/update patterns, but verify explicitly).
+
+**Frontend — Staff form:**
+- Add a `canAccessSchedule` checkbox in the Permissions section of `StaffForm.jsx`, alongside the existing four permission flags.
+- Label EN: `"Can access the Operations Schedule (Bitácora)"` / ES: `"Puede acceder a la Bitácora de Operaciones"`.
+- Include in the PUT payload (full-object pattern).
+
+**Acceptance criteria:**
+- Toggling `canAccessSchedule` in the staff form and saving persists the value to the DB.
+- The Schedule nav item (SCH-04) is only visible to users whose staff record has `canAccessSchedule = true` (or `role = 'ADMIN'`).
+
+---
+
+### SCH-04 — Frontend: calendar view (default)
+
+**New page:** `frontend/src/pages/Schedule/SchedulePage.jsx`  
+**Route:** `/schedule` added to `App.jsx`  
+**Nav item:** "Bitácora" added to `Layout.jsx` sidebar (visible only when `currentStaff.canAccessSchedule || currentStaff.role === 'ADMIN'`).
+
+**Calendar layout:**
+- **Month view** — 7-column weekly grid showing all 4–5 weeks of the current month.
+- Each day cell shows up to 3 task chips; if more, shows `+N more` chip.
+- Each chip: colored by `taskType`, shows `time` prefix + `description` truncated.
+- Clicking a day opens a **day panel** (right-side drawer or modal) with the full list for that day.
+- Navigation: `← prev month` / `→ next month` buttons + current month/year label.
+- "Today" button snaps back to current month.
+
+**Task type colors:**
+| Type | Color |
+|---|---|
+| EMPAQUE | blue |
+| MUDANZA | indigo |
+| DESEMPAQUE | teal |
+| CARGA_CONTENEDOR | orange |
+| TRABAJO_INDUSTRIAL | amber |
+| ENTREGA | green |
+| VISITA | purple |
+| OTRO | grey |
+
+**Day panel:**
+- Lists all entries for the clicked day in time order (null time at end).
+- Each entry: colored badge (taskType), time, description, link chip to linked job/visit/file (if any), assigned staff name.
+- "Add entry" button at bottom opens the entry form (SCH-05).
+- Clicking existing entry opens edit form.
+
+**Acceptance criteria:**
+- Calendar renders correctly for all months (28/29/30/31-day months, correct first day of week).
+- Entries auto-populated from jobs/visits appear on the correct date.
+- Calendar is read-only for staff who only have `canAccessSchedule`; editing controls are shown only when the user has edit permission (same flag for now — all schedule users can edit).
+- Responsive: on narrow screens calendar stacks to a scrollable week list.
+
+---
+
+### SCH-05 — Frontend: list view + create/edit form
+
+**List view toggle:**
+- A `List` / `Calendar` toggle button in the page header switches views.
+- List view shows entries grouped by date (ascending), filter by month matching the current calendar month.
+- Each row: date pill, time, taskType badge, description, linked record chip, assigned staff.
+
+**Create / edit modal (shared):**
+
+| Field | Type | Notes |
+|---|---|---|
+| Date | date picker | required |
+| Time | text `HH:MM` | optional |
+| Task type | select | all 8 types |
+| Description | text | required |
+| Notes | textarea | optional |
+| Assigned to | staff lookup | filters to `canAccessSchedule = true` staff |
+| Link to Job | optional lookup | searching by job number; auto-fills description |
+| Link to Visit | optional lookup | searching by visit number |
+| Link to File | optional lookup | searching by file number |
+
+- System-generated entries (those with a `jobId` or `visitId`) show a read-only pill "Auto from Job #E-0001" or similar; the date, taskType and client description are locked and can only be changed via the source record.
+- Manual entries (no linked record) are fully editable and deletable.
+
+**Acceptance criteria:**
+- Creating a manual entry from the calendar day panel adds it immediately to the view (optimistic or re-fetch).
+- Editing a system-generated entry allows changing `time`, `notes`, `assignedToId` only (date and description are locked with a tooltip explaining why).
+- Deleting a system-generated entry is blocked with a message: "This entry is managed by Job #XXX. Update or delete the job to remove it."
+- All form fields validated: date required, description required, time must be `HH:MM` format if provided.
+- i18n keys added to `i18n.jsx` for all new UI strings (EN + ES).
+
+---
+
+### SCH-06 — Auto-sync backfill (optional, run once)
+
+**One-time script** `backend/scripts/backfill-schedule-entries.js`:
+- Reads all `Job` records with non-null `packDate` or `moveDate` and upserts the corresponding `ScheduleEntry` records.
+- Reads all `Visit` records with non-null `scheduledDate` and upserts their `VISITA` entries.
+- Supports `--dry-run` flag (prints what would be created, no DB writes).
+- Safe to re-run (upsert by `jobId+taskType` / `visitId`).
+
+**Acceptance criteria:**
+- `--dry-run` output shows counts of entries that would be created.
+- Live run creates entries without errors or duplicate records.
+- Post-run: calendar view shows all historical jobs and visits on their scheduled dates.
+
+---
+
+## 12. Bug Fixes & Improvements (May 2026)
+
+### ~~BUG-06~~ ✅ — Blank page when navigating back to Import / Export file list after opening a record
+
+**User story:** As a coordinator, when I open an Import or Export file for editing and then navigate back to the list, I expect to see the list — not a blank page — so I can continue working without having to manually refresh the browser.
+
+**Context:**
+- User reports a blank page on the Import/Export file list after opening a record for edit.
+- A page refresh fixes it, but the blank state returns on the next back-navigation.
+- A browser console error will be provided — investigation must begin once the error log is shared.
+- Suspected causes: React Router state loss, a missing error boundary, a failed API call whose error is swallowed, or a component that requires data that is not present on re-mount (e.g. a missing `key` or stale cached value).
+
+**Investigation steps:**
+1. Capture the full browser console error and network tab output from the user.
+2. Check `FilesList.jsx` and `FileDetail.jsx` (or equivalent `ImportFiles` / `ExportFiles` pages) for unhandled promise rejections, missing null-guards, or conditional renders that produce `null` without a fallback.
+3. Verify that React Router `useNavigate` / `useLocation` state is not relied upon without a null-check.
+4. Check whether the list fetches data on mount (in a `useEffect`) and whether the effect cleans up correctly.
+5. If a state variable is initialised from route params/state that is absent on re-mount, add a safe default or redirect.
+
+**Acceptance criteria:**
+- Navigating back to the Import or Export file list after viewing/editing a record always renders the list correctly.
+- No blank page occurs on any navigation path (first visit, back-navigation, browser back button).
+- If an API call fails, an error message is shown instead of a blank page.
+- Fix is confirmed by the reporting user.
+
+---
+
+### ~~BUG-07~~ ✅ — Email not being sent when a file or work order is assigned or updated
+
+**User story:** As a coordinator, I want to receive an email whenever a Moving File or Job (Work Order) that I am assigned to is saved — whether I was just assigned, re-assigned, or any other field was changed — so I always have the latest information.
+
+**Root causes found:**
+1. `movingFiles.js` PUT: email was only sent when `coordinatorId !== prevFile.coordinatorId` — so self-assignment (saving with the same coordinator) and any other field change (ETD, ETA, port, status…) produced no email.
+2. `jobs.js` PUT: same guard; additionally, if no linked `MovingFile` existed the notification was skipped entirely.
+3. `notifications.js`: `notifyFileCoordinator` only had subjects/messages for `created` and `reassigned`; no `updated` case.
+
+**Fixes applied:**
+- `notifications.js` — `notifyFileCoordinator` now handles `action = 'assigned' | 'updated'` in addition to `created` / `reassigned`. Subject and opening sentence change accordingly.
+- `movingFiles.js` PUT — notification now fires on **every save** as long as `file.coordinator.email` is set. Action is `'assigned'` when coordinator ID changed, `'updated'` otherwise. Coordinator sync to linked Job is unchanged (still only runs on actual coordinator change).
+- `jobs.js` PUT — sync to linked `MovingFile` still only runs on coordinator change. Notification now always fires when `activeCoordinatorId` is set and a linked file exists; fetches the file (with client + coordinator) fresh so the email contains up-to-date context.
+
+**Acceptance criteria:**
+- Saving a file with a coordinator set always produces a `SENT` (or `FAILED`) entry in the Email Log, regardless of which fields changed.
+- Email subject says "asignado" on first assignment, "reasignado" on coordinator change, "actualizado" on all other saves.
+- Self-assignment (coordinator saves the file themselves) triggers the email.
+- Saving a Job triggers the notification through the linked file.
+- A `FAILED` entry appears with error detail if the mail service rejects the request.
+
+---
+
+### ~~QT-06~~ ✅ — New footer image for quote documents
+
+**User story:** As a manager, I want to provide a new footer image (logo / branding banner) that appears at the bottom of every quote document, replacing the current footer, so quotes reflect our updated branding.
+
+**Context:**
+- Quote documents are rendered in `QuoteDocument.jsx` (and the equivalent print / PDF view).
+- The current footer is either hard-coded text or an existing image asset.
+- The new image file will be provided by the user.
+
+**Acceptance criteria:**
+- The footer image asset is replaced / added in the frontend `public/` or `src/assets/` folder.
+- `QuoteDocument.jsx` references the new image in the footer section.
+- The image scales correctly across the quote page width without overflowing or stretching.
+- Both the in-browser preview and the downloaded/printed PDF show the new footer.
+- The old footer image (if any) is removed so it is not bundled unnecessarily.
+- No quote data fields, layout, or signature block are affected.
+
+---
+
+### JOB-01 ✅ — Create a new Job (Work Order) directly, without a prior Visit or Quote
+
+**User story:** As an operations manager, I want a "New Job" button on the Jobs list page that lets me create a work order from scratch — without first creating a Visit or Quote — so that walk-in, referral, or repeat customers can be handled quickly.
+
+**Context:**
+- Currently, jobs are created by converting a Quote (which itself originates from a Visit).
+- Some jobs arrive without a prior sales cycle (e.g. direct bookings, returning corporate clients).
+- On creation, an Export Moving File should be automatically created and linked to the new Job, following the existing auto-creation logic used when a Job is created from a Quote.
+
+**Acceptance criteria:**
+- A **"+ New Job"** (or "Nuevo Trabajo") button is added to the `JobsList.jsx` page header.
+- Clicking it opens the existing `JobForm.jsx` (or a simplified variant) with all mandatory fields: client, type, origin/destination, dates.
+- The `visitId` and `quoteId` fields are optional (left blank for direct jobs).
+- On save, the backend `POST /api/jobs` handler creates the Job and auto-creates the linked Export `MovingFile` (same logic as quote-conversion path).
+- The user is redirected to the new Job detail page after creation.
+- The Jobs list and the new Job detail page reflect the record correctly.
+- i18n keys added for all new button labels and form headings.
+
+---
+
+### JOB-02 ✅ — Reorder tabs in Job detail page: Work Order first
+
+**User story:** As a coordinator, I want the "Work Order" tab to be the first (default) tab when I open a Job, because that is the information I look at most often, so I don't have to click away from the default tab every time.
+
+**Context:**
+- `JobDetail.jsx` currently renders three tabs in this order: **Overview → Work Order → History**.
+- The desired new order is: **Work Order → Overview → History**.
+- The active tab on first load defaults to index 0 (Overview); after the change it should default to Work Order.
+
+**Acceptance criteria:**
+- Tab order in `JobDetail.jsx` is changed to: **Work Order (index 0) → Overview (index 1) → History (index 2)**.
+- The page loads with the Work Order tab active by default.
+- All three tabs still render their existing content correctly.
+- No other pages or components are affected.
+- i18n keys and tab labels are unchanged (only the order changes).
+

@@ -253,13 +253,21 @@ async function notifyFileCoordinator(file, action = 'created') {
           : null)
       || 'Cliente desconocido'
 
-    const subject = action === 'created'
+    const subject = (action === 'created' || action === 'assigned')
       ? `[Expediente] ${file.fileNumber} asignado`
-      : `[Expediente] ${file.fileNumber} reasignado`
+      : action === 'reassigned'
+      ? `[Expediente] ${file.fileNumber} reasignado`
+      : `[Expediente] ${file.fileNumber} actualizado`
+
+    const actionMsg = (action === 'created' || action === 'assigned')
+      ? 'Se te ha asignado el expediente'
+      : action === 'reassigned'
+      ? 'Se te ha reasignado el expediente'
+      : 'Se actualizó el expediente'
 
     const html = `
       <p>Hola ${coordinator.name || coordinator.email},</p>
-      <p>Eres el/la coordinador/a del expediente <strong>${file.fileNumber}</strong>${action === 'reassigned' ? ' (reasignado)' : ''}.</p>
+      <p>${actionMsg} <strong>${file.fileNumber}</strong>.</p>
       <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
         <tr><td style="padding:4px 12px 4px 0;color:#64748b">Expediente</td><td><strong>${file.fileNumber}</strong></td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#64748b">Tipo</td><td>${FILE_CATEGORY_ES[file.category] || file.category}</td></tr>

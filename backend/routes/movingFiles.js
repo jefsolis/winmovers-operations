@@ -254,9 +254,11 @@ router.put("/:id", async (req, res, next) => {
         destAgent:   { select: { id: true, name: true } },
       },
     })
-    // Notify coordinator if they were reassigned
-    if (coordinatorId !== undefined && coordinatorId && coordinatorId !== prevFile?.coordinatorId) {
-      notifyFileCoordinator(file, 'reassigned')
+    // Notify coordinator on every update as long as one is assigned
+    // (includes self-assignment and any field change, not just coordinator reassignment)
+    if (file.coordinator?.email) {
+      const isNewAssignment = coordinatorId !== undefined && coordinatorId && coordinatorId !== (prevFile?.coordinatorId ?? null)
+      notifyFileCoordinator(file, isNewAssignment ? 'assigned' : 'updated')
     }
     // Sync coordinator to the linked Job (if any) so both records stay consistent
     if (coordinatorId !== undefined && coordinatorId !== (prevFile?.coordinatorId ?? null)) {

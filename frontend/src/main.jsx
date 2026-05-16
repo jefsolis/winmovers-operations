@@ -4,6 +4,7 @@ import { MsalProvider } from '@azure/msal-react'
 import { msalInstance } from './auth/tokenHelper'
 import AuthGuard from './auth/AuthGuard'
 import App from './App'
+import ErrorBoundary from './components/ErrorBoundary'
 
 msalInstance.initialize().then(() => {
   return msalInstance.handleRedirectPromise()
@@ -17,11 +18,13 @@ msalInstance.initialize().then(() => {
 
   createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-      <MsalProvider instance={msalInstance}>
-        <AuthGuard>
-          <App />
-        </AuthGuard>
-      </MsalProvider>
+      <ErrorBoundary>
+        <MsalProvider instance={msalInstance}>
+          <AuthGuard>
+            <App />
+          </AuthGuard>
+        </MsalProvider>
+      </ErrorBoundary>
     </React.StrictMode>
   )
 })

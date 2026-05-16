@@ -139,6 +139,9 @@ const JobDocument = forwardRef(function JobDocument(
     onFormChange,
     clients = [],
     onClientChange,
+    onCorpClientChange,
+    onCreateNewClient,
+    onCreateNewCorp,
     resolvedJobNumber = '',
     resolvedCreatedDate = '',
     headerRef,
@@ -229,10 +232,22 @@ const JobDocument = forwardRef(function JobDocument(
             <div className="jd-cell" style={{ flex: 3, borderRight: '1px solid #bbb' }}>
               <span className="jd-cell-label">{L.clientName}</span>
               {editMode ? (
-                <select style={selectStyle} value={form?.clientId || ''} onChange={e => onClientChange?.(e.target.value)}>
-                  <option value="">—</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <>
+                  <select style={selectStyle}
+                    value={clients.find(c => c.id === form?.clientId && c.clientType === 'INDIVIDUAL')?.id || ''}
+                    onChange={e => onClientChange?.(e.target.value)}>
+                    <option value="">—</option>
+                    {clients.filter(c => c.clientType === 'INDIVIDUAL').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  {onCreateNewClient && (
+                    <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                      <button type="button" onClick={() => onCreateNewClient('')}
+                        style={{ fontSize: 10, padding: '1px 6px', border: '1px solid #bbb', borderRadius: 3, background: 'none', cursor: 'pointer', color: 'var(--primary)' }}>
+                        + Individual
+                      </button>
+                    </div>
+                  )}
+                </>
               ) : (
                 <span className="jd-cell-value">{viewClientName}</span>
               )}
@@ -247,7 +262,31 @@ const JobDocument = forwardRef(function JobDocument(
 
           {/* Row 5: Company | Company Phone */}
           <Row>
-            <Cell label={L.company}      value={fv('companyName')}  flex={3} borderRight editMode={editMode} onChange={ch('companyName')} />
+            <div className="jd-cell" style={{ flex: 3, borderRight: '1px solid #bbb' }}>
+              <span className="jd-cell-label">{L.company}</span>
+              {editMode ? (
+                <>
+                  <select style={selectStyle}
+                    value={form?.corporateClientId || ''}
+                    onChange={e => onCorpClientChange?.(e.target.value)}>
+                    <option value="">—</option>
+                    {clients.filter(c => c.clientType === 'CORPORATE').map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  {onCreateNewCorp && (
+                    <div style={{ marginTop: 3 }}>
+                      <button type="button" onClick={() => onCreateNewCorp('')}
+                        style={{ fontSize: 10, padding: '1px 6px', border: '1px solid #bbb', borderRadius: 3, background: 'none', cursor: 'pointer', color: 'var(--primary)' }}>
+                        + Compañía
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="jd-cell-value">{fv('companyName')}</span>
+              )}
+            </div>
             <Cell label={L.companyPhone} value={fv('companyPhone')} flex={2}             editMode={editMode} onChange={ch('companyPhone')} />
           </Row>
 

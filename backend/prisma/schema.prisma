@@ -20,7 +20,8 @@ model Client {
   address    String?
   country    String?
   notes      String?
-  jobs            Job[]
+  jobs            Job[]                 @relation("JobClient")
+  corporateJobs   Job[]                 @relation("JobCorporateClient")
   visits          Visit[]              @relation("VisitClient")
   corporateVisits Visit[]              @relation("VisitCorporateClient")
   movingFiles          MovingFile[]         @relation("FileClient")
@@ -54,7 +55,9 @@ model Job {
   type          String
   status        String      @default("SURVEY")
   clientId      String?
-  client        Client?     @relation(fields: [clientId], references: [id])
+  client        Client?     @relation("JobClient", fields: [clientId], references: [id])
+  corporateClientId String?
+  corporateClient   Client?  @relation("JobCorporateClient", fields: [corporateClientId], references: [id])
   originAgentId  String?
   originAgent    Agent?      @relation("OriginAgent", fields: [originAgentId], references: [id])
   destAgentId    String?
