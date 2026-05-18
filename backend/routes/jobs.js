@@ -3,6 +3,7 @@ const { getPrisma } = require("../db")
 const { logAudit } = require("../audit")
 const { generateFileNumber } = require("./movingFiles")
 const { notifyFileCoordinator } = require('../services/notifications')
+const { syncJobScheduleEntries } = require('../services/scheduleSync')
 
 function toDate(val) {
   if (!val) return null
@@ -206,6 +207,9 @@ router.post("/", async (req, res, next) => {
     const job = await getPrisma().job.create({ data })
     logAudit(req, 'Job', job.id, 'CREATE', null, job)
 
+    // Sync schedule entries (fire-and-forget)
+    syncJobScheduleEntries(job, req).catch(() => {})
+
     // Notify coordinator on creation (fire-and-forget)
     if (movingFileId && coordinatorId) {
       try {
@@ -319,6 +323,8 @@ router.put("/:id", async (req, res, next) => {
     }
 
     logAudit(req, 'Job', req.params.id, 'UPDATE', before, job)
+    // Sync schedule entries (fire-and-forget)
+    syncJobScheduleEntries(job, req).catch(() => {})
     res.json(job)
   } catch (err) { next(err) }
 })

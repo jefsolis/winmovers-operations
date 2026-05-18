@@ -39,7 +39,10 @@ const LABELS = {
 
 function fmtDate(v) {
   if (!v) return ''
-  try { return new Date(v).toLocaleDateString('en-GB') } catch { return '' }
+  try {
+    const s = String(v)
+    return `${s.slice(8,10)}/${s.slice(5,7)}/${s.slice(0,4)}`
+  } catch { return '' }
 }
 
 function formatTime12h(v) {

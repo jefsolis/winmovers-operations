@@ -8,7 +8,7 @@ const AD_ROLE_MAP = { Admin: 'ADMIN', Coordinator: 'COORDINATOR' }
 
 const EMPTY = {
   name: '', email: '', phone: '', isActive: true,
-  canBeAssignedToVisit: true, canCreateQuotes: false, canBeCreatorInWorkOrder: false, canCoordinateFiles: false,
+  canBeAssignedToVisit: true, canCreateQuotes: false, canBeCreatorInWorkOrder: false, canCoordinateFiles: false, canAccessSchedule: false,
   role: '', azureOid: '',
 }
 
@@ -45,6 +45,7 @@ export default function StaffForm() {
         canCreateQuotes:         m.canCreateQuotes,
         canBeCreatorInWorkOrder: m.canBeCreatorInWorkOrder,
         canCoordinateFiles:      m.canCoordinateFiles,
+        canAccessSchedule:       m.canAccessSchedule ?? false,
         role: m.role || '',
         azureOid: m.azureOid || '',
       }))
@@ -263,6 +264,7 @@ export default function StaffForm() {
               ['canCreateQuotes',         t('staff.canCreateQuotes')],
               ['canBeCreatorInWorkOrder', t('staff.canBeCreatorInWorkOrder')],
               ['canCoordinateFiles',      t('staff.canCoordinateFiles')],
+              ['canAccessSchedule',        t('staff.canAccessSchedule')],
             ].map(([key, label]) => (
               <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer', userSelect: 'none' }}>
                 <input
@@ -281,6 +283,7 @@ export default function StaffForm() {
               <option value="ADMIN">{t('staff.roleAdmin')}</option>
               <option value="COORDINATOR">{t('staff.roleCoordinator')}</option>
               <option value="STAFF">{t('staff.roleStaff')}</option>
+              <option value="BODEGA">{t('staff.roleBodega')}</option>
             </select>
           </div>
         </div>

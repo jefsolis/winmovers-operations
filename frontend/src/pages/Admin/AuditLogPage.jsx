@@ -9,9 +9,59 @@ const ACTION_COLORS = {
   DELETE: { bg: '#fee2e2', color: '#dc2626' },
 }
 
-const ENTITY_TYPES = ['Job', 'Visit', 'Quote', 'MovingFile', 'Client', 'Agent', 'StaffMember']
+const ENTITY_TYPES = ['Job', 'Visit', 'Quote', 'MovingFile', 'Client', 'Agent', 'StaffMember', 'ScheduleEntry']
 const ACTIONS      = ['CREATE', 'UPDATE', 'DELETE']
 const PAGE_SIZE    = 50
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const SKIP_AUDIT_KEYS = new Set(['id', 'createdAt', 'updatedAt'])
+
+function formatAuditValue(v) {
+  if (v === null || v === undefined) return <em style={{ color: '#94a3b8' }}>vacío</em>
+  if (typeof v === 'boolean')        return v ? '✓' : '✗'
+  if (typeof v === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}T/.test(v)) return v.slice(0, 10)  // ISO date → date only
+    return v.length > 60 ? v.slice(0, 60) + '…' : v
+  }
+  if (typeof v === 'object') return JSON.stringify(v).slice(0, 60)
+  return String(v)
+}
+
+function ChangedFieldsCell({ entry }) {
+  const keys = (entry.changedKeys || []).filter(k => !SKIP_AUDIT_KEYS.has(k))
+
+  if (entry.action === 'CREATE') {
+    // Show key identifying fields of the new record
+    const snap = entry.after || {}
+    const preview = ['description', 'taskType', 'date', 'name', 'jobNumber', 'fileNumber', 'visitNumber']
+      .filter(k => snap[k])
+      .map(k => formatAuditValue(snap[k]))
+    return <span style={{ color: '#64748b', fontSize: 11 }}>{preview.length ? preview.join(' · ') : 'Registro creado'}</span>
+  }
+
+  if (entry.action === 'DELETE') {
+    const snap = entry.before || {}
+    const preview = ['description', 'taskType', 'date', 'name', 'jobNumber', 'fileNumber', 'visitNumber']
+      .filter(k => snap[k])
+      .map(k => formatAuditValue(snap[k]))
+    return <span style={{ color: '#64748b', fontSize: 11 }}>{preview.length ? preview.join(' · ') : 'Registro eliminado'}</span>
+  }
+
+  if (keys.length === 0) return <span style={{ color: '#94a3b8' }}>—</span>
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {keys.map(k => (
+        <div key={k} style={{ fontSize: 11, display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>{k}:</span>
+          <span style={{ color: '#dc2626', textDecoration: 'line-through', wordBreak: 'break-word' }}>{formatAuditValue(entry.before?.[k])}</span>
+          <span style={{ color: '#94a3b8' }}>→</span>
+          <span style={{ color: '#16a34a', wordBreak: 'break-word' }}>{formatAuditValue(entry.after?.[k])}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function entityLink(entityType, entityId, t, entry) {
   switch (entityType) {
@@ -21,6 +71,7 @@ function entityLink(entityType, entityId, t, entry) {
     case 'Client':      return <Link to={`/clients/${entityId}/edit`}   style={{ color: 'var(--primary)' }}>{entityId.slice(0, 8)}…</Link>
     case 'Agent':       return <Link to={`/agents/${entityId}/edit`}    style={{ color: 'var(--primary)' }}>{entityId.slice(0, 8)}…</Link>
     case 'StaffMember': return <Link to={`/staff/${entityId}/edit`}     style={{ color: 'var(--primary)' }}>{entityId.slice(0, 8)}…</Link>
+    case 'ScheduleEntry': return <Link to={`/schedule`}                  style={{ color: 'var(--primary)' }}>{entityId.slice(0, 8)}…</Link>
     case 'MovingFile': {
       const category = (entry?.after?.category || entry?.before?.category || '').toLowerCase()
       const path = category ? `/files/${category}/${entityId}` : null
@@ -41,6 +92,7 @@ function entityTypeLabel(entityType, t) {
     Client: t('audit.entityClient'),
     Agent: t('audit.entityAgent'),
     StaffMember: t('audit.entityStaff'),
+    ScheduleEntry: t('audit.entityScheduleEntry'),
   }
   return map[entityType] || entityType
 }
@@ -204,8 +256,8 @@ export default function AuditLogPage() {
                           </td>
                           <td style={{ padding: '8px 12px' }}>{entityTypeLabel(entry.entityType, t)}</td>
                           <td style={{ padding: '8px 12px' }}>{entityLink(entry.entityType, entry.entityId, t, entry)}</td>
-                          <td style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: 12 }}>
-                            {entry.changedKeys?.length > 0 ? entry.changedKeys.join(', ') : '—'}
+                          <td style={{ padding: '8px 12px', fontSize: 12, maxWidth: 380 }}>
+                            <ChangedFieldsCell entry={entry} />
                           </td>
                         </tr>
                       )

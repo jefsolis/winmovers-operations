@@ -187,7 +187,6 @@ router.put('/:id', async (req, res, next) => {
     if (assignedToId && (assigneeChanged || dateChanged)) {
       notifyVisitAssigned(visit, 'updated')
     }
-
     logAudit(req, 'Visit', req.params.id, 'UPDATE', prev, visit)
     res.json(visit)
   } catch (err) { next(err) }

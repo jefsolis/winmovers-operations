@@ -2,22 +2,26 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
+import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 
 const PERMISSIONS = [
-  { key: 'canBeAssignedToVisit',    bg: '#ede9fe', color: '#7c3aed', labelKey: 'nav.visits'  },
-  { key: 'canCreateQuotes',         bg: '#e0f2fe', color: '#0369a1', labelKey: 'nav.quotes'  },
-  { key: 'canBeCreatorInWorkOrder', bg: '#fef9c3', color: '#a16207', labelKey: 'nav.jobs'    },
-  { key: 'canCoordinateFiles',      bg: '#dcfce7', color: '#15803d', labelKey: 'nav.files'   },
+  { key: 'canBeAssignedToVisit',    bg: '#ede9fe', color: '#7c3aed', labelKey: 'nav.visits'    },
+  { key: 'canCreateQuotes',         bg: '#e0f2fe', color: '#0369a1', labelKey: 'nav.quotes'    },
+  { key: 'canBeCreatorInWorkOrder', bg: '#fef9c3', color: '#a16207', labelKey: 'nav.jobs'      },
+  { key: 'canCoordinateFiles',      bg: '#dcfce7', color: '#15803d', labelKey: 'nav.files'     },
+  { key: 'canAccessSchedule',       bg: '#fdf4ff', color: '#7e22ce', labelKey: 'nav.schedule'  },
 ]
 
 const ROLE_META = {
   ADMIN:       { bg: '#fee2e2', color: '#b91c1c' },
   COORDINATOR: { bg: '#fce7f3', color: '#be185d' },
   STAFF:       { bg: '#f1f5f9', color: '#475569' },
+  BODEGA:      { bg: '#fef9c3', color: '#a16207' },
 }
 
 export default function StaffList() {
   const { t } = useLanguage()
+  const currentStaff = useCurrentStaff()
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -39,6 +43,10 @@ export default function StaffList() {
   }
 
   const handleToggleActive = async (member) => {
+    if (member.isActive) {
+      const msg = t('staff.deactivateConfirm').replace('{{name}}', member.name)
+      if (!window.confirm(msg)) return
+    }
     await api.put(`/staff/${member.id}`, { ...member, isActive: !member.isActive })
     load()
   }
@@ -142,6 +150,8 @@ export default function StaffList() {
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => handleToggleActive(m)}
+                        disabled={m.isActive && m.id === currentStaff?.id}
+                        title={m.isActive && m.id === currentStaff?.id ? t('staff.cannotDeactivateSelf') : undefined}
                       >
                         {m.isActive ? t('staff.deactivate') : t('staff.activate')}
                       </button>

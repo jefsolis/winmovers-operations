@@ -8,6 +8,9 @@ import AuditHistory from '../../components/AuditHistory'
 
 const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
 
+// Formats an ISO date string as DD/MM/YYYY without any Date object / timezone conversion
+const fmtDate = (iso) => iso ? `${iso.slice(8,10)}/${iso.slice(5,7)}/${iso.slice(0,4)}` : '—'
+
 function InfoRow({ label, children }) {
   return (
     <div>
@@ -277,7 +280,7 @@ export default function FileDetail() {
                 const _smArr = shipMode ? shipMode.split(',').filter(Boolean) : []
                 const isAir = _smArr.length === 1 && _smArr[0] === 'AIR'
                 const isSea = _smArr.length === 1 && _smArr[0] === 'SEA'
-                const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { timeZone: 'UTC' }) : '\u2014'
+                const fmt = fmtDate
                 const destAddr = [file.destAddress || job?.destAddress, file.destCity || job?.destCity, file.destCountry || job?.destCountry].filter(Boolean).join(', ') || '\u2014'
                 const origCountry = file.originCountry || job?.originCountry || '\u2014'
                 const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
@@ -321,7 +324,7 @@ export default function FileDetail() {
                 const _smArr2 = shipMode ? shipMode.split(',').filter(Boolean) : []
                 const isAir = _smArr2.length === 1 && _smArr2[0] === 'AIR'
                 const isSea = _smArr2.length === 1 && _smArr2[0] === 'SEA'
-                const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { timeZone: 'UTC' }) : '\u2014'
+                const fmt = fmtDate
                 const origAddr = [file.originAddress || job?.originAddress, file.originCity || job?.originCity, file.originCountry || job?.originCountry].filter(Boolean).join(', ') || '\u2014'
                 const destAddr = [file.destAddress || job?.destAddress, file.destCity || job?.destCity, file.destCountry || job?.destCountry].filter(Boolean).join(', ') || '\u2014'
                 const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
@@ -370,6 +373,19 @@ export default function FileDetail() {
                   )}
                   {file.weightKg != null && (
                     <InfoRow label={t('movingFiles.weightKg')}>{file.weightKg} Kg</InfoRow>
+                  )}
+                  {file.fechaTraslado && (
+                    <InfoRow label={t('movingFiles.fechaTraslado')}>
+                      {fmtDate(file.fechaTraslado)}
+                    </InfoRow>
+                  )}
+                  {file.fechaEntrega && (
+                    <InfoRow label={t('movingFiles.fechaEntrega')}>
+                      {fmtDate(file.fechaEntrega)}
+                    </InfoRow>
+                  )}
+                  {file.coordinator && (
+                    <InfoRow label={t('movingFiles.coordinator')}>{file.coordinator.name}</InfoRow>
                   )}
                 </>
               )}

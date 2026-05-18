@@ -1,0 +1,135 @@
+const router = require('express').Router()
+const { getPrisma } = require('../db')
+const { logAudit } = require('../audit')
+
+// ── Permission middleware ─────────────────────────────────────────────────────
+async function requireScheduleAccess(req, res, next) {
+  try {
+    const oid = req.user?.oid
+    if (!oid) return res.status(403).json({ error: 'Forbidden' })
+    const staff = await getPrisma().staffMember.findUnique({ where: { azureOid: oid } })
+    if (!staff || (!staff.canAccessSchedule && staff.role !== 'ADMIN' && staff.role !== 'BODEGA')) {
+      return res.status(403).json({ error: 'No tienes acceso a la Bitácora.' })
+    }
+    req.staff = staff
+    next()
+  } catch (err) { next(err) }
+}
+
+router.use(requireScheduleAccess)
+
+// ── Shared include ────────────────────────────────────────────────────────────
+const ENTRY_INCLUDE = {
+  job:        { select: { id: true, jobNumber: true, type: true, quoteTo: true, companyName: true, client: { select: { name: true } } } },
+  assignedTo: { select: { id: true, name: true } },
+}
+
+// ── GET range ────────────────────────────────────────────────────────────────
+// GET /api/schedule?from=2026-05-01&to=2026-05-31
+router.get('/', async (req, res, next) => {
+  try {
+    const { from, to } = req.query
+    const where = {}
+    if (from || to) {
+      where.date = {}
+      if (from) where.date.gte = new Date(from + 'T00:00:00.000Z')
+      if (to)   where.date.lte = new Date(to   + 'T23:59:59.999Z')
+    }
+    const entries = await getPrisma().scheduleEntry.findMany({
+      where,
+      include: ENTRY_INCLUDE,
+      orderBy: [{ date: 'asc' }, { time: 'asc' }],
+    })
+    res.json(entries)
+  } catch (err) { next(err) }
+})
+
+// ── GET one ───────────────────────────────────────────────────────────────────
+router.get('/:id', async (req, res, next) => {
+  try {
+    const entry = await getPrisma().scheduleEntry.findUnique({
+      where: { id: req.params.id },
+      include: ENTRY_INCLUDE,
+    })
+    if (!entry) return res.status(404).json({ error: 'Not found' })
+    res.json(entry)
+  } catch (err) { next(err) }
+})
+
+// ── POST create (manual entries only) ────────────────────────────────────────
+router.post('/', async (req, res, next) => {
+  try {
+    const { date, time, taskType, description, notes, assignedToId, jobId } = req.body
+    if (!date)        return res.status(400).json({ error: 'La fecha es requerida.' })
+    if (!taskType)    return res.status(400).json({ error: 'El tipo de tarea es requerido.' })
+    if (!description?.trim()) return res.status(400).json({ error: 'La descripción es requerida.' })
+    if (!time)        return res.status(400).json({ error: 'La hora es requerida.' })
+    if (!/^\d{2}:\d{2}$/.test(time)) return res.status(400).json({ error: 'Formato de hora inválido (HH:MM).' })
+
+    const entry = await getPrisma().scheduleEntry.create({
+      data: {
+        date:        new Date(date),
+        time:        time        || null,
+        taskType,
+        description: description.trim(),
+        notes:       notes       || null,
+        assignedToId: assignedToId || null,
+        jobId:        jobId        || null,
+      },
+      include: ENTRY_INCLUDE,
+    })
+    logAudit(req, 'ScheduleEntry', entry.id, 'CREATE', null, entry)
+    res.status(201).json(entry)
+  } catch (err) { next(err) }
+})
+
+// ── PUT update ────────────────────────────────────────────────────────────────
+// System-linked entries (jobId): only time, notes, assignedToId are writable
+// Manual entries: all fields writable
+router.put('/:id', async (req, res, next) => {
+  try {
+    const before = await getPrisma().scheduleEntry.findUnique({ where: { id: req.params.id } })
+    if (!before) return res.status(404).json({ error: 'Not found' })
+
+    const { date, time, taskType, description, notes, assignedToId, jobId } = req.body
+
+    if (time && !/^\d{2}:\d{2}$/.test(time)) return res.status(400).json({ error: 'Formato de hora inválido (HH:MM).' })
+
+    const data = {
+      date:         date        ? new Date(date) : before.date,
+      time:         time !== undefined ? (time || null) : before.time,
+      taskType:     taskType    || before.taskType,
+      description:  description?.trim() || before.description,
+      notes:        notes !== undefined ? (notes || null) : before.notes,
+      assignedToId: assignedToId !== undefined ? (assignedToId || null) : before.assignedToId,
+      jobId:        jobId !== undefined ? (jobId || null) : before.jobId,
+    }
+
+    const entry = await getPrisma().scheduleEntry.update({
+      where: { id: req.params.id },
+      data,
+      include: ENTRY_INCLUDE,
+    })
+    logAudit(req, 'ScheduleEntry', req.params.id, 'UPDATE', before, entry)
+    res.json(entry)
+  } catch (err) { next(err) }
+})
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+// Only manual entries can be deleted directly
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const entry = await getPrisma().scheduleEntry.findUnique({ where: { id: req.params.id } })
+    if (!entry) return res.status(404).json({ error: 'Not found' })
+    if (entry.jobId) {
+      return res.status(409).json({
+        error: `Esta entrada es gestionada por un Trabajo. Actualice o elimine el registro origen para removerla.`,
+      })
+    }
+    await getPrisma().scheduleEntry.delete({ where: { id: req.params.id } })
+    logAudit(req, 'ScheduleEntry', req.params.id, 'DELETE', entry, null)
+    res.status(204).send()
+  } catch (err) { next(err) }
+})
+
+module.exports = router

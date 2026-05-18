@@ -430,8 +430,8 @@ export default function FileForm() {
                 )}
               </div>
 
-              {/* Coordinator — EXPORT and IMPORT */}
-              {(category === 'IMPORT' || category === 'EXPORT') && (
+              {/* Coordinator — all categories */}
+              {(category === 'IMPORT' || category === 'EXPORT' || category === 'LOCAL') && (
                 <div className="form-group form-full">
                   <label className="form-label">{t('movingFiles.coordinator')}</label>
                   <select className="form-control" value={form.coordinatorId} onChange={e => set('coordinatorId', e.target.value)}>
@@ -591,6 +591,23 @@ export default function FileForm() {
                   </>
                 )}
 
+              </div>
+            </div>
+          )}
+
+          {/* Service dates — LOCAL only */}
+          {category === 'LOCAL' && (
+            <div className="form-section" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <div className="section-label" style={{ marginBottom: 12 }}>{t('movingFiles.datesSection') || 'Fechas'}</div>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">{t('movingFiles.fechaTraslado')}</label>
+                  <input className="form-control" type="date" value={form.fechaTraslado} onChange={e => set('fechaTraslado', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('movingFiles.fechaEntrega')}</label>
+                  <input className="form-control" type="date" value={form.fechaEntrega} onChange={e => set('fechaEntrega', e.target.value)} />
+                </div>
               </div>
             </div>
           )}

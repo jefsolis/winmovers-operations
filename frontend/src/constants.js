@@ -61,9 +61,15 @@ export function stripFilePrefix(num) {
   return num ? num.replace(/^[A-Z]+-/, '') : num
 }
 
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
 export function formatDate(dateStr) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })
+  const s = String(dateStr)
+  const day   = parseInt(s.slice(8, 10), 10)
+  const month = MONTH_SHORT[parseInt(s.slice(5, 7), 10) - 1]
+  const year  = s.slice(0, 4)
+  return `${day} ${month} ${year}`
 }
 
 export function formatDateTime(dateStr) {

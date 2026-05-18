@@ -12,10 +12,14 @@ export default function Layout() {
   const displayName = user?.name || user?.username || ''
   const currentStaff = useCurrentStaff()
   const isAdmin = currentStaff?.role === 'ADMIN'
+  const isBodega = currentStaff?.role === 'BODEGA'
 
   const handleLogout = () => instance.logoutRedirect({ postLogoutRedirectUri: window.location.origin })
+  const canSchedule = currentStaff?.canAccessSchedule || isAdmin || isBodega
 
-  const nav = [
+  const nav = isBodega
+    ? [{ to: '/schedule', label: t('nav.schedule'), icon: '🗓' }]
+    : [
     { to: '/dashboard', label: t('nav.dashboard'), icon: '⬛' },
     { to: '/visits',    label: t('nav.visits'),    icon: '📅' },
     { to: '/quotes',    label: t('nav.quotes'),    icon: '💬' },
@@ -23,6 +27,7 @@ export default function Layout() {
     { to: '/files/export',   label: t('nav.exportFiles'), icon: '📤' },
     { to: '/files/import',   label: t('nav.importFiles'), icon: '📥' },
     { to: '/files/local',    label: t('nav.localFiles'),  icon: '🏠' },
+    ...(canSchedule ? [{ to: '/schedule', label: t('nav.schedule'), icon: '🗓' }] : []),
     { to: '/clients',        label: t('nav.clients'),     icon: '🏢' },
     { to: '/agents',    label: t('nav.agents'),    icon: '🤝' },
     { to: '/staff',     label: t('nav.staff'),     icon: '👷' },

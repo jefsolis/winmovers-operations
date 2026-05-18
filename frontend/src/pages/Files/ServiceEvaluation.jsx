@@ -60,9 +60,9 @@ const ServiceEvaluation = forwardRef(function ServiceEvaluation(
   const phone    = file?.client?.phone || ''
 
   const refDate = job?.serviceDate ? new Date(job.serviceDate) : new Date()
-  const day     = refDate.getDate()
-  const month   = refDate.toLocaleDateString('en-US', { month: 'long' })
-  const year    = refDate.getFullYear()
+  const day     = refDate.toLocaleDateString('en-GB', { day: 'numeric',  timeZone: 'UTC' })
+  const month   = refDate.toLocaleDateString('en-US', { month: 'long',   timeZone: 'UTC' })
+  const year    = refDate.toLocaleDateString('en-US', { year: 'numeric', timeZone: 'UTC' })
 
   const ratings          = data?.ratings          ?? EMPTY_SE.ratings
   const overallRating    = data?.overallRating     ?? ''

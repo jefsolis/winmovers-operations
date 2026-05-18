@@ -26,7 +26,9 @@ import SurveyForm from './pages/Surveys/SurveyForm'
 import SurveyDetail from './pages/Surveys/SurveyDetail'
 import AdminPage from './pages/Admin/AdminPage'
 import AuditLogPage from './pages/Admin/AuditLogPage'
+import SchedulePage from './pages/Schedule/SchedulePage'
 import RequireAdmin from './auth/RequireAdmin'
+import RequireScheduleAccess from './auth/RequireScheduleAccess'
 import ReloadBanner from './components/ReloadBanner'
 
 export default function App() {
@@ -77,6 +79,7 @@ export default function App() {
           <Route path="surveys/:id/edit"         element={<SurveyForm />} />
           <Route path="admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
           <Route path="admin/audit" element={<RequireAdmin><AuditLogPage /></RequireAdmin>} />
+          <Route path="schedule" element={<RequireScheduleAccess><SchedulePage /></RequireScheduleAccess>} />
         </Route>
       </Routes>
     </BrowserRouter>
