@@ -118,13 +118,16 @@ const QuoteDocument = forwardRef(function QuoteDocument(
         </div>
 
         {/* Certifications banner — end of quote only */}
-        <div style={{ marginTop: 16, textAlign: 'center', pageBreakInside: 'avoid', breakInside: 'avoid', pageBreakBefore: 'avoid', breakBefore: 'avoid' }}>
-          <img
-            src="/certifications-banner.png"
-            alt="AMSA · lacma · IAM · FIDI · FAIM Plus"
-            style={{ maxWidth: '70%', width: 'auto', height: 'auto', display: 'inline-block' }}
-            onError={e => { e.currentTarget.style.display = 'none' }}
-          />
+        <div style={{ marginTop: 16, pageBreakInside: 'avoid', breakInside: 'avoid', pageBreakBefore: 'avoid', breakBefore: 'avoid', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+          {['certification1', 'certification2', 'certification3', 'certification4'].map(name => (
+            <img
+              key={name}
+              src={`/${name}.png`}
+              alt={name}
+              style={{ flex: '1 1 0', width: '25%', maxHeight: 100, height: 'auto', objectFit: 'contain', display: 'block' }}
+              onError={e => { e.currentTarget.style.display = 'none' }}
+            />
+          ))}
         </div>
       </div>
 

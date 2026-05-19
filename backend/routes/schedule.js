@@ -116,16 +116,11 @@ router.put('/:id', async (req, res, next) => {
 })
 
 // ── DELETE ────────────────────────────────────────────────────────────────────
-// Only manual entries can be deleted directly
+// Any entry can be deleted — the linked Job is NOT affected
 router.delete('/:id', async (req, res, next) => {
   try {
     const entry = await getPrisma().scheduleEntry.findUnique({ where: { id: req.params.id } })
     if (!entry) return res.status(404).json({ error: 'Not found' })
-    if (entry.jobId) {
-      return res.status(409).json({
-        error: `Esta entrada es gestionada por un Trabajo. Actualice o elimine el registro origen para removerla.`,
-      })
-    }
     await getPrisma().scheduleEntry.delete({ where: { id: req.params.id } })
     logAudit(req, 'ScheduleEntry', req.params.id, 'DELETE', entry, null)
     res.status(204).send()

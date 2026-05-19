@@ -124,37 +124,8 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <div className="form-group">
-              <label className="form-label">Fecha *</label>
-              <input className="form-control" type="date" value={form.date} onChange={e => set('date', e.target.value)}
-                required />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Hora *</label>
-              <input className="form-control" type="time" value={form.time}
-                onChange={e => set('time', e.target.value)} required />
-            </div>
-          </div>
 
-          <div className="form-group">
-            <label className="form-label">Tipo de tarea *</label>
-            <select className="form-control" value={form.taskType} onChange={e => set('taskType', e.target.value)} required>
-              {TASK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Descripción *</label>
-            <input className="form-control" value={form.description} onChange={e => set('description', e.target.value)}
-              required placeholder="Descripción del trabajo..." />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Notas</label>
-            <textarea className="form-control" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Notas internas..." />
-          </div>
-
+          {/* ── Job link — top of form ── */}
           {(selectedJob || !isSystem) && (
             <div className="form-group">
               <label className="form-label">{isSystem ? 'Trabajo vinculado' : 'Vincular a Trabajo (opcional)'}</label>
@@ -180,7 +151,33 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
                           return (
                             <div key={j.id}
                               onMouseDown={e => e.preventDefault()}
-                              onClick={() => { set('jobId', j.id); setSelectedJob(j); setJobSearch(''); setJobResults([]) }}
+                              onClick={() => {
+                                const taskType = { EXPORT: 'EMPAQUE', IMPORT: 'DESEMPAQUE' }[j.type] || 'MUDANZA'
+                                const description = j.quoteTo || j.client?.name || j.companyName || ''
+                                const noteParts = []
+                                if (j.shipmentMode) noteParts.push(j.shipmentMode)
+                                const origin = [j.originCity, j.originCountry].filter(Boolean).join(', ')
+                                const dest   = [j.destCity,   j.destCountry  ].filter(Boolean).join(', ')
+                                if (origin || dest) noteParts.push([origin && `Origen: ${origin}`, dest && `Destino: ${dest}`].filter(Boolean).join(' \u2192 '))
+                                const measures = []
+                                if (j.volumeCbm != null) measures.push(`${j.volumeCbm} m\u00b3`)
+                                if (j.weightKg  != null) measures.push(`${j.weightKg} kg`)
+                                if (j.bultos    != null) measures.push(`${j.bultos} bultos`)
+                                if (measures.length) noteParts.push(measures.join(' \u00b7 '))
+                                if (j.serviceDetails) noteParts.push(j.serviceDetails)
+                                setForm(p => ({
+                                  ...p,
+                                  jobId:       j.id,
+                                  taskType,
+                                  description,
+                                  date:        j.serviceDate ? j.serviceDate.slice(0, 10) : p.date,
+                                  time:        j.serviceTime || p.time,
+                                  notes:       noteParts.length ? noteParts.join('\n') : p.notes,
+                                }))
+                                setSelectedJob(j)
+                                setJobSearch('')
+                                setJobResults([])
+                              }}
                               style={{ padding:'8px 12px', cursor:'pointer', borderBottom:'1px solid #f1f5f9', fontSize:13, display:'flex', alignItems:'center', gap:8 }}
                             >
                               <span style={{ fontWeight:700 }}>#{j.jobNumber}</span>
@@ -196,10 +193,41 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
             </div>
           )}
 
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div className="form-group">
+              <label className="form-label">Fecha *</label>
+              <input className="form-control" type="date" value={form.date} onChange={e => set('date', e.target.value)}
+                required />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Hora *</label>
+              <input className="form-control" type="time" value={form.time}
+                onChange={e => set('time', e.target.value)} required />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Tipo de tarea *</label>
+            <select className="form-control" value={form.taskType} onChange={e => set('taskType', e.target.value)} required>
+              {TASK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Nombre de cliente *</label>
+            <input className="form-control" value={form.description} onChange={e => set('description', e.target.value)}
+              required placeholder="Nombre del cliente o empresa..." />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Descripción</label>
+            <textarea className="form-control" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Descripción del trabajo..." />
+          </div>
+
           {error && <div className="alert alert-error" style={{ fontSize:13 }}>{error}</div>}
 
           <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
-            {isEdit && !isSystem
+            {isEdit
               ? <button type="button" onClick={handleDelete} className="btn" style={{ background:'#fee2e2', color:'#b91c1c', border:'none' }} disabled={saving}>Eliminar</button>
               : <span />}
             <div style={{ display:'flex', gap:8 }}>
@@ -249,7 +277,7 @@ function DayPanel({ dateStr, entries, onClose, onAdd, onEdit }) {
                   {entry.time && <span style={{ fontSize:12, color:'#64748b' }}>{entry.time}</span>}
                   <LinkedChip entry={entry} />
                 </div>
-                <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{entry.description}</div>
+                <div style={{ fontSize:14, fontWeight:700, color:'#1e293b' }}>{entry.description}</div>
                 {entry.notes && <div style={{ fontSize:12, color:'#94a3b8', marginTop:2, fontStyle:'italic' }}>{entry.notes}</div>}
               </div>
             )
@@ -264,6 +292,69 @@ function DayPanel({ dateStr, entries, onClose, onAdd, onEdit }) {
   )
 }
 
+// ── Day Hover Popup ──────────────────────────────────────────────────────────
+function DayPopup({ dateStr, entries, rect }) {
+  if (!entries.length) return null
+  const d = new Date(dateStr + 'T12:00:00')
+  const label = `${d.getDate()} de ${MONTH_NAMES_ES[d.getMonth()]}`
+  const sorted = [...entries].sort((a, b) => {
+    if (!a.time && !b.time) return 0
+    if (!a.time) return 1
+    if (!b.time) return -1
+    return a.time.localeCompare(b.time)
+  })
+
+  const popupW = 360
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  let left = rect.right + 10
+  if (left + popupW > vw - 12) left = rect.left - popupW - 10
+  left = Math.max(8, left)
+  let top = rect.top
+  const estimatedH = Math.min(entries.length * 110 + 50, 520)
+  if (top + estimatedH > vh - 12) top = Math.max(8, vh - estimatedH - 12)
+
+  return (
+    <div style={{
+      position: 'fixed', top, left, width: popupW,
+      background: '#fff', borderRadius: 12,
+      boxShadow: '0 8px 40px rgba(0,0,0,0.22)',
+      border: '1px solid #e2e8f0', zIndex: 850,
+      padding: '14px 16px', pointerEvents: 'none',
+      maxHeight: 520, overflow: 'hidden',
+    }}>
+      <div style={{ fontWeight: 700, fontSize: 15, color: '#1e293b', marginBottom: 10, borderBottom: '1px solid #f1f5f9', paddingBottom: 8 }}>
+        {label} · <span style={{ fontWeight: 500, color: '#64748b' }}>{entries.length} {entries.length === 1 ? 'entrada' : 'entradas'}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, overflowY: 'auto', maxHeight: 440 }}>
+        {sorted.map(entry => {
+          const meta = taskMeta(entry.taskType)
+          const jobClient = entry.job ? (entry.job.quoteTo || entry.job.client?.name || entry.job.companyName || null) : null
+          return (
+            <div key={entry.id} style={{ background: meta.bg, borderRadius: 8, padding: '10px 12px', border: `1px solid ${meta.color}33` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+                <span style={{ background: meta.color, color: '#fff', borderRadius: 5, padding: '3px 9px', fontSize: 12, fontWeight: 700 }}>{meta.label}</span>
+                {entry.time && <span style={{ fontSize: 14, color: '#64748b', marginLeft: 'auto', fontWeight: 700 }}>{entry.time}</span>}
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>{entry.description}</div>
+              {entry.job && (
+                <div style={{ fontSize: 13, color: '#0369a1', marginTop: 5, fontWeight: 600 }}>
+                  📦 #{entry.job.jobNumber}{jobClient ? ` — ${jobClient}` : ''}
+                </div>
+              )}
+              {entry.notes && (
+                <div style={{ fontSize: 13, color: '#475569', marginTop: 4, fontStyle: 'italic', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {entry.notes}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Main Schedule Page ────────────────────────────────────────────────────────
 export default function SchedulePage() {
   const { t } = useLanguage()
@@ -273,10 +364,12 @@ export default function SchedulePage() {
   const [month, setMonth] = useState(today.getMonth())  // 0-indexed
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
-  const [view,    setView]    = useState('calendar') // 'calendar' | 'list'
+  const [view,    setView]    = useState(() => localStorage.getItem('schedule.view') || 'calendar') // 'calendar' | 'list'
   const [dayPanel,  setDayPanel]  = useState(null)  // dateStr
   const [editEntry, setEditEntry] = useState(undefined) // undefined = closed, null = new, object = edit
   const [newDefaultDate, setNewDefaultDate] = useState('')
+  const [hoveredDay, setHoveredDay] = useState(null)   // dateStr
+  const [hoverRect,  setHoverRect]  = useState(null)   // DOMRect
   const listContainerRef = useRef(null)
 
   // Scroll list view so today is centred when first shown or month changes
@@ -286,7 +379,7 @@ export default function SchedulePage() {
     if (!el) return
     const isCurrentMonth = year === today.getFullYear() && month === today.getMonth()
     if (isCurrentMonth) {
-      const COL_W = 130
+      const COL_W = 240
       const scrollTo = (today.getDate() - 1) * COL_W - el.clientWidth / 2 + COL_W / 2
       el.scrollLeft = Math.max(0, scrollTo)
     } else {
@@ -386,7 +479,7 @@ export default function SchedulePage() {
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <button className="btn btn-ghost" onClick={goToday} style={{ fontSize:13 }}>Hoy</button>
-          <button className="btn btn-ghost" onClick={() => setView(v => v === 'calendar' ? 'list' : 'calendar')} style={{ fontSize:13 }}>
+          <button className="btn btn-ghost" onClick={() => { const next = view === 'calendar' ? 'list' : 'calendar'; setView(next); localStorage.setItem('schedule.view', next) }} style={{ fontSize:13 }}>
             {view === 'calendar' ? '☰ Lista' : '🗓 Calendario'}
           </button>
           <button className="btn btn-primary" onClick={() => openNewEntry(todayStr)}>+ Agregar</button>
@@ -413,23 +506,24 @@ export default function SchedulePage() {
           </div>
 
           {/* Weeks */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'130px' }}>
             {cells.map((date, i) => {
               if (!date) return (
-                <div key={`empty-${i}`} style={{ minHeight:90, background:'#f8fafc', borderRight: i % 7 < 6 ? '1px solid #e2e8f0' : 'none', borderBottom:'1px solid #e2e8f0' }} />
+                <div key={`empty-${i}`} style={{ background:'#f8fafc', borderRight: i % 7 < 6 ? '1px solid #e2e8f0' : 'none', borderBottom:'1px solid #e2e8f0', overflow:'hidden' }} />
               )
               const ds = toDateStr(date)
               const dayEntries = byDate[ds] || []
               const isToday = ds === todayStr
               const isSelected = dayPanel === ds
-              const visible = dayEntries.slice(0, 3)
-              const overflow = dayEntries.length - 3
 
               return (
                 <div key={ds}
                   onClick={() => setDayPanel(ds === dayPanel ? null : ds)}
+                  onMouseEnter={e => { if ((byDate[ds] || []).length > 0) { setHoveredDay(ds); setHoverRect(e.currentTarget.getBoundingClientRect()) } }}
+                  onMouseLeave={() => { setHoveredDay(null); setHoverRect(null) }}
                   style={{
-                    minHeight:90, padding:4, cursor:'pointer', position:'relative',
+                    padding:4, cursor:'pointer', overflow:'hidden',
+                    display:'flex', flexDirection:'column',
                     borderRight: i % 7 < 6 ? '1px solid #e2e8f0' : 'none',
                     borderBottom:'1px solid #e2e8f0',
                     background: isSelected ? '#eff6ff' : isToday ? '#fff7ed' : '#fff',
@@ -441,43 +535,42 @@ export default function SchedulePage() {
                     fontSize:12, fontWeight: isToday ? 800 : 500,
                     color: isToday ? '#fff' : '#1e293b',
                     background: isToday ? '#f97316' : 'transparent',
-                    marginBottom:2,
+                    flexShrink:0, marginBottom:2,
                   }}>{date.getDate()}</div>
 
-                  {visible.map(entry => {
-                    const meta = taskMeta(entry.taskType)
-                    const jobLabel = entry.job ? `#${entry.job.jobNumber}${entry.job.quoteTo ? ' · ' + entry.job.quoteTo : entry.job.client?.name ? ' · ' + entry.job.client.name : ''}` : null
-                    return (
-                      <div key={entry.id}
-                        onClick={e => { e.stopPropagation(); openEditEntry(entry) }}
-                        style={{
-                          background:meta.bg, color:meta.color,
-                          borderRadius:4, padding:'3px 5px', fontSize:10, fontWeight:600,
-                          marginBottom:2, cursor:'pointer',
-                        }}
-                        title={[entry.description, entry.notes, jobLabel].filter(Boolean).join('\n')}
-                      >
-                        <div style={{ display:'flex', justifyContent:'space-between', gap:2 }}>
-                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
-                            {entry.time ? `${entry.time} ` : ''}{entry.description}
-                          </span>
+                  <div style={{ flex:1, overflowY:'auto' }}>
+                    {dayEntries.map(entry => {
+                      const meta = taskMeta(entry.taskType)
+                      const jobLabel = entry.job ? `#${entry.job.jobNumber}${entry.job.quoteTo ? ' · ' + entry.job.quoteTo : entry.job.client?.name ? ' · ' + entry.job.client.name : ''}` : null
+                      return (
+                        <div key={entry.id}
+                          onClick={e => { e.stopPropagation(); openEditEntry(entry) }}
+                          style={{
+                            background:meta.bg, color:meta.color,
+                            borderRadius:4, padding:'3px 5px', fontSize:10, fontWeight:600,
+                            marginBottom:2, cursor:'pointer',
+                          }}
+                          title={[entry.description, entry.notes, jobLabel].filter(Boolean).join('\n')}
+                        >
+                          <div style={{ display:'flex', justifyContent:'space-between', gap:2 }}>
+                            <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, fontSize:11, fontWeight:700 }}>
+                              {entry.time ? `${entry.time} ` : ''}{entry.description}
+                            </span>
+                          </div>
+                          {jobLabel && (
+                            <div style={{ fontSize:9, opacity:0.75, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight:500 }}>
+                              📦 {jobLabel}
+                            </div>
+                          )}
+                          {entry.notes && (
+                            <div style={{ fontSize:9, opacity:0.65, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight:400, fontStyle:'italic' }}>
+                              {entry.notes}
+                            </div>
+                          )}
                         </div>
-                        {jobLabel && (
-                          <div style={{ fontSize:9, opacity:0.75, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight:500 }}>
-                            📦 {jobLabel}
-                          </div>
-                        )}
-                        {entry.notes && (
-                          <div style={{ fontSize:9, opacity:0.65, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight:400, fontStyle:'italic' }}>
-                            {entry.notes}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                  {overflow > 0 && (
-                    <div style={{ fontSize:10, color:'#64748b', fontWeight:600, marginTop:1 }}>+{overflow} más</div>
-                  )}
+                      )
+                    })}
+                  </div>
                 </div>
               )
             })}
@@ -487,12 +580,12 @@ export default function SchedulePage() {
 
       {/* ── LIST VIEW ── */}
       {!loading && view === 'list' && (() => {
-        const COL_W = 130
+        const COL_W = 240
         const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
         const DAY_ABBR = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
         return (
-          <div ref={listContainerRef} style={{ overflowX:'auto', border:'1px solid #e2e8f0', borderRadius:12, background:'#fff' }}>
-            <div style={{ display:'flex', minWidth: COL_W * daysInMonth }}>
+          <div ref={listContainerRef} style={{ overflowX:'auto', overflowY:'hidden', border:'1px solid #e2e8f0', borderRadius:12, background:'#fff', height:'calc(100vh - 220px)' }}>
+            <div style={{ display:'flex', minWidth: COL_W * daysInMonth, height:'100%' }}>
               {days.map(d => {
                 const date = new Date(year, month, d)
                 const ds = toDateStr(date)
@@ -509,7 +602,7 @@ export default function SchedulePage() {
                   <div key={ds} style={{
                     width: COL_W, minWidth: COL_W, flexShrink: 0,
                     borderRight: d < daysInMonth ? '1px solid #e2e8f0' : 'none',
-                    display:'flex', flexDirection:'column',
+                    display:'flex', flexDirection:'column', height: '100%',
                     background: isToday ? '#fff7ed' : isWeekend ? '#f8fafc' : '#fff',
                   }}>
                     {/* Day header */}
@@ -523,7 +616,7 @@ export default function SchedulePage() {
                     </div>
 
                     {/* Entries */}
-                    <div style={{ flex:1, padding:6, display:'flex', flexDirection:'column', gap:5 }}>
+                    <div style={{ flex:1, padding:8, display:'flex', flexDirection:'column', gap:7, overflowY:'auto' }}>
                       {dayEntries.map(entry => {
                         const meta = taskMeta(entry.taskType)
                         const jobClient = entry.job ? (entry.job.quoteTo || entry.job.client?.name || entry.job.companyName || null) : null
@@ -531,28 +624,28 @@ export default function SchedulePage() {
                           <div key={entry.id}
                             onClick={() => openEditEntry(entry)}
                             style={{
-                              background: meta.bg, borderRadius:6, padding:'6px 7px',
-                              cursor:'pointer', border:`1px solid ${meta.color}22`,
+                              background: meta.bg, borderRadius:8, padding:'9px 11px',
+                              cursor:'pointer', border:`1px solid ${meta.color}33`,
                             }}
                           >
-                            <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:3 }}>
-                              <span style={{ color:meta.color, fontSize:10, fontWeight:700 }}>{meta.label}</span>
-                              {entry.time && <span style={{ fontSize:10, color:'#64748b', marginLeft:'auto', whiteSpace:'nowrap' }}>{entry.time}</span>}
+                            <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
+                              <span style={{ background: meta.color, color:'#fff', borderRadius:4, padding:'2px 7px', fontSize:11, fontWeight:700 }}>{meta.label}</span>
+                              {entry.time && <span style={{ fontSize:12, color:'#64748b', marginLeft:'auto', whiteSpace:'nowrap', fontWeight:600 }}>{entry.time}</span>}
                             </div>
-                            <div style={{ fontSize:11, fontWeight:600, color:'#1e293b', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={entry.description}>
+                            <div style={{ fontSize:14, fontWeight:700, color:'#1e293b', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={entry.description}>
                               {entry.description}
                             </div>
                             {entry.job && (
                               <Link
                                 to={`/jobs/${entry.job.id}`}
                                 onClick={e => e.stopPropagation()}
-                                style={{ display:'block', marginTop:3, background:'#e0f2fe', color:'#0369a1', borderRadius:4, padding:'2px 5px', fontSize:10, fontWeight:600, textDecoration:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
+                                style={{ display:'block', marginTop:4, background:'#e0f2fe', color:'#0369a1', borderRadius:5, padding:'3px 7px', fontSize:11, fontWeight:600, textDecoration:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
                               >
                                 📦 #{entry.job.jobNumber}{entry.job.type ? ` [${entry.job.type}]` : ''}{jobClient ? ` — ${jobClient}` : ''}
                               </Link>
                             )}
                             {entry.notes && (
-                              <div style={{ fontSize:10, color:'#475569', marginTop:3, fontStyle:'italic', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden', lineHeight:'1.4' }}>
+                              <div style={{ fontSize:12, color:'#475569', marginTop:4, fontStyle:'italic', display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden', lineHeight:'1.5' }}>
                                 {entry.notes}
                               </div>
                             )}
@@ -579,6 +672,11 @@ export default function SchedulePage() {
           </div>
         )
       })()}
+
+      {/* Day hover popup */}
+      {hoveredDay && hoverRect && (
+        <DayPopup dateStr={hoveredDay} entries={byDate[hoveredDay] || []} rect={hoverRect} />
+      )}
 
       {/* Day panel */}
       {dayPanel && (
