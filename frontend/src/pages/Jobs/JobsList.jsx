@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { typeMeta, formatDate, getJobStatuses, getJobTypes } from '../../constants'
@@ -18,6 +18,15 @@ export default function JobsList() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || '')
   const [typeFilter, setTypeFilter] = useState(() => searchParams.get('type') || '')
   const [showClosed, setShowClosed] = useState(false)
+  const [showTypeMenu, setShowTypeMenu] = useState(false)
+  const typeMenuRef = useRef(null)
+
+  useEffect(() => {
+    if (!showTypeMenu) return
+    const close = (e) => { if (typeMenuRef.current && !typeMenuRef.current.contains(e.target)) setShowTypeMenu(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [showTypeMenu])
 
   const load = () => {
     setLoading(true)
@@ -52,7 +61,29 @@ export default function JobsList() {
           <div className="page-title">{t('jobs.title')}</div>
           <div className="page-subtitle">{jobs.length === 1 ? t('jobs.subtitle_one') : t('jobs.subtitle_other', { n: jobs.length })}</div>
         </div>
-        <Link to="/jobs/new?direct=true" className="btn btn-primary">+ {t('jobs.newDirectJob')}</Link>
+        <div ref={typeMenuRef} style={{ position: 'relative' }}>
+          <button className="btn btn-primary" onClick={() => setShowTypeMenu(v => !v)}>
+            + {t('jobs.newDirectJob')} ▾
+          </button>
+          {showTypeMenu && (
+            <div style={{
+              position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50,
+              background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 180, padding: '4px 0',
+            }}>
+              {JOB_TYPES.filter(tp => ['EXPORT', 'DOMESTIC'].includes(tp.value)).map(tp => (
+                <Link
+                  key={tp.value}
+                  to={`/jobs/new?direct=true&type=${tp.value}`}
+                  onClick={() => setShowTypeMenu(false)}
+                  style={{ display: 'block', padding: '9px 16px', color: '#1e293b', textDecoration: 'none', fontSize: 14 }}
+                >
+                  {tp.label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="toolbar">

@@ -1,7 +1,7 @@
 const router = require("express").Router()
 const { logAudit } = require('../audit')
 const { getPrisma } = require("../db")
-const { notifyFileCoordinator } = require('../services/notifications')
+const { notifyFileCoordinator, diffFileFields } = require('../services/notifications')
 
 const CATEGORY_PREFIX = { EXPORT: "E", IMPORT: "DF", LOCAL: "M" }
 
@@ -204,7 +204,10 @@ router.put("/:id", async (req, res, next) => {
             coordinatorId } = req.body
 
     // Capture previous state before update (for coordinator notification and audit)
-    const prevFile = await getPrisma().movingFile.findUnique({ where: { id: req.params.id } }).catch(() => null)
+    const prevFile = await getPrisma().movingFile.findUnique({
+      where: { id: req.params.id },
+      include: { coordinator: { select: { id: true, name: true } } },
+    }).catch(() => null)
 
     const file = await getPrisma().movingFile.update({
       where: { id: req.params.id },
@@ -258,7 +261,9 @@ router.put("/:id", async (req, res, next) => {
     // (includes self-assignment and any field change, not just coordinator reassignment)
     if (file.coordinator?.email) {
       const isNewAssignment = coordinatorId !== undefined && coordinatorId && coordinatorId !== (prevFile?.coordinatorId ?? null)
-      notifyFileCoordinator(file, isNewAssignment ? 'assigned' : 'updated')
+      const action = isNewAssignment ? 'assigned' : 'updated'
+      const changes = action === 'updated' ? diffFileFields(prevFile, file) : []
+      notifyFileCoordinator(file, action, changes)
     }
     // Sync coordinator to the linked Job (if any) so both records stay consistent
     if (coordinatorId !== undefined && coordinatorId !== (prevFile?.coordinatorId ?? null)) {

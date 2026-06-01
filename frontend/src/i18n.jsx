@@ -17,7 +17,7 @@ const translations = {
       noResults: 'No results found.', actions: 'Actions', yes: 'Yes', no: 'No',
       saving: 'Saving…', create: 'Create', name: 'Name', email: 'Email', phone: 'Phone',
       country: 'Country', city: 'City', address: 'Address', optional: 'Optional', reset: 'Reset', clear: 'Clear',
-      showClosed: 'Show closed', print: 'Print', type: 'Type',
+      showClosed: 'Show closed', print: 'Print', type: 'Type', filterClear: 'Clear Filters',
       allFieldsOptional: 'All fields are optional unless otherwise noted.',
       versionBannerMessage: 'A new version is available.',
       versionBannerReload: 'Reload now',
@@ -67,6 +67,9 @@ const translations = {
       visits: 'Visits', quotes: 'Quotes', staff: 'Staff', admin: 'Administration', auditLog: 'Audit Log', schedule: 'Schedule',
       exportFiles: 'Export Files', importFiles: 'Import Files', localFiles: 'Local Files', files: 'Files',
       language: 'Español', signOut: 'Sign out', myProfile: 'My Profile',
+    },
+    schedule: {
+      encargado: 'Person in Charge',
     },
     profile: {
       title: 'My Profile', subtitle: 'Manage your personal settings',
@@ -562,7 +565,7 @@ const translations = {
       noResults: 'Sin resultados.', actions: 'Acciones', yes: 'Sí', no: 'No',
       saving: 'Guardando…', create: 'Crear', name: 'Nombre', email: 'Correo', phone: 'Teléfono',
       country: 'País', city: 'Ciudad', address: 'Dirección', optional: 'Opcional', reset: 'Reiniciar', clear: 'Limpiar',
-      showClosed: 'Mostrar cerrados', print: 'Imprimir', type: 'Tipo',
+      showClosed: 'Mostrar cerrados', print: 'Imprimir', type: 'Tipo', filterClear: 'Limpiar Filtros',
       allFieldsOptional: 'Todos los campos son opcionales salvo indicación.',
       versionBannerMessage: 'Hay una nueva versión disponible.',
       versionBannerReload: 'Actualizar ahora',
@@ -612,6 +615,9 @@ const translations = {
       visits: 'Visitas', quotes: 'Cotizaciones', staff: 'Personal', admin: 'Administración', auditLog: 'Auditoría', schedule: 'Bitácora',
       exportFiles: 'Files Exportación', importFiles: 'Files Importación', localFiles: 'Mudanzas', files: 'Files',
       language: 'English', signOut: 'Cerrar sesión', myProfile: 'Mi Perfil',
+    },
+    schedule: {
+      encargado: 'Encargado',
     },
     profile: {
       title: 'Mi Perfil', subtitle: 'Configura tus ajustes personales',

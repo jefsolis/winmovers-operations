@@ -225,7 +225,8 @@ async function notifyVisitAssigned(visit, action = 'created') {
  * Send a notification to the coordinator when a file is assigned to them.
  *
  * @param {object} file    — full file record (must include coordinator)
- * @param {'created'|'reassigned'} action
+ * @param {'created'|'assigned'|'reassigned'|'updated'} action
+ * @param {Array}  changes — output of diffFileFields(); only rendered when action='updated'
  */
 const FILE_CATEGORY_ES = {
   EXPORT: 'Exportación',
@@ -240,7 +241,95 @@ const FILE_SERVICE_TYPE_ES = {
   LOCAL_MOVE:   'Mudanza Local',
 }
 
-async function notifyFileCoordinator(file, action = 'created') {
+const FILE_STATUS_ES = {
+  OPEN:   'Abierto',
+  CLOSED: 'Cerrado',
+}
+
+const FILE_BOOKER_ROLE_ES = {
+  BOOKER: 'Agente',
+  OA:     'Agente de Origen',
+}
+
+/**
+ * Compare two MovingFile snapshots (both must include { coordinator: { name } }) and
+ * return an array of changed fields with human-readable labels and old/new values.
+ */
+function diffFileFields(prev, next) {
+  if (!prev || !next) return []
+
+  const ds = v => {
+    if (v === null || v === undefined || v === '') return null
+    if (v instanceof Date) return v.toISOString().slice(0, 10)
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10)
+    return null
+  }
+
+  // [key, Spanish label, optional value→string formatter]
+  const FIELDS = [
+    ['status',              'Estado',                 v => FILE_STATUS_ES[v]        || v],
+    ['serviceType',         'Tipo de servicio',       v => FILE_SERVICE_TYPE_ES[v]  || (v ? v.replace(/_/g, ' ') : null)],
+    ['shipmentMode',        'Modo de envío',          null],
+    ['loadType',            'Tipo de carga',          null],
+    ['volumeCbm',           'Volumen (m³)',            null],
+    ['weightKg',            'Peso (kg)',               null],
+    ['etd',                 'ETD',                    v => ds(v) || null],
+    ['eta',                 'ETA',                    v => ds(v) || null],
+    ['navieraAerolinea',    'Naviera / Aerolínea',    null],
+    ['vaporVuelo',          'Vapor / Vuelo',          null],
+    ['guiaObl',             'Guía / OBL',             null],
+    ['puertoSalida',        'Puerto de salida',       null],
+    ['puertoLlegada',       'Puerto de llegada',      null],
+    ['puertoEntrada',       'Puerto de entrada',      null],
+    ['oblHastaCiudad',      'OBL hasta ciudad',       null],
+    ['destPhone',           'Teléfono destino',       null],
+    ['fechaLlegada',        'Fecha de llegada',       v => ds(v) || null],
+    ['fechaTrasladoBodega', 'Fecha traslado bodega',  null],
+    ['fechaTraslado',       'Fecha traslado',         v => ds(v) || null],
+    ['fechaEntrega',        'Fecha de entrega',       v => ds(v) || null],
+    ['anticipado',          'Anticipado',             v => (v === true || v === 'true') ? 'Sí' : 'No'],
+    ['bookerRole',          'Rol del agente',         v => FILE_BOOKER_ROLE_ES[v] || v],
+    ['originAddress',       'Dirección origen',       null],
+    ['originCity',          'Ciudad origen',          null],
+    ['originCountry',       'País origen',            null],
+    ['destAddress',         'Dirección destino',      null],
+    ['destCity',            'Ciudad destino',         null],
+    ['destCountry',         'País destino',           null],
+    ['notes',               'Notas',                  null],
+  ]
+
+  const changes = []
+
+  for (const [key, label, fmt] of FIELDS) {
+    const rawOld = prev[key] ?? null
+    const rawNew = next[key] ?? null
+    // Normalize for comparison (dates → YYYY-MM-DD, numbers → string)
+    const norm = v => {
+      if (v === null || v === undefined || v === '') return null
+      if (v instanceof Date) return v.toISOString().slice(0, 10)
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10)
+      return String(v)
+    }
+    if (norm(rawOld) === norm(rawNew)) continue
+    const display = (raw, f) => {
+      if (raw === null || raw === undefined || raw === '') return '—'
+      const translated = f ? f(raw) : null
+      return (translated !== null && translated !== undefined) ? String(translated) : String(raw)
+    }
+    changes.push({ label, oldValue: display(rawOld, fmt), newValue: display(rawNew, fmt) })
+  }
+
+  // Coordinator (resolved via relation — both snapshots must include coordinator.name)
+  const oldCoord = prev.coordinator?.name ?? null
+  const newCoord = next.coordinator?.name ?? null
+  if (oldCoord !== newCoord) {
+    changes.push({ label: 'Coordinador', oldValue: oldCoord || '—', newValue: newCoord || '—' })
+  }
+
+  return changes
+}
+
+async function notifyFileCoordinator(file, action = 'created', changes = []) {
   try {
     const coordinator = file.coordinator
     if (!coordinator?.email) return
@@ -277,6 +366,22 @@ async function notifyFileCoordinator(file, action = 'created') {
         ${file.etd ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">ETD</td><td>${formatDateShort(file.etd)}</td></tr>` : ''}
         ${file.notes ? `<tr><td style="padding:4px 12px 4px 0;color:#64748b">Notas</td><td>${file.notes}</td></tr>` : ''}
       </table>
+      ${action === 'updated' && changes.length > 0 ? `
+        <p style="margin-top:20px;margin-bottom:6px;font-weight:600;color:#374151">Lo que cambió:</p>
+        <table style="border-collapse:collapse;font-size:13px;width:100%;margin-bottom:16px">
+          <tr style="background:#f8fafc">
+            <th style="padding:6px 10px 6px 0;text-align:left;color:#64748b;font-weight:600;white-space:nowrap">Campo</th>
+            <th style="padding:6px 10px 6px 0;text-align:left;color:#ef4444;font-weight:600">Antes</th>
+            <th style="padding:6px 0;text-align:left;color:#16a34a;font-weight:600">Ahora</th>
+          </tr>
+          ${changes.map(c => `
+          <tr style="border-top:1px solid #f1f5f9">
+            <td style="padding:4px 10px 4px 0;color:#64748b;white-space:nowrap">${c.label}</td>
+            <td style="padding:4px 10px 4px 0;color:#ef4444;text-decoration:line-through">${c.oldValue}</td>
+            <td style="padding:4px 0;color:#16a34a;font-weight:600">${c.newValue}</td>
+          </tr>`).join('')}
+        </table>
+      ` : ''}
       <p style="color:#64748b;font-size:12px">— WinMovers Operations</p>
     `
 
@@ -293,4 +398,4 @@ async function notifyFileCoordinator(file, action = 'created') {
   }
 }
 
-module.exports = { notifyVisitAssigned, notifyFileCoordinator }
+module.exports = { notifyVisitAssigned, notifyFileCoordinator, diffFileFields }

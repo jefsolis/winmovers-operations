@@ -25,7 +25,7 @@ function toDateStr(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad
 // ── Empty form ────────────────────────────────────────────────────────────────
 const EMPTY_FORM = {
   date: '', time: '', taskType: 'EMPAQUE', description: '', notes: '',
-  jobId: '',
+  jobId: '', assignedToId: '',
 }
 
 // ── Linked record chip ────────────────────────────────────────────────────────
@@ -41,10 +41,15 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [staffList, setStaffList] = useState([])
   const [jobSearch, setJobSearch] = useState('')
   const [jobResults, setJobResults] = useState([])
   const [jobSearching, setJobSearching] = useState(false)
   const [selectedJob, setSelectedJob] = useState(null)
+
+  useEffect(() => {
+    api.get('/staff').then(setStaffList).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (entry) {
@@ -55,6 +60,7 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
         description:  entry.description,
         notes:        entry.notes        || '',
         jobId:        entry.jobId        || '',
+        assignedToId: entry.assignedToId || '',
       })
       setSelectedJob(entry.job || null)
     } else {
@@ -90,6 +96,7 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
         description:  form.description,
         notes:        form.notes        || null,
         jobId:        form.jobId        || null,
+        assignedToId: form.assignedToId || null,
       }
       const saved = isEdit
         ? await api.put(`/schedule/${entry.id}`, payload)
@@ -224,6 +231,14 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
             <textarea className="form-control" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Descripción del trabajo..." />
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Encargado</label>
+            <select className="form-control" value={form.assignedToId} onChange={e => set('assignedToId', e.target.value)}>
+              <option value="">— Sin asignar —</option>
+              {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+
           {error && <div className="alert alert-error" style={{ fontSize:13 }}>{error}</div>}
 
           <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
@@ -278,6 +293,7 @@ function DayPanel({ dateStr, entries, onClose, onAdd, onEdit }) {
                   <LinkedChip entry={entry} />
                 </div>
                 <div style={{ fontSize:14, fontWeight:700, color:'#1e293b' }}>{entry.description}</div>
+                {entry.assignedTo && <div style={{ fontSize:12, color:'#0369a1', marginTop:2, fontWeight:600 }}>👤 {entry.assignedTo.name}</div>}
                 {entry.notes && <div style={{ fontSize:12, color:'#94a3b8', marginTop:2, fontStyle:'italic' }}>{entry.notes}</div>}
               </div>
             )
@@ -337,6 +353,9 @@ function DayPopup({ dateStr, entries, rect }) {
                 {entry.time && <span style={{ fontSize: 14, color: '#64748b', marginLeft: 'auto', fontWeight: 700 }}>{entry.time}</span>}
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>{entry.description}</div>
+              {entry.assignedTo && (
+                <div style={{ fontSize: 13, color: '#0369a1', marginTop: 4, fontWeight: 600 }}>👤 {entry.assignedTo.name}</div>
+              )}
               {entry.job && (
                 <div style={{ fontSize: 13, color: '#0369a1', marginTop: 5, fontWeight: 600 }}>
                   📦 #{entry.job.jobNumber}{jobClient ? ` — ${jobClient}` : ''}
@@ -635,6 +654,9 @@ export default function SchedulePage() {
                             <div style={{ fontSize:14, fontWeight:700, color:'#1e293b', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={entry.description}>
                               {entry.description}
                             </div>
+                            {entry.assignedTo && (
+                              <div style={{ fontSize:12, color:'#0369a1', marginTop:3, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>👤 {entry.assignedTo.name}</div>
+                            )}
                             {entry.job && (
                               <Link
                                 to={`/jobs/${entry.job.id}`}

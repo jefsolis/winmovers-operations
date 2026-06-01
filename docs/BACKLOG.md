@@ -1,6 +1,6 @@
 # WinMovers Operations — Feature Backlog
 
-> Last updated: May 16, 2026  
+> Last updated: May 31, 2026  
 > Items are grouped by theme. Priority and sprint assignment to be determined separately.
 
 ---
@@ -219,6 +219,18 @@ AuditLog {
 - Rows for deleted records link to a "Record has been deleted" placeholder.
 - The page is added to the admin navigation section in the sidebar (admin-only).
 - Backend: `GET /api/audit` with optional query params `entityType`, `action`, `userId`, `from`, `to`, `page`, `limit`. Admin-only middleware guard.
+
+---
+
+### AL-04 — Audit log actor email stored for unlinked Azure AD users
+
+**Summary:** Unlinked users (Azure AD accounts with no matching `StaffMember` record) have their `userId` recorded as `null` in `AuditLog`. Their Azure AD display name (`userName`) is captured from the JWT, but it is not a unique identifier. If two unlinked users share the same display name, their actions would be indistinguishable in the audit log.
+
+**Proposed fix:** Add a `userEmail String?` field to the `AuditLog` model. In `logAudit` (`audit.js`), always populate it from `req.user.email` (the `preferred_username` claim from the JWT). This uniquely identifies every actor regardless of Staff linkage.
+
+**Notes:**
+- Not currently a practical problem (all users have distinct display names).
+- Requires a schema migration (`prisma db push`) and a minor change to `audit.js`.
 
 ---
 
@@ -726,4 +738,133 @@ canAccessSchedule Boolean @default(false)  // new — added alongside existing f
 - All three tabs still render their existing content correctly.
 - No other pages or components are affected.
 - i18n keys and tab labels are unchanged (only the order changes).
+
+---
+
+## 13. Improvements (May–June 2026)
+
+---
+
+### ~~NTF-02~~ ✅ — File change email includes a summary of what was modified
+
+**User story:** As a coordinator, when I receive an email notifying me that a Moving File was updated, I want to see exactly which fields changed and their new values in the email body, so I can understand what happened without having to open the app.
+
+**Context:**
+- `BUG-07` (now resolved) ensures an email is sent on every file save. However, the email body currently contains only the file's current state (a static snapshot) and does not tell the coordinator what specifically changed from the previous save.
+- The backend `movingFiles.js` PUT handler already reads the `prevFile` snapshot before applying the update — this data is available to pass to the notification.
+- The change summary should list only meaningful fields (not internal IDs or timestamps), translated to Spanish labels.
+
+**Fields to include in the diff (when changed):**
+- Status (`estado`)
+- Coordinator (`coordinador`)
+- ETD / ETA (`fecha ETD / ETA`)
+- Origin port / Destination port (`puerto origen / destino`)
+- Volume / Weight / Bultos (`volumen / peso / bultos`)
+- Shipment mode (`modo de envío`)
+- Service details / observations (`detalles del servicio / observaciones`)
+- Invoice number / Invoice date (`número de factura / fecha de factura`)
+- Custom/client reference numbers (if any)
+
+**Proposed implementation:**
+- In `notifications.js`, add a helper `diffFileFields(prev, next)` that returns an array of `{ label, oldValue, newValue }` for fields that changed.
+- `notifyFileCoordinator` accepts an optional `changes` parameter (array from `diffFileFields`).
+- When `changes` is non-empty, append a "Lo que cambió" section to the HTML email as a two-column table: field label | old → new value.
+- When `action = 'updated'` and no meaningful fields differ (e.g. only `updatedAt` changed), the "Lo que cambió" section is omitted.
+- In `movingFiles.js` PUT, compute `diffFileFields(prevFile, updatedFile)` and pass it to `notifyFileCoordinator`.
+
+**Acceptance criteria:**
+- When a file is saved with changed fields, the coordinator email contains a "Lo que cambió" section listing each changed field with its previous and new value.
+- Unchanged fields are not listed.
+- Internal fields (`id`, `createdAt`, `updatedAt`, `coordinatorId`, `clientId`) are excluded from the diff.
+- Enum values are shown as human-readable Spanish labels (e.g. `OPEN → CLOSED` becomes `Abierto → Cerrado`).
+- If only non-meaningful fields changed (timestamps), the "Lo que cambió" section is omitted and the email still sends.
+- The diff section renders correctly in both plain-text email clients and rich HTML clients.
+- Existing `created` / `assigned` / `reassigned` email flows are unaffected.
+
+---
+
+### ~~JOB-03~~ ✅ — "Facturar a nombre de" pre-fills with Destination Agent when one is assigned
+
+**User story:** As a coordinator, when I fill in a Job (Work Order) that has a Destination Agent assigned, I want the "Facturar a nombre de" field to be automatically pre-populated with the Destination Agent's name, so I don't have to type it manually.
+
+**Context:**
+- The `JobForm.jsx` currently pre-populates "Facturar a nombre de" (`invoiceTo`) with the client name.
+- For many international jobs (especially Export), the invoice is issued to the Destination Agent rather than the end client.
+- The Destination Agent is selected via the `AgentLookup` component bound to `destAgentId` on the form.
+
+**Proposed behaviour:**
+- When the user selects or changes the Destination Agent in the form, the `invoiceTo` field is automatically set to the agent's name **only if** `invoiceTo` is currently blank or still matches the old auto-filled value (i.e. do not overwrite a value the user typed manually).
+- If the Destination Agent is cleared, `invoiceTo` reverts to the client name (if a client is selected) or is left blank.
+- The `invoiceTo` field remains fully editable at all times; the auto-fill is a convenience, not a lock.
+- On initial load of an existing job, no auto-fill override occurs (the saved value is respected).
+
+**Acceptance criteria:**
+- Selecting a Destination Agent in the job form sets `invoiceTo` to the agent's name if the field was blank or matched a previous auto-fill.
+- Clearing the Destination Agent resets `invoiceTo` to the client name (or blank if no client).
+- Manually typing in `invoiceTo` prevents further auto-overwrite for the duration of that form session.
+- Behaviour applies in both the new-job form and the edit-job form.
+- No backend changes required — this is purely a frontend form enhancement.
+- i18n: no new keys needed (field label already exists).
+
+---
+
+### ~~SCH-07~~ ✅ — "Encargado" (person in charge) field on Schedule entries
+
+**User story:** As an operations manager, I want each schedule entry to have a dedicated "Encargado" field identifying the staff member responsible for executing that task, so the daily schedule clearly shows who is doing what without having to open the linked job.
+
+**Context:**
+- `ScheduleEntry` already has an `assignedToId` field (previously named "Assigned to"). This field is being repurposed / clarified as the "Encargado" — the person responsible for physically carrying out the task.
+- When a schedule entry is **auto-created from a Job** (via `syncJobScheduleEntries`), the Encargado should be pre-populated with the Job's coordinator (`coordinatorId` on the linked `MovingFile`, or `activeCoordinatorId` on the `Job` itself).
+- When a schedule entry is **created manually**, the user selects the Encargado from a Staff dropdown.
+- The field is optional (some entries may not have a named responsible party).
+
+**Schema:** No new field needed — `assignedToId` / `assignedTo` on `ScheduleEntry` already exists. Only label and auto-fill logic need to change.
+
+**Frontend changes (`SchedulePage.jsx`):**
+- Rename the form label from "Assigned to" / whatever it currently says to **"Encargado"** in both the create/edit modal and in entry display (calendar chip, list card, hover popup, day panel).
+- In the entry display, show `encargado.name` below or alongside the client name where space permits (list view: always shown; calendar chip: shown on hover popup only).
+
+**Backend changes (`scheduleSync.js`):**
+- In `syncJobScheduleEntries`, when upserting a `ScheduleEntry`, resolve the coordinator as follows:
+  1. If the Job has a linked `MovingFile` with a `coordinatorId`, use that.
+  2. Else if the Job has an `activeCoordinatorId`, use that.
+  3. Else leave `assignedToId` null.
+- Only set `assignedToId` on **create** (upsert insert path); do not overwrite a value the user may have manually changed on the **update** path.
+
+**Acceptance criteria:**
+- When a Job is created or updated and `syncJobScheduleEntries` runs, the resulting `ScheduleEntry` has `assignedToId` set to the Job's coordinator (if one exists).
+- The schedule form shows a "Encargado" dropdown populated with all Staff members (no `canAccessSchedule` filter — any staff member can be responsible for a task).
+- The selected Encargado's name is visible in: the calendar hover popup, the list view card, and the day panel.
+- Manually selecting a different Encargado on an auto-generated entry is allowed and persists.
+- If no coordinator is found, the field is left blank and the entry is created without error.
+- i18n: add `schedule.encargado` key (ES: "Encargado", EN: "Person in Charge") to `i18n.jsx`.
+
+---
+
+### ~~JOB-04~~ ✅ — Filter Files lists by status (applied to Export / Import / Local)
+
+**User story:** As a coordinator, I want to filter the Jobs list by one or more statuses, so I can quickly see only the jobs in a specific stage (e.g. all jobs currently "In Transit") without scrolling through the full list.
+
+**Context:**
+- `JobsList.jsx` currently shows all jobs in a flat list, sorted by job number or date.
+- The job pipeline has 7 statuses: `SURVEY | QUOTATION | BOOKING | PRE_MOVE | IN_TRANSIT | DELIVERED | CLOSED`.
+- A quick-filter bar (similar to a segmented control or tag cloud) above the list would let users click one or more statuses to narrow the view without a full page reload.
+- The active filter(s) should persist while the user is on the page (component state), but do not need to survive navigation (no URL param or localStorage required for MVP).
+
+**Proposed implementation:**
+- Add a row of status filter chips above the jobs table in `JobsList.jsx`.
+- Each chip shows the status label (translated, color-coded using existing `statusMeta`) and a count badge showing how many jobs are in that status.
+- Clicking a chip toggles it on/off; multiple chips can be active simultaneously.
+- When no chip is selected, all jobs are shown (default "show all" state).
+- Filtering is done client-side on the already-fetched list (no new API call needed).
+- An "× Clear" button appears when any filter is active.
+
+**Acceptance criteria:**
+- Status filter chips appear above the jobs list, one per status value, each showing the status label and count.
+- Clicking a chip filters the list to show only jobs with that status; the chip appears visually selected (filled background).
+- Multiple chips can be active at once (OR logic: show jobs matching any selected status).
+- Deselecting all chips restores the full list.
+- Counts update if the underlying list data refreshes (e.g. after creating or editing a job).
+- The filter is reset when the user navigates away and returns to the page.
+- i18n: no new keys needed (status labels already exist in `constants.js` / `i18n.jsx`).
 

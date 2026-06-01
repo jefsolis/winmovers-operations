@@ -6,6 +6,7 @@ import JobDocument from './JobDocument'
 import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 import QuickCreateClientModal from '../../components/QuickCreateClientModal'
 import QuickCreateCorporateClientModal from '../../components/QuickCreateCorporateClientModal'
+import AgentLookup from '../../components/AgentLookup'
 
 const EMPTY = {
   type: 'IMPORT', status: 'SURVEY',
@@ -40,8 +41,10 @@ export default function JobForm() {
   const isDirect     = !isEdit ? searchParams.get('direct') === 'true' : false
   const { t } = useLanguage()
 
-  const [form, setForm] = useState(EMPTY)
+  const [form, setForm] = useState(() => ({ ...EMPTY, type: fromType || EMPTY.type }))
   const [language] = useState('ES')
+  const [destAgent, setDestAgent] = useState({ agentId: '', name: '' })
+  const autoFilledQuoteTo = useRef(null) // tracks last value auto-filled into quoteTo
   const [clients, setClients] = useState([])
   const [staffMembers, setStaffMembers] = useState([])
   const [coordinatorStaff, setCoordinatorStaff] = useState([])
@@ -102,6 +105,8 @@ export default function JobForm() {
             transbordo:    job.transbordo    ?? null,
             coordinatorId: job.coordinatorId  || '',
           })
+          // load existing destAgent — do NOT update autoFilledQuoteTo (preserve saved quoteTo)
+          setDestAgent({ agentId: job.destAgentId || '', name: job.destAgent?.name || '' })
         }).catch(e => setError(e.message)).finally(() => setLoading(false))
       )
     } else if (fromFileId) {
@@ -113,6 +118,11 @@ export default function JobForm() {
                 : f.client.name)
             : ''
           const corpName = f.corporateClient?.name || ''
+          const agentName = f.destAgent?.name || ''
+          // agent name takes priority over client name for quoteTo
+          const autoQuoteTo = agentName || indName || corpName
+          if (autoQuoteTo) autoFilledQuoteTo.current = autoQuoteTo
+          if (f.destAgentId) setDestAgent({ agentId: f.destAgentId, name: agentName })
           setForm(prev => ({
             ...prev,
             type:              fromType || 'IMPORT',
@@ -120,7 +130,7 @@ export default function JobForm() {
             corporateClientId: f.corporateClientId || '',
             companyName:       f.corporateClient?.name || '',
             clientPhone: f.client?.phone || '',
-            quoteTo:     indName || corpName,
+            quoteTo:     autoQuoteTo,
             volumeCbm:   f.volumeCbm ?? '',
             weightKg:    f.weightKg  ?? '',
             notes:       f.notes     || '',
@@ -140,9 +150,13 @@ export default function JobForm() {
           const v = q.visit
           if (v?.id) setLinkedVisitId(v.id)
           const autoPhone   = v?.client?.phone || v?.contact?.phone || ''
-          const autoQuoteTo = v?.client?.name
+          const clientQuoteTo = v?.client?.name
             || (v?.client ? `${v.client.firstName || ''} ${v.client.lastName || ''}`.trim() : '')
             || v?.prospectName || ''
+          const agentQuoteTo = v?.destAgent?.name || ''
+          const autoQuoteTo = agentQuoteTo || clientQuoteTo
+          if (autoQuoteTo) autoFilledQuoteTo.current = autoQuoteTo
+          if (v?.destAgentId) setDestAgent({ agentId: v.destAgentId, name: agentQuoteTo })
           const autoCompany = v?.corporateClient?.name || ''
           let jobType = 'IMPORT'
           if (v?.serviceType === 'LOCAL_MOVE') jobType = 'DOMESTIC'
@@ -177,6 +191,11 @@ export default function JobForm() {
                   ? `${v.client.firstName || ''} ${v.client.lastName || ''}`.trim() || v.client.name
                   : v.client.name)
               : v.prospectName || ''
+            const agentName = v.destAgent?.name || ''
+            // agent name takes priority over client name for quoteTo
+            const autoQuoteTo = agentName || clientName
+            if (autoQuoteTo) autoFilledQuoteTo.current = autoQuoteTo
+            if (v.destAgentId) setDestAgent({ agentId: v.destAgentId, name: agentName })
             setForm(prev => ({
               ...prev,
               type:              'EXPORT',
@@ -192,13 +211,13 @@ export default function JobForm() {
               destCountry:   v.destCountry   || '',
               notes:         v.observations  || '',
               clientPhone:   v.client?.phone || '',
-              quoteTo:       clientName,
+              quoteTo:       autoQuoteTo,
             }))
           }).catch(() => {})
         )
       } else {
-        // Direct job (no visit/quote): default to EXPORT so the Export File is auto-created
-        if (isDirect) setForm(prev => ({ ...prev, type: 'EXPORT' }))
+        // Direct job (no visit/quote): use type from URL param, fall back to EXPORT
+        if (isDirect) setForm(prev => ({ ...prev, type: fromType || 'EXPORT' }))
         tasks.push(
           api.get('/quotes').then(qs => {
             setAvailableQuotes(qs.filter(q => q.status === 'ACCEPTED' && !q.job))
@@ -217,12 +236,35 @@ export default function JobForm() {
     const autoQuoteTo = client
       ? (client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || '')
       : ''
+    // Track so destAgent auto-fill can detect whether user manually changed this
+    if (autoQuoteTo) autoFilledQuoteTo.current = autoQuoteTo
     setForm(prev => ({
       ...prev,
       clientId,
       clientPhone: autoPhone   || prev.clientPhone,
       quoteTo:     autoQuoteTo || prev.quoteTo,
     }))
+  }
+
+  const handleDestAgentChange = (newAgent) => {
+    if (newAgent.agentId && newAgent.name) {
+      // Selecting an agent: auto-fill quoteTo only if blank or still showing an auto-filled value
+      if (!form.quoteTo || form.quoteTo === autoFilledQuoteTo.current) {
+        set('quoteTo', newAgent.name)
+        autoFilledQuoteTo.current = newAgent.name
+      }
+    } else {
+      // Clearing the agent: revert quoteTo to client name if it still shows the agent-auto-filled value
+      if (form.quoteTo === autoFilledQuoteTo.current) {
+        const client = clients.find(c => c.id === form.clientId)
+        const clientName = client
+          ? (client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || '')
+          : ''
+        set('quoteTo', clientName)
+        autoFilledQuoteTo.current = clientName
+      }
+    }
+    setDestAgent(newAgent)
   }
 
   const handleCorpClientChange = (corpClientId) => {
@@ -266,6 +308,7 @@ export default function JobForm() {
       const quoteToLink = fromQuoteId || linkedQuoteId
       const payload = {
         ...form,
+        destAgentId:       destAgent.agentId || null,
         clientId:          form.clientId          || null,
         corporateClientId: form.corporateClientId  || null,
         quoteId: !isEdit ? (quoteToLink || null) : undefined,
@@ -340,6 +383,19 @@ export default function JobForm() {
               coordinatorStaff={coordinatorStaff}
             />
           </div>
+
+          {form.type !== 'IMPORT' && (
+            <div className="form-section">
+              <div className="form-section-title">{t('jobs.parties')}</div>
+              <div className="form-group">
+                <label className="form-label">{t('jobs.destAgent')}</label>
+                <AgentLookup
+                  value={destAgent}
+                  onChange={handleDestAgentChange}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="form-section">
             <div className="form-section-title">{t('common.notes')}</div>

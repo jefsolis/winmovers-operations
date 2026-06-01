@@ -38,6 +38,16 @@ async function syncJobScheduleEntries(job, req = null) {
   const taskLabel = { EMPAQUE: 'Empaque', DESEMPAQUE: 'Desempaque', MUDANZA: 'Mudanza' }[taskType]
   const description = `${taskLabel}${label}`
 
+  // Resolve encargado: prefer MovingFile coordinator, fall back to job coordinator
+  let resolvedCoordinatorId = job.coordinatorId || null
+  if (job.movingFileId) {
+    const mf = await db.movingFile.findUnique({
+      where: { id: job.movingFileId },
+      select: { coordinatorId: true },
+    }).catch(() => null)
+    if (mf?.coordinatorId) resolvedCoordinatorId = mf.coordinatorId
+  }
+
   // Match any existing service entry for this job regardless of old taskType
   await _syncEntry(db, {
     matchWhere:   { jobId: job.id, taskType: { in: ['EMPAQUE', 'MUDANZA', 'DESEMPAQUE'] } },
@@ -47,7 +57,7 @@ async function syncJobScheduleEntries(job, req = null) {
     description,
     notes,
     jobId:        job.id,
-    assignedToId: job.coordinatorId || null,
+    assignedToId: resolvedCoordinatorId,
     req,
   })
 }
@@ -79,10 +89,10 @@ async function _syncEntry(db, { matchWhere, date, time, taskType, description, n
     }
 
     if (existing) {
-      // On re-sync: update structural fields from the job. Preserve user-edited notes.
+      // On re-sync: update structural fields from the job. Preserve user-edited notes and assignedToId.
       const updated = await db.scheduleEntry.update({
         where: { id: existing.id },
-        data: { date: data.date, time: data.time, taskType: data.taskType, description: data.description, assignedToId: data.assignedToId },
+        data: { date: data.date, time: data.time, taskType: data.taskType, description: data.description },
       })
       if (req) logAudit(req, 'ScheduleEntry', existing.id, 'UPDATE', existing, updated)
     } else {

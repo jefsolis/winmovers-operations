@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { fileStatusMeta, getFileProgressionStatuses, stripFilePrefix } from '../../constants'
+import { fileStatusMeta, getFileStatuses, getFileProgressionStatuses, stripFilePrefix } from '../../constants'
 
 /**
  * FilesList — shared list component for all three file categories.
@@ -15,6 +15,7 @@ export default function FilesList({ category }) {
   const [error, setError]     = useState(null)
   const [search, setSearch]       = useState('')
   const [showClosed, setShowClosed] = useState(false)
+  const [selectedStatuses, setSelectedStatuses] = useState(new Set())
 
   const handleDelete = async (id, fileNumber) => {
     if (!window.confirm(t('movingFiles.deleteConfirm', { num: fileNumber }))) return
@@ -32,15 +33,18 @@ export default function FilesList({ category }) {
   }
 
   useEffect(() => {
+    setSelectedStatuses(new Set())
+  }, [category])
+
+  useEffect(() => {
     setLoading(true)
     const params = new URLSearchParams({ category })
-    if (!showClosed) params.set('notStatus', 'CLOSED,VOID')
     if (search) params.set('search', search)
     api.get(`/files?${params}`)
       .then(setFiles)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [category, showClosed, search])
+  }, [category, search])
 
   const clientName = (c) => {
     if (!c) return '—'
@@ -49,6 +53,27 @@ export default function FilesList({ category }) {
       : c.name
   }
 
+  const TERMINAL = ['CLOSED', 'VOID']
+  const allStatuses = getFileStatuses(t)
+  const progressionKeys = getFileProgressionStatuses(category, t).map(s => s.value)
+  const chipStatuses = allStatuses.filter(s => progressionKeys.includes(s.value) || TERMINAL.includes(s.value))
+
+  const countByStatus = {}
+  files.forEach(f => { countByStatus[f.status] = (countByStatus[f.status] || 0) + 1 })
+
+  const toggleStatus = (status) => {
+    setSelectedStatuses(prev => {
+      const next = new Set(prev)
+      if (next.has(status)) next.delete(status)
+      else next.add(status)
+      return next
+    })
+  }
+
+  const displayed = selectedStatuses.size > 0
+    ? files.filter(f => selectedStatuses.has(f.status))
+    : (!showClosed ? files.filter(f => !TERMINAL.includes(f.status)) : files)
+
   const prefix = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
 
   return (
@@ -56,7 +81,7 @@ export default function FilesList({ category }) {
       <div className="page-header">
         <div>
           <div className="page-title">{t(`movingFiles.${category.toLowerCase()}Title`)}</div>
-          <div className="page-subtitle">{files.length > 0 ? `${files.length} ${t('movingFiles.filesLabel')}` : ''}</div>
+          <div className="page-subtitle">{displayed.length > 0 ? `${displayed.length} ${t('movingFiles.filesLabel')}` : ''}</div>
         </div>
         {category !== 'EXPORT' && category !== 'LOCAL' && (
           <Link to={`${prefix[category]}/new`} className="btn btn-primary">{t('movingFiles.newFile')}</Link>
@@ -80,6 +105,44 @@ export default function FilesList({ category }) {
             />
             {t('movingFiles.showClosed')}
           </label>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12, alignItems: 'center' }}>
+          {chipStatuses.map(s => {
+            const meta = fileStatusMeta(s.value, t)
+            const active = selectedStatuses.has(s.value)
+            const count = countByStatus[s.value] || 0
+            return (
+              <button
+                key={s.value}
+                onClick={() => toggleStatus(s.value)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '4px 10px', borderRadius: 20,
+                  border: active ? 'none' : '1.5px solid #d1d5db',
+                  background: active ? meta.bg : '#fff',
+                  color: active ? meta.color : '#64748b',
+                  fontWeight: active ? 700 : 500, fontSize: 12, cursor: 'pointer',
+                  transition: 'all 0.12s',
+                }}
+              >
+                {s.label}
+                <span style={{
+                  background: active ? 'rgba(0,0,0,0.15)' : '#e2e8f0',
+                  color: active ? meta.color : '#475569',
+                  borderRadius: 10, padding: '1px 6px', fontSize: 11, fontWeight: 700,
+                }}>{count}</span>
+              </button>
+            )
+          })}
+          {selectedStatuses.size > 0 && (
+            <button
+              onClick={() => setSelectedStatuses(new Set())}
+              style={{ padding: '4px 10px', borderRadius: 20, border: '1.5px solid #d1d5db', background: '#fff', color: '#64748b', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}
+            >
+              × {t('common.filterClear')}
+            </button>
+          )}
         </div>
 
         {loading && <div className="loading"><div className="spinner" /></div>}
@@ -107,7 +170,7 @@ export default function FilesList({ category }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {files.map(f => {
+                  {displayed.map(f => {
                     const sm = fileStatusMeta(f.status, t)
                     const progressionStatuses = getFileProgressionStatuses(category, t)
                     const canChangeStatus = category !== 'LOCAL' && f.status !== 'CLOSED' && f.status !== 'VOID'
