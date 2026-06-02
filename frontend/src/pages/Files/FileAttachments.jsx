@@ -70,6 +70,25 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
   const fileInputRef                    = useRef(null)
   const pendingCategoryRef              = useRef(null)
 
+  const renderAttachmentList = (items) => {
+    if (!items.length) return null
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
+        {items.map(att => (
+          <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexWrap: 'wrap' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)} style={{ minWidth: 0, maxWidth: '100%' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', maxWidth: 280 }}>
+                ⬇ {att.filename} ({formatFileSize(att.sizeBytes)})
+              </span>
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(att)} title={t('common.print')}>🖨</button>
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   // Categories satisfied by linked system records (Visit / Quote / Work Order)
   const resolvedQuote = quote || job?.quote
   const linkedDoneMap = {
@@ -102,30 +121,27 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
   useEffect(() => { if (fileId) load() }, [fileId]) // eslint-disable-line
 
   const triggerUpload = (category) => {
-    const replaceIds = category !== 'OTHER'
-      ? attachments.filter(f => f.category === category).map(f => f.id)
-      : []
-    pendingCategoryRef.current = { category, replaceIds }
+    pendingCategoryRef.current = { category }
     fileInputRef.current.value = ''
     fileInputRef.current.click()
   }
 
   const handleFileChosen = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const { category, replaceIds } = pendingCategoryRef.current
+    const files = Array.from(e.target.files || [])
+    if (!files.length || !pendingCategoryRef.current) return
+    const { category } = pendingCategoryRef.current
     setUploading(category)
     setError(null)
     try {
-      if (replaceIds.length) {
-        await Promise.all(replaceIds.map(id => api.delete(`/files/${fileId}/attachments/${id}`)))
-        setAttachments(prev => prev.filter(f => !replaceIds.includes(f.id)))
+      const createdItems = []
+      for (const file of files) {
+        const form = new FormData()
+        form.append('file', file)
+        form.append('category', category)
+        const created = await api.upload(`/files/${fileId}/attachments`, form)
+        createdItems.push(created)
       }
-      const form = new FormData()
-      form.append('file', file)
-      form.append('category', category)
-      const created = await api.upload(`/files/${fileId}/attachments`, form)
-      setAttachments(prev => [created, ...prev.filter(f => !replaceIds.includes(f.id))])
+      setAttachments(prev => [...createdItems.reverse(), ...prev])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -189,7 +205,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
 
   return (
     <div>
-      <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleFileChosen} />
+      <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChosen} />
 
       {/* Color mode toggle */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
@@ -237,7 +253,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
               return (
                 <div key={cat.value}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
+                    display: 'flex', alignItems: 'flex-start', gap: 12,
                     padding: '10px 14px', borderRadius: 6,
                     border: `1px solid ${cat.done ? '#bbf7d0' : _isOverdue ? '#fecaca' : '#e2e8f0'}`,
                     background: cat.done ? '#f0fdf4' : _isOverdue ? '#fff5f5' : '#fff',
@@ -250,15 +266,9 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                       {_isOverdue && !cat.done ? `⚠ ${t('files.overdue')}` : `${t('files.dueBy')} ${_dueDate.toLocaleDateString('en-GB', { timeZone: 'UTC' })}`}
                     </span>
                   )}
-                  {cat.items.map(att => (
-                    <span key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)}>
-                        ⬇ {att.filename} ({formatFileSize(att.sizeBytes)})
-                      </button>                    <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(att)} title={t('common.print')}>🖨</button>                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
-                    </span>
-                  ))}
-                  {cat.linkedRecord && cat.items.length === 0 && (
-                    <Link to={cat.linkedRecord.route} style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>
+                  {cat.items.length > 0 && renderAttachmentList(cat.items)}
+                  {cat.linkedRecord && (
+                    <Link to={cat.linkedRecord.route} style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                       {cat.linkedRecord.number} →
                     </Link>
                   )}
@@ -268,7 +278,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                     disabled={uploading === cat.value}
                     style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
                   >
-                    {uploading === cat.value ? '…' : cat.done ? t('files.replace') : t('files.upload')}
+                    {uploading === cat.value ? '…' : `+ ${t('files.upload')}`}
                   </button>
                 </div>
               )
@@ -285,7 +295,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
             {optionalChecklist.map(cat => (
               <div key={cat.value}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
                   padding: '10px 14px', borderRadius: 6,
                   border: `1px solid ${cat.done ? '#bbf7d0' : '#e2e8f0'}`,
                   background: cat.done ? '#f0fdf4' : '#fafafa',
@@ -293,22 +303,14 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
               >
                 <span style={{ fontSize: 16 }}>{cat.done ? '✅' : '⬜'}</span>
                 <span className="badge" style={{ background: catStyle(cat).bg, color: catStyle(cat).color, fontSize: 11, whiteSpace: 'nowrap' }}>{cat.label}</span>
-                {cat.items.map(att => (
-                  <span key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)}>
-                      ⬇ {att.filename} ({formatFileSize(att.sizeBytes)})
-                    </button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(att)} title={t('common.print')}>🖨</button>
-                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
-                  </span>
-                ))}
+                {cat.items.length > 0 && renderAttachmentList(cat.items)}
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={() => triggerUpload(cat.value)}
                   disabled={uploading === cat.value}
                   style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
                 >
-                  {uploading === cat.value ? '…' : cat.done ? t('files.replace') : t('files.upload')}
+                  {uploading === cat.value ? '…' : `+ ${t('files.upload')}`}
                 </button>
               </div>
             ))}

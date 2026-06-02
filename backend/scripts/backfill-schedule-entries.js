@@ -43,7 +43,7 @@ async function main() {
         console.log(`  SKIP  ${taskType} for Job ${job.jobNumber} (already exists)`)
         continue
       }
-      const data = { date, taskType, description: `${taskType === 'EMPAQUE' ? 'Empaque' : 'Mudanza'}${suffix}`, jobId: job.id, assignedToId: job.coordinatorId || null }
+      const data = { date, startDate: date, endDate: date, taskType, description: `${taskType === 'EMPAQUE' ? 'Empaque' : 'Mudanza'}${suffix}`, jobId: job.id, assignedToId: job.coordinatorId || null }
       console.log(`  CREATE ${taskType} ${date.toISOString().slice(0,10)} — Job ${job.jobNumber}${suffix}`)
       if (!DRY_RUN) { await prisma.scheduleEntry.create({ data }); created++ }
     }
@@ -75,7 +75,7 @@ async function main() {
     console.log(`  CREATE VISITA ${visit.scheduledDate.toISOString().slice(0,10)} — ${description}`)
     if (!DRY_RUN) {
       await prisma.scheduleEntry.create({
-        data: { date: visit.scheduledDate, taskType: 'VISITA', description, visitId: visit.id, assignedToId: visit.assignedToId || null },
+        data: { date: visit.scheduledDate, startDate: visit.scheduledDate, endDate: visit.scheduledDate, taskType: 'VISITA', description, visitId: visit.id, assignedToId: visit.assignedToId || null },
       })
       created++
     }

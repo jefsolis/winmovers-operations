@@ -374,6 +374,32 @@ AuditLog {
 
 ---
 
+### ~~ATT-01~~ ✅ — Support multiple attachments for the same document type
+
+**User story:** As a coordinator, I want to upload multiple attachments under the same document type (for example several invoices, photos, or supporting documents), so I can keep all related files together without replacing previous uploads.
+
+**Context:**
+- The current UI behaves as if each attachment category supports only one file: when a user uploads a new file for an existing category, the previous file in that category is deleted and replaced.
+- The current database model already supports multiple attachments per file and category because `Attachment` is stored as many rows linked to `MovingFile`, with no uniqueness constraint on `(fileId, category)`.
+- This means the main change should be behavioural/UI-based rather than a major schema redesign.
+
+**Recommended implementation:**
+- Keep the current `Attachment.category` model and allow many `Attachment` rows with the same `category` for the same `MovingFile`.
+- Remove the frontend "replace existing attachment in same category" behaviour from `FileAttachments.jsx`.
+- In the UI, render each required/optional category as a section or tile that can contain a **list** of uploaded files instead of only one current file.
+- Required-document completion logic remains category-based: a required category counts as complete when **at least one** attachment exists in that category.
+- Deleting one file in a category removes only that file, not the entire category.
+
+**Acceptance criteria:**
+- Uploading a second file for the same category keeps the first file; both are visible under that category.
+- The backend `POST /api/files/:fileId/attachments` route accepts multiple uploads over time for the same category without deleting existing rows.
+- `FileAttachments.jsx` shows all files within a category, with per-file actions for preview/download/delete.
+- Required category completion and percentage calculations treat a category as satisfied when at least one attachment exists in that category.
+- Existing files remain valid; no data migration is required.
+- The "Other" category continues to support any number of uploads as it does today.
+
+---
+
 ## 10. Bug Fixes (May 2026)
 
 ### ~~BUG-04~~ ✅ — Accented characters in attachment filenames display as garbled text
@@ -838,6 +864,52 @@ canAccessSchedule Boolean @default(false)  // new — added alongside existing f
 - Manually selecting a different Encargado on an auto-generated entry is allowed and persists.
 - If no coordinator is found, the field is left blank and the entry is created without error.
 - i18n: add `schedule.encargado` key (ES: "Encargado", EN: "Person in Charge") to `i18n.jsx`.
+
+---
+
+### ~~SCH-08~~ ✅ — Multi-day schedule entries with start date and end date
+
+**User story:** As an operations user, I want a schedule item to have a start date and an end date, so the same task can appear across multiple consecutive days when the work lasts more than one day.
+
+**Context:**
+- Today each `ScheduleEntry` is effectively single-day via the `date` field.
+- In practice, many tasks span multiple days even though they are still one logical assignment.
+- Users want to edit the schedule item itself and have that same item appear on every date between the start and end date, inclusive.
+- Auto-generated items from Jobs and Visits should still default to a single day when first created.
+- Extending or shortening a schedule item in the Bitácora must **not** modify the original Job or Visit record.
+
+**Proposed data model:**
+- Replace or evolve the single-day `date` concept into `startDate` and `endDate` on `ScheduleEntry`.
+- For existing records, migrate `date` so that `startDate = endDate = date`.
+- A schedule entry is rendered on every calendar day where `startDate <= day <= endDate`.
+
+**Behaviour rules:**
+- Manual entries can be created directly with a date range.
+- Existing manual entries can be edited to expand or shrink the range.
+- Auto-generated entries from Jobs/Visits are created with `startDate = endDate = source date` by default.
+- If a user later edits an auto-generated schedule item and changes its end date (or start date), that change is stored only on the `ScheduleEntry` and does not sync back to the source Job/Visit.
+- Future Job/Visit updates should not overwrite a manually adjusted multi-day range on the schedule item.
+- Editing the item always affects the whole schedule item; no per-day split/edit behaviour is needed.
+
+**Frontend changes (`SchedulePage.jsx`):**
+- The create/edit modal gains **Start date** and **End date** fields.
+- Validation requires `startDate <= endDate`.
+- Calendar rendering shows the same item in each day cell and day panel across the full inclusive range.
+- List view should include the full range clearly (for example `2026-06-03 -> 2026-06-05` when multi-day).
+
+**Backend changes:**
+- `GET /api/schedule?from=&to=` must return entries whose date range overlaps the requested window, not only entries whose single date falls inside it.
+- Create/update routes validate the date range and persist both `startDate` and `endDate`.
+- Sync helpers for Jobs and Visits create single-day entries by default but preserve manual range edits on existing schedule entries.
+
+**Acceptance criteria:**
+- A user can create a schedule item with start date `2026-06-03` and end date `2026-06-05`, and the same item appears on June 3, 4, and 5.
+- Editing an existing item to change only the end date updates all rendered days for that item.
+- Existing single-day records continue to work after migration, with `startDate` and `endDate` both set to the original date.
+- Auto-generated schedule items from Jobs and Visits are still created as single-day entries by default.
+- Changing the date range in the Schedule does not update the source Job or Visit.
+- Later syncs from Job/Visit updates do not overwrite a schedule item's manually adjusted multi-day range.
+- i18n keys are added for any new labels/messages needed (`startDate`, `endDate`, range validation text).
 
 ---
 

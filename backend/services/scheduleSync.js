@@ -78,8 +78,11 @@ async function _syncEntry(db, { matchWhere, date, time, taskType, description, n
       return
     }
 
+    const sourceDate = new Date(date)
     const data = {
-      date:         new Date(date),
+      date:         sourceDate,
+      startDate:    sourceDate,
+      endDate:      sourceDate,
       time:         time         || null,
       taskType,
       description,
@@ -89,10 +92,18 @@ async function _syncEntry(db, { matchWhere, date, time, taskType, description, n
     }
 
     if (existing) {
-      // On re-sync: update structural fields from the job. Preserve user-edited notes and assignedToId.
+      // On re-sync: update structural fields from the job, but preserve a manually adjusted range.
+      const nextRange = existing.rangeManuallyAdjusted
+        ? { date: existing.startDate || existing.date, startDate: existing.startDate || existing.date, endDate: existing.endDate || existing.date }
+        : { date: data.date, startDate: data.startDate, endDate: data.endDate }
       const updated = await db.scheduleEntry.update({
         where: { id: existing.id },
-        data: { date: data.date, time: data.time, taskType: data.taskType, description: data.description },
+        data: {
+          ...nextRange,
+          time: data.time,
+          taskType: data.taskType,
+          description: data.description,
+        },
       })
       if (req) logAudit(req, 'ScheduleEntry', existing.id, 'UPDATE', existing, updated)
     } else {
