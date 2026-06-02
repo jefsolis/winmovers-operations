@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { statusMeta, typeMeta, formatDate, stripFilePrefix } from '../../constants'
+import { typeMeta, formatDate, stripFilePrefix } from '../../constants'
 import JobDocument from './JobDocument'
 import DamageReport, { EMPTY_DR } from '../Files/DamageReport'
 import ServiceEvaluation, { EMPTY_SE } from '../Files/ServiceEvaluation'
@@ -145,7 +145,6 @@ export default function JobDetail() {
   if (error)   return <div className="alert alert-error">{error}</div>
   if (!job)    return null
 
-  const sm = statusMeta(job.status, t)
   const tm = typeMeta(job.type, t)
   const route = [job.originCity, job.originCountry].filter(Boolean).join(', ')
     + (job.destCity || job.destCountry
@@ -187,7 +186,6 @@ export default function JobDetail() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div className="page-title">{job.jobNumber}</div>
-            <span className="badge" style={{ background: sm.bg, color: sm.color, fontSize: 13 }}>{sm.label}</span>
             <span className="badge" style={{ background: job.type === 'INTERNATIONAL' ? '#eff6ff' : '#f0fdf4', color: job.type === 'INTERNATIONAL' ? '#1e40af' : '#166534', fontSize: 13 }}>{tm.label}</span>
           </div>
           {route && <div className="page-subtitle">{route}</div>}

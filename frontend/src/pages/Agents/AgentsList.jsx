@@ -18,9 +18,7 @@ export default function AgentsList() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, []) // eslint-disable-line
-
-  const handleSearch = e => { e.preventDefault(); load() }
+  useEffect(() => { load() }, [search]) // eslint-disable-line
 
   const handleDelete = async agent => {
     if (!window.confirm(t('agents.deleteConfirm', { name: agent.name }))) return
@@ -43,15 +41,13 @@ export default function AgentsList() {
 
       <div className="card">
         <div className="toolbar">
-          <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="search-input"
-              placeholder={t('agents.searchPlaceholder')}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            <button type="submit" className="btn btn-ghost">{t('common.search')}</button>
-          </form>
+          <input
+            className="search-input"
+            placeholder={t('agents.searchPlaceholder')}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ flex: 1 }}
+          />
         </div>
 
         {loading ? (

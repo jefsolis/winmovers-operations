@@ -15,19 +15,17 @@ export default function VisitsList() {
   const [visits, setVisits]       = useState([])
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
-  const [statusFilter, setStatus] = useState('')
   const [showClosed, setShowClosed] = useState(false)
+  const [selectedStatuses, setSelectedStatuses] = useState(new Set())
 
   const load = () => {
     setLoading(true)
     const params = new URLSearchParams()
     if (search)       params.set('search', search)
-    if (statusFilter) params.set('status', statusFilter)
     api.get(`/visits?${params}`).then(d => setVisits(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [statusFilter]) // eslint-disable-line
-  const handleSearch = e => { e.preventDefault(); load() }
+  useEffect(() => { load() }, [search]) // eslint-disable-line
 
   const handleDelete = async (v) => {
     if (!window.confirm(t('visits.deleteConfirm', { num: v.visitNumber }))) return
@@ -35,9 +33,21 @@ export default function VisitsList() {
     setVisits(prev => prev.filter(x => x.id !== v.id))
   }
 
-  const displayed = (!statusFilter && !showClosed)
-    ? visits.filter(v => !TERMINAL.includes(v.status))
-    : visits
+  const countByStatus = {}
+  visits.forEach(v => { countByStatus[v.status] = (countByStatus[v.status] || 0) + 1 })
+
+  const toggleStatus = (status) => {
+    setSelectedStatuses(prev => {
+      const next = new Set(prev)
+      if (next.has(status)) next.delete(status)
+      else next.add(status)
+      return next
+    })
+  }
+
+  const displayed = selectedStatuses.size > 0
+    ? visits.filter(v => selectedStatuses.has(v.status))
+    : (!showClosed ? visits.filter(v => !TERMINAL.includes(v.status)) : visits)
 
   const displayName = (v) => {
     if (v.client) return v.client.name
@@ -58,23 +68,54 @@ export default function VisitsList() {
       {/* Toolbar */}
       <div className="card card-body" style={{ marginBottom: 16 }}>
         <div className="toolbar">
-          <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, flex: 1 }}>
-            <input
-              className="form-control search-input"
-              placeholder={t('visits.searchPlaceholder')}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            <button type="submit" className="btn btn-secondary">{t('common.search')}</button>
-          </form>
-          <select className="form-control" style={{ width: 170 }} value={statusFilter} onChange={e => setStatus(e.target.value)}>
-            <option value="">{t('visits.allStatuses')}</option>
-            {VISIT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
+          <input
+            className="form-control search-input"
+            placeholder={t('visits.searchPlaceholder')}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ flex: 1 }}
+          />
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             <input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} />
             {t('common.showClosed')}
           </label>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12, alignItems: 'center' }}>
+          {VISIT_STATUSES.map(s => {
+            const active = selectedStatuses.has(s.value)
+            const count = countByStatus[s.value] || 0
+            return (
+              <button
+                key={s.value}
+                onClick={() => toggleStatus(s.value)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '4px 10px', borderRadius: 20,
+                  border: active ? 'none' : '1.5px solid #d1d5db',
+                  background: active ? '#dbeafe' : '#fff',
+                  color: active ? '#1e40af' : '#64748b',
+                  fontWeight: active ? 700 : 500, fontSize: 12, cursor: 'pointer',
+                  transition: 'all 0.12s',
+                }}
+              >
+                {s.label}
+                <span style={{
+                  background: active ? 'rgba(0,0,0,0.15)' : '#e2e8f0',
+                  color: active ? '#1e40af' : '#475569',
+                  borderRadius: 10, padding: '1px 6px', fontSize: 11, fontWeight: 700,
+                }}>{count}</span>
+              </button>
+            )
+          })}
+          {selectedStatuses.size > 0 && (
+            <button
+              onClick={() => setSelectedStatuses(new Set())}
+              style={{ padding: '4px 10px', borderRadius: 20, border: '1.5px solid #d1d5db', background: '#fff', color: '#64748b', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}
+            >
+              × {t('common.filterClear')}
+            </button>
+          )}
         </div>
       </div>
 

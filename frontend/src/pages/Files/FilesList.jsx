@@ -33,6 +33,7 @@ export default function FilesList({ category }) {
   }
 
   useEffect(() => {
+    setSearch('')
     setSelectedStatuses(new Set())
   }, [category])
 
@@ -95,6 +96,7 @@ export default function FilesList({ category }) {
             placeholder={t('movingFiles.searchPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
+            style={{ flex: 1 }}
           />
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
             <input

@@ -21,12 +21,7 @@ export default function ClientsList() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, []) // eslint-disable-line
-
-  const handleSearch = e => {
-    e.preventDefault()
-    load()
-  }
+  useEffect(() => { load() }, [search]) // eslint-disable-line
 
   const handleDelete = async client => {
     if (!window.confirm(t('clients.deleteConfirm', { name: client.name }))) return
@@ -48,15 +43,13 @@ export default function ClientsList() {
 
       <div className="card">
         <div className="toolbar">
-          <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="search-input"
-              placeholder={t('clients.searchPlaceholder')}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            <button type="submit" className="btn btn-ghost">Search</button>
-          </form>
+          <input
+            className="search-input"
+            placeholder={t('clients.searchPlaceholder')}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ flex: 1 }}
+          />
         </div>
 
         {loading ? (
