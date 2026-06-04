@@ -18,7 +18,10 @@ export default function Layout() {
   const canSchedule = currentStaff?.canAccessSchedule || isAdmin || isBodega
 
   const nav = isBodega
-    ? [{ to: '/schedule', label: t('nav.schedule'), icon: '🗓' }]
+    ? [
+      { to: '/jobs', label: t('nav.jobs'), icon: '📦' },
+      { to: '/schedule', label: t('nav.schedule'), icon: '🗓' },
+    ]
     : [
     { to: '/dashboard', label: t('nav.dashboard'), icon: '⬛' },
     { to: '/visits',    label: t('nav.visits'),    icon: '📅' },

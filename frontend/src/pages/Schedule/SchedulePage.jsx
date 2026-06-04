@@ -47,7 +47,19 @@ const EMPTY_FORM = {
 
 // ── Linked record chip ────────────────────────────────────────────────────────
 function LinkedChip({ entry }) {
-  if (entry.job) return <Link to={`/jobs/${entry.job.id}`} className="badge" style={{ background:'#e0f2fe', color:'#0369a1', textDecoration:'none', fontSize:11 }}>#{entry.job.jobNumber}</Link>
+  if (entry.job) {
+    return (
+      <Link
+        to={`/jobs/${entry.job.id}`}
+        className="badge"
+        onClick={e => e.stopPropagation()}
+        onMouseDown={e => e.stopPropagation()}
+        style={{ background:'#e0f2fe', color:'#0369a1', textDecoration:'none', fontSize:11 }}
+      >
+        #{entry.job.jobNumber}
+      </Link>
+    )
+  }
   return null
 }
 
@@ -159,7 +171,13 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
               <label className="form-label">{isSystem ? t('schedule.linkedJob') : t('schedule.linkJobOptional')}</label>
               {form.jobId && selectedJob ? (
                 <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'#e0f2fe', borderRadius:6 }}>
-                  <span style={{ fontWeight:700, fontSize:13 }}>#{selectedJob.jobNumber}</span>
+                  <Link
+                    to={`/jobs/${selectedJob.id}`}
+                    onClick={e => e.stopPropagation()}
+                    style={{ fontWeight:700, fontSize:13, color:'#0369a1', textDecoration:'none' }}
+                  >
+                    #{selectedJob.jobNumber}
+                  </Link>
                   {selectedJob.type && <span style={{ fontSize:11, fontWeight:600, background:'#bfdbfe', color:'#1d4ed8', borderRadius:4, padding:'1px 6px' }}>{selectedJob.type}</span>}
                   <span style={{ flex:1, fontSize:13, color:'#0369a1' }}>{selectedJob.quoteTo || selectedJob.client?.name || selectedJob.companyName || '—'}</span>
                   {!isSystem && <button type="button"
@@ -342,7 +360,7 @@ function DayPanel({ dateStr, entries, onClose, onAdd, onEdit }) {
 }
 
 // ── Day Hover Popup ──────────────────────────────────────────────────────────
-function DayPopup({ dateStr, entries, rect }) {
+function DayPopup({ dateStr, entries, rect, onMouseEnter, onMouseLeave }) {
   const { t } = useLanguage()
   if (!entries.length) return null
   const d = new Date(dateStr + 'T12:00:00')
@@ -365,12 +383,15 @@ function DayPopup({ dateStr, entries, rect }) {
   if (top + estimatedH > vh - 12) top = Math.max(8, vh - estimatedH - 12)
 
   return (
-    <div style={{
+    <div
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{
       position: 'fixed', top, left, width: popupW,
       background: '#fff', borderRadius: 12,
       boxShadow: '0 8px 40px rgba(0,0,0,0.22)',
       border: '1px solid #e2e8f0', zIndex: 850,
-      padding: '14px 16px', pointerEvents: 'none',
+      padding: '14px 16px',
       maxHeight: 520, overflow: 'hidden',
     }}>
       <div style={{ fontWeight: 700, fontSize: 15, color: '#1e293b', marginBottom: 10, borderBottom: '1px solid #f1f5f9', paddingBottom: 8 }}>
@@ -393,9 +414,12 @@ function DayPopup({ dateStr, entries, rect }) {
                 <div style={{ fontSize: 13, color: '#0369a1', marginTop: 4, fontWeight: 600 }}>👤 {entry.assignedTo.name}</div>
               )}
               {entry.job && (
-                <div style={{ fontSize: 13, color: '#0369a1', marginTop: 5, fontWeight: 600 }}>
+                <Link
+                  to={`/jobs/${entry.job.id}`}
+                  style={{ display: 'block', fontSize: 13, color: '#0369a1', marginTop: 5, fontWeight: 600, textDecoration: 'none' }}
+                >
                   📦 #{entry.job.jobNumber}{jobClient ? ` — ${jobClient}` : ''}
-                </div>
+                </Link>
               )}
               {entry.notes && (
                 <div style={{ fontSize: 13, color: '#475569', marginTop: 4, fontStyle: 'italic', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -425,6 +449,8 @@ export default function SchedulePage() {
   const [newDefaultDate, setNewDefaultDate] = useState('')
   const [hoveredDay, setHoveredDay] = useState(null)   // dateStr
   const [hoverRect,  setHoverRect]  = useState(null)   // DOMRect
+  const isHoveringPopupRef = useRef(false)
+  const hideHoverTimeoutRef = useRef(null)
   const listContainerRef = useRef(null)
   const monthStartStr = `${year}-${pad2(month + 1)}-01`
   const monthEndStr = `${year}-${pad2(month + 1)}-${pad2(new Date(year, month + 1, 0).getDate())}`
@@ -454,6 +480,29 @@ export default function SchedulePage() {
   }, [monthEndStr, monthStartStr])
 
   useEffect(() => { fetchEntries() }, [fetchEntries])
+
+  useEffect(() => {
+    return () => {
+      if (hideHoverTimeoutRef.current) clearTimeout(hideHoverTimeoutRef.current)
+    }
+  }, [])
+
+  const clearHoverHideTimer = () => {
+    if (hideHoverTimeoutRef.current) {
+      clearTimeout(hideHoverTimeoutRef.current)
+      hideHoverTimeoutRef.current = null
+    }
+  }
+
+  const scheduleHoverHide = () => {
+    clearHoverHideTimer()
+    hideHoverTimeoutRef.current = setTimeout(() => {
+      if (!isHoveringPopupRef.current) {
+        setHoveredDay(null)
+        setHoverRect(null)
+      }
+    }, 180)
+  }
 
   // Group by date string, sorted by time within each day
   const byDate = {}
@@ -575,8 +624,15 @@ export default function SchedulePage() {
               return (
                 <div key={ds}
                   onClick={() => setDayPanel(ds === dayPanel ? null : ds)}
-                  onMouseEnter={e => { if ((byDate[ds] || []).length > 0) { setHoveredDay(ds); setHoverRect(e.currentTarget.getBoundingClientRect()) } }}
-                  onMouseLeave={() => { setHoveredDay(null); setHoverRect(null) }}
+                  onMouseEnter={e => {
+                    if ((byDate[ds] || []).length > 0) {
+                      clearHoverHideTimer()
+                      isHoveringPopupRef.current = false
+                      setHoveredDay(ds)
+                      setHoverRect(e.currentTarget.getBoundingClientRect())
+                    }
+                  }}
+                  onMouseLeave={scheduleHoverHide}
                   style={{
                     padding:4, cursor:'pointer', overflow:'hidden',
                     display:'flex', flexDirection:'column',
@@ -615,9 +671,14 @@ export default function SchedulePage() {
                             </span>
                           </div>
                           {jobLabel && (
-                            <div style={{ fontSize:9, opacity:0.75, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight:500 }}>
+                            <Link
+                              to={`/jobs/${entry.job.id}`}
+                              onClick={e => e.stopPropagation()}
+                              onMouseDown={e => e.stopPropagation()}
+                              style={{ display:'block', fontSize:9, opacity:0.85, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight:600, color:meta.color, textDecoration:'none' }}
+                            >
                               📦 {jobLabel}
-                            </div>
+                            </Link>
                           )}
                           {rangeLabel && (
                             <div style={{ fontSize:9, opacity:0.75, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight:500 }}>
@@ -746,7 +807,19 @@ export default function SchedulePage() {
 
       {/* Day hover popup */}
       {hoveredDay && hoverRect && (
-        <DayPopup dateStr={hoveredDay} entries={byDate[hoveredDay] || []} rect={hoverRect} />
+        <DayPopup
+          dateStr={hoveredDay}
+          entries={byDate[hoveredDay] || []}
+          rect={hoverRect}
+          onMouseEnter={() => {
+            clearHoverHideTimer()
+            isHoveringPopupRef.current = true
+          }}
+          onMouseLeave={() => {
+            isHoveringPopupRef.current = false
+            scheduleHoverHide()
+          }}
+        />
       )}
 
       {/* Day panel */}

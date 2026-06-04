@@ -3,9 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { typeMeta, formatDate, getJobTypes } from '../../constants'
 import { useLanguage } from '../../i18n'
+import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 
 export default function JobsList() {
   const { t } = useLanguage()
+  const currentStaff = useCurrentStaff()
+  const canWriteJobs = currentStaff?.role !== 'BODEGA'
   const [searchParams] = useSearchParams()
   const JOB_TYPES = getJobTypes(t)
   const TERMINAL = ['DELIVERED', 'CLOSED', 'CANCELLED']
@@ -69,29 +72,31 @@ export default function JobsList() {
           <div className="page-title">{t('jobs.title')}</div>
           <div className="page-subtitle">{jobs.length === 1 ? t('jobs.subtitle_one') : t('jobs.subtitle_other', { n: jobs.length })}</div>
         </div>
-        <div ref={typeMenuRef} style={{ position: 'relative' }}>
-          <button className="btn btn-primary" onClick={() => setShowTypeMenu(v => !v)}>
-            + {t('jobs.newDirectJob')} ▾
-          </button>
-          {showTypeMenu && (
-            <div style={{
-              position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50,
-              background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 180, padding: '4px 0',
-            }}>
-              {JOB_TYPES.filter(tp => ['EXPORT', 'IMPORT', 'DOMESTIC'].includes(tp.value)).map(tp => (
-                <Link
-                  key={tp.value}
-                  to={`/jobs/new?direct=true&type=${tp.value}`}
-                  onClick={() => setShowTypeMenu(false)}
-                  style={{ display: 'block', padding: '9px 16px', color: '#1e293b', textDecoration: 'none', fontSize: 14 }}
-                >
-                  {tp.label}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        {canWriteJobs && (
+          <div ref={typeMenuRef} style={{ position: 'relative' }}>
+            <button className="btn btn-primary" onClick={() => setShowTypeMenu(v => !v)}>
+              + {t('jobs.newDirectJob')} ▾
+            </button>
+            {showTypeMenu && (
+              <div style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50,
+                background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 180, padding: '4px 0',
+              }}>
+                {JOB_TYPES.filter(tp => ['EXPORT', 'IMPORT', 'DOMESTIC'].includes(tp.value)).map(tp => (
+                  <Link
+                    key={tp.value}
+                    to={`/jobs/new?direct=true&type=${tp.value}`}
+                    onClick={() => setShowTypeMenu(false)}
+                    style={{ display: 'block', padding: '9px 16px', color: '#1e293b', textDecoration: 'none', fontSize: 14 }}
+                  >
+                    {tp.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="toolbar">
@@ -182,8 +187,12 @@ export default function JobsList() {
                           <td style={{ color: 'var(--text-muted)' }}>{formatDate(job.serviceDate)}</td>
                           <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{job.coordinator?.name || '—'}</td>
                           <td className="td-actions">
-                            <Link to={`/jobs/${job.id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>
-                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(job.id, job.jobNumber)}>{t('common.delete')}</button>
+                            {canWriteJobs && (
+                              <>
+                                <Link to={`/jobs/${job.id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>
+                                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(job.id, job.jobNumber)}>{t('common.delete')}</button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       )

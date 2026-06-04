@@ -5,6 +5,21 @@ const { generateFileNumber } = require("./movingFiles")
 const { notifyFileCoordinator } = require('../services/notifications')
 const { syncJobScheduleEntries } = require('../services/scheduleSync')
 
+async function forbidBodegaWrite(req, res, next) {
+  try {
+    const oid = req.user?.oid
+    if (!oid) return next()
+    const staff = await getPrisma().staffMember.findUnique({
+      where: { azureOid: oid },
+      select: { role: true },
+    })
+    if (staff?.role === 'BODEGA') {
+      return res.status(403).json({ error: 'Bodega role has read-only access to Jobs.' })
+    }
+    next()
+  } catch (err) { next(err) }
+}
+
 function toDate(val) {
   if (!val) return null
   const d = new Date(val)
@@ -88,7 +103,7 @@ router.get("/:id", async (req, res, next) => {
 })
 
 // POST create  auto-creates MovingFile for EXPORT jobs (detected via visit serviceType)
-router.post("/", async (req, res, next) => {
+router.post("/", forbidBodegaWrite, async (req, res, next) => {
   try {
     const {
       type, status, clientId,
@@ -234,7 +249,7 @@ router.post("/", async (req, res, next) => {
 })
 
 // PUT update
-router.put("/:id", async (req, res, next) => {
+router.put("/:id", forbidBodegaWrite, async (req, res, next) => {
   try {
     const {
       type, status, clientId,
@@ -330,7 +345,7 @@ router.put("/:id", async (req, res, next) => {
 })
 
 // PATCH link/unlink moving file
-router.patch("/:id/moving-file", async (req, res, next) => {
+router.patch("/:id/moving-file", forbidBodegaWrite, async (req, res, next) => {
   try {
     const { movingFileId } = req.body
     const job = await getPrisma().job.update({
@@ -343,7 +358,7 @@ router.patch("/:id/moving-file", async (req, res, next) => {
 })
 
 // PATCH status only
-router.patch("/:id/status", async (req, res, next) => {
+router.patch("/:id/status", forbidBodegaWrite, async (req, res, next) => {
   try {
     const { status } = req.body
     if (!status) return res.status(400).json({ error: "status is required" })
@@ -353,7 +368,7 @@ router.patch("/:id/status", async (req, res, next) => {
 })
 
 // DELETE
-router.delete("/:id", async (req, res, next) => {
+router.delete("/:id", forbidBodegaWrite, async (req, res, next) => {
   try {
     const before = await getPrisma().job.findUnique({ where: { id: req.params.id } })
     await getPrisma().job.delete({ where: { id: req.params.id } })

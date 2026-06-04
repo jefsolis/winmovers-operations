@@ -7,10 +7,13 @@ import JobDocument from './JobDocument'
 import DamageReport, { EMPTY_DR } from '../Files/DamageReport'
 import ServiceEvaluation, { EMPTY_SE } from '../Files/ServiceEvaluation'
 import AuditHistory from '../../components/AuditHistory'
+import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 
 export default function JobDetail() {
   const { id } = useParams()
   const { t }  = useLanguage()
+  const currentStaff = useCurrentStaff()
+  const canWriteJobs = currentStaff?.role !== 'BODEGA'
   const [searchParams] = useSearchParams()
   const docRef    = useRef(null)
   const headerRef = useRef(null)
@@ -192,11 +195,11 @@ export default function JobDetail() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to="/jobs" className="btn btn-ghost">{t('jobs.backToJobs')}</Link>
-          <Link to={`/jobs/${id}/edit`} className="btn btn-primary">{t('jobs.editJob')}</Link>
+          {canWriteJobs && <Link to={`/jobs/${id}/edit`} className="btn btn-primary">{t('jobs.editJob')}</Link>}
           <button className="btn btn-secondary" onClick={exportPDF} disabled={exporting}>
             {exporting ? '…' : t('jobs.exportPDF')}
           </button>
-          {!TERMINAL.includes(job.status) && (
+          {canWriteJobs && !TERMINAL.includes(job.status) && (
             <button className="btn btn-success" onClick={closeJob} disabled={closing}>
               {closing ? t('common.saving') : t('jobs.closeJob')}
             </button>
@@ -251,12 +254,16 @@ export default function JobDetail() {
       {tab === 'damage' && (
         <>
           <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
-            <button className="btn btn-secondary" onClick={() => setDrData(EMPTY_DR)}>
-              {t('common.reset')}
-            </button>
-            <button className="btn btn-primary" onClick={saveDR} disabled={saving}>
-              {saving ? t('common.saving') : t('common.save')}
-            </button>
+            {canWriteJobs && (
+              <>
+                <button className="btn btn-secondary" onClick={() => setDrData(EMPTY_DR)}>
+                  {t('common.reset')}
+                </button>
+                <button className="btn btn-primary" onClick={saveDR} disabled={saving}>
+                  {saving ? t('common.saving') : t('common.save')}
+                </button>
+              </>
+            )}
             <button className="btn btn-secondary" onClick={() => window.print()}>
               🖨 {t('common.print')}
             </button>
@@ -268,7 +275,7 @@ export default function JobDetail() {
             ref={docRef}
             headerRef={headerRef}
             file={{ job, client: job.client }}
-            editMode
+            editMode={canWriteJobs}
             data={drData}
             onChange={setDrData}
           />
@@ -279,12 +286,16 @@ export default function JobDetail() {
       {tab === 'evaluation' && (
         <>
           <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
-            <button className="btn btn-secondary" onClick={() => setSeData(EMPTY_SE)}>
-              {t('common.reset')}
-            </button>
-            <button className="btn btn-primary" onClick={saveSE} disabled={saving}>
-              {saving ? t('common.saving') : t('common.save')}
-            </button>
+            {canWriteJobs && (
+              <>
+                <button className="btn btn-secondary" onClick={() => setSeData(EMPTY_SE)}>
+                  {t('common.reset')}
+                </button>
+                <button className="btn btn-primary" onClick={saveSE} disabled={saving}>
+                  {saving ? t('common.saving') : t('common.save')}
+                </button>
+              </>
+            )}
             <button className="btn btn-secondary" onClick={() => window.print()}>
               🖨 {t('common.print')}
             </button>
@@ -296,7 +307,7 @@ export default function JobDetail() {
             ref={docRef}
             headerRef={headerRef}
             file={{ job, client: job.client }}
-            editMode
+            editMode={canWriteJobs}
             data={seData}
             onChange={setSeData}
           />
@@ -330,7 +341,7 @@ export default function JobDetail() {
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 8px' }}>
                   {t('movingFiles.noJob')}
                 </p>
-                {importFiles === null ? (
+                {!canWriteJobs ? null : importFiles === null ? (
                   <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={loadImportFiles}>
                     {t('movingFiles.linkToFile')}
                   </button>

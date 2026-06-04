@@ -29,6 +29,7 @@ import AuditLogPage from './pages/Admin/AuditLogPage'
 import SchedulePage from './pages/Schedule/SchedulePage'
 import RequireAdmin from './auth/RequireAdmin'
 import RequireScheduleAccess from './auth/RequireScheduleAccess'
+import RequireJobWriteAccess from './auth/RequireJobWriteAccess'
 import ReloadBanner from './components/ReloadBanner'
 
 export default function App() {
@@ -41,9 +42,9 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard"          element={<Dashboard />} />
           <Route path="jobs"               element={<JobsList />} />
-          <Route path="jobs/new"           element={<JobForm />} />
+          <Route path="jobs/new"           element={<RequireJobWriteAccess><JobForm /></RequireJobWriteAccess>} />
           <Route path="jobs/:id"           element={<JobDetail />} />
-          <Route path="jobs/:id/edit"      element={<JobForm />} />
+          <Route path="jobs/:id/edit"      element={<RequireJobWriteAccess><JobForm /></RequireJobWriteAccess>} />
           <Route path="clients"            element={<ClientsList />} />
           <Route path="clients/new"        element={<ClientForm />} />
           <Route path="clients/:id/edit"   element={<ClientForm />} />
