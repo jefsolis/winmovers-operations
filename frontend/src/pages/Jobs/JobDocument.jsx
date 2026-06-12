@@ -163,9 +163,7 @@ const JobDocument = forwardRef(function JobDocument(
   const fv = field => editMode ? (form?.[field] ?? '') : (job?.[field] ?? '')
   const isImport = editMode ? form?.type === 'IMPORT' : job?.type === 'IMPORT'
 
-  const viewOriginAddr = isImport
-    ? (job?.originCountry || '')
-    : [job?.originAddress, job?.originCity, job?.originCountry].filter(Boolean).join(', ')
+  const viewOriginAddr = [job?.originAddress, job?.originCity, job?.originCountry].filter(Boolean).join(', ')
   const viewDestAddr   = [job?.destAddress,   job?.destCity,   job?.destCountry  ].filter(Boolean).join(', ')
 
   const jobNumber   = editMode ? resolvedJobNumber   : (job?.jobNumber || '')
@@ -300,29 +298,23 @@ const JobDocument = forwardRef(function JobDocument(
             </Row>
           )}
 
-          {/* Row 6: Origin Address (IMPORT: only country) */}
-          {isImport ? (
-            <Row>
-              <Cell label={L.paisOrigen} value={fv('originCountry')} editMode={editMode} onChange={ch('originCountry')} />
-            </Row>
-          ) : (
-            <Row>
-              <div className="jd-cell jd-cell-top" style={{ flex: 1 }}>
-                <span className="jd-cell-label">{L.address}</span>
-                {editMode ? (
-                  <div style={{ flex: 1, display: 'flex', gap: 0, minWidth: 0 }}>
-                    {addrInput('Street / address', fv('originAddress'), ch('originAddress'), 3)}
-                    <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                    {addrInput('City', fv('originCity'), ch('originCity'), 2)}
-                    <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                    {addrInput('Country', fv('originCountry'), ch('originCountry'), 1)}
-                  </div>
-                ) : (
-                  <span className="jd-cell-value">{viewOriginAddr}</span>
-                )}
-              </div>
-            </Row>
-          )}
+          {/* Row 6: Origin Address */}
+          <Row>
+            <div className="jd-cell jd-cell-top" style={{ flex: 1 }}>
+              <span className="jd-cell-label">{L.address}</span>
+              {editMode ? (
+                <div style={{ flex: 1, display: 'flex', gap: 0, minWidth: 0 }}>
+                  {addrInput('Dirección', fv('originAddress'), ch('originAddress'), 3)}
+                  <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
+                  {addrInput('Ciudad', fv('originCity'), ch('originCity'), 2)}
+                  <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
+                  {addrInput('País', fv('originCountry'), ch('originCountry'), 1)}
+                </div>
+              ) : (
+                <span className="jd-cell-value">{viewOriginAddr}</span>
+              )}
+            </div>
+          </Row>
 
           {/* Row 7: Destination Address */}
           <Row>
@@ -330,11 +322,11 @@ const JobDocument = forwardRef(function JobDocument(
               <span className="jd-cell-label">{L.destAddress}</span>
               {editMode ? (
                 <div style={{ flex: 1, display: 'flex', gap: 0, minWidth: 0 }}>
-                  {addrInput('Street / address', fv('destAddress'), ch('destAddress'), 3)}
+                  {addrInput('Dirección', fv('destAddress'), ch('destAddress'), 3)}
                   <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                  {addrInput('City', fv('destCity'), ch('destCity'), 2)}
+                  {addrInput('Ciudad', fv('destCity'), ch('destCity'), 2)}
                   <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                  {addrInput('Country', fv('destCountry'), ch('destCountry'), 1)}
+                  {addrInput('País', fv('destCountry'), ch('destCountry'), 1)}
                 </div>
               ) : (
                 <span className="jd-cell-value">{viewDestAddr}</span>

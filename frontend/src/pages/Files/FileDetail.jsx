@@ -64,6 +64,10 @@ export default function FileDetail() {
   }
 
   const handleClose = async () => {
+    if ((file?.category === 'IMPORT' || file?.category === 'EXPORT') && (file?.weightKg == null || file?.volumeCbm == null)) {
+      alert(t('movingFiles.closeWeightVolumeRequired'))
+      return
+    }
     if (!window.confirm(t('movingFiles.closeConfirm'))) return
     setClosing(true)
     try {
@@ -93,6 +97,10 @@ export default function FileDetail() {
   }
 
   const handleSetStatus = async (newStatus) => {
+    if (newStatus === 'CLOSED' && (file?.category === 'IMPORT' || file?.category === 'EXPORT') && (file?.weightKg == null || file?.volumeCbm == null)) {
+      alert(t('movingFiles.closeWeightVolumeRequired'))
+      return
+    }
     setClosing(true)
     try {
       const updated = await api.put(`/files/${id}`, { status: newStatus })
@@ -153,6 +161,8 @@ export default function FileDetail() {
     { label: t('movingFiles.trasladoBodega'),done: file.anticipado || Boolean(file.fechaTrasladoBodega) },
     { label: t('movingFiles.fechaTraslado'), done: Boolean(file.fechaTraslado) },
     { label: t('movingFiles.fechaEntrega'),  done: Boolean(file.fechaEntrega) },
+    { label: t('movingFiles.weightKg'),      done: file.weightKg != null },
+    { label: t('movingFiles.volumeCbm'),     done: file.volumeCbm != null },
   ] : file.category === 'EXPORT' ? [
     { label: t('movingFiles.etd'),           done: Boolean(file.etd) },
     { label: t('movingFiles.eta'),           done: Boolean(file.eta) },
@@ -161,6 +171,8 @@ export default function FileDetail() {
     { label: t('movingFiles.guiaObl'),       done: Boolean(file.guiaObl) },
     { label: t('movingFiles.puertoSalida'),  done: Boolean(file.puertoSalida) },
     { label: t('movingFiles.puertoLlegada'), done: Boolean(file.puertoLlegada) },
+    { label: t('movingFiles.weightKg'),      done: file.weightKg != null },
+    { label: t('movingFiles.volumeCbm'),     done: file.volumeCbm != null },
   ] : []
   const allFieldsDone = requiredFieldsList.every(f => f.done)
   const canClose = allRequiredDone && allFieldsDone
@@ -282,16 +294,20 @@ export default function FileDetail() {
                 const isSea = _smArr.length === 1 && _smArr[0] === 'SEA'
                 const fmt = fmtDate
                 const destAddr = [file.destAddress || job?.destAddress, file.destCity || job?.destCity, file.destCountry || job?.destCountry].filter(Boolean).join(', ') || '\u2014'
-                const origCountry = file.originCountry || job?.originCountry || '\u2014'
+                const origAddr = [file.originAddress || job?.originAddress, file.originCity || job?.originCity, file.originCountry || job?.originCountry].filter(Boolean).join(', ') || '\u2014'
                 const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
+                const volumeText = (file.volumeCbm ?? job?.volumeCbm) != null ? `${file.volumeCbm ?? job?.volumeCbm} CMB` : '\u2014'
+                const weightText = (file.weightKg ?? job?.weightKg) != null ? `${file.weightKg ?? job?.weightKg} KG` : '\u2014'
                 return (<>
                   <InfoRow label={t('common.name')}>{clientName}</InfoRow>
                   <InfoRow label={t('movingFiles.destAddress')}>{destAddr}</InfoRow>
                   <InfoRow label={t('movingFiles.company')}>{company || '\u2014'}</InfoRow>
-                  <InfoRow label={t('jobs.originCountry')}>{origCountry}</InfoRow>
+                  <InfoRow label={t('jobs.originAddress')}>{origAddr}</InfoRow>
                   <InfoRow label={t('movingFiles.originAgent')}>{originAgentName}</InfoRow>                  <InfoRow label={t('movingFiles.coordinator')}>{file.coordinator?.name || '—'}</InfoRow>                  <InfoRow label={t('movingFiles.clientPhone')}>{clientPhone || '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.shipmentMode')}>{_formatModes(shipMode)}</InfoRow>
                   <InfoRow label={t('movingFiles.loadType')}>{_formatLoadType(file.loadType)}</InfoRow>
+                  <InfoRow label={t('movingFiles.volumeCbm')}>{volumeText}</InfoRow>
+                  <InfoRow label={t('movingFiles.weightKg')}>{weightText}</InfoRow>
                   <InfoRow label={t('movingFiles.serviceType')}>{file.serviceType ? t(`serviceTypes.${file.serviceType}`) : '\u2014'}</InfoRow>
                   <InfoRow label={t('movingFiles.etd')}>{fmt(file.etd)}</InfoRow>
                   <InfoRow label={t('movingFiles.eta')}>{fmt(file.eta)}</InfoRow>
@@ -329,6 +345,8 @@ export default function FileDetail() {
                 const destAddr = [file.destAddress || job?.destAddress, file.destCity || job?.destCity, file.destCountry || job?.destCountry].filter(Boolean).join(', ') || '\u2014'
                 const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
                 const vaporLabel = isAir ? t('movingFiles.vuelo') : isSea ? t('movingFiles.vapor') : `${t('movingFiles.vapor')} / ${t('movingFiles.vuelo')}`
+                const volumeText = file.volumeCbm != null ? `${file.volumeCbm} CMB` : '\u2014'
+                const weightText = file.weightKg != null ? `${file.weightKg} KG` : '\u2014'
                 return (<>
                   <InfoRow label={t('common.name')}>{clientName}</InfoRow>
                   <InfoRow label={t('jobs.originAddress')}>{origAddr}</InfoRow>
@@ -337,7 +355,8 @@ export default function FileDetail() {
                   <InfoRow label={t('movingFiles.destAddress')}>{destAddr}</InfoRow>
                   <InfoRow label={t('movingFiles.destAgent')}>{destAgentName}</InfoRow>                  <InfoRow label={t('movingFiles.coordinator')}>{job?.coordinator?.name || '—'}</InfoRow>                  <InfoRow label={t('movingFiles.shipmentMode')}>{_formatModes(shipMode)}</InfoRow>
                   <InfoRow label={t('movingFiles.loadType')}>{_formatLoadType(file.loadType)}</InfoRow>
-                  <InfoRow label={t('movingFiles.serviceType')}>{file.serviceType ? t(`serviceTypes.${file.serviceType}`) : '\u2014'}</InfoRow>
+                  <InfoRow label={t('movingFiles.volumeCbm')}>{volumeText}</InfoRow>
+                  <InfoRow label={t('movingFiles.weightKg')}>{weightText}</InfoRow>
                   <InfoRow label={t('movingFiles.etd')}>{fmt(file.etd)}</InfoRow>
                   <InfoRow label={t('movingFiles.eta')}>{fmt(file.eta)}</InfoRow>
                   <InfoRow label={navieraLabel}>{file.navieraAerolinea || '\u2014'}</InfoRow>

@@ -76,14 +76,24 @@ export default function AgentsList() {
                   const totalJobs = (a._count?.originJobs || 0) + (a._count?.destJobs || 0) + (a._count?.customsJobs || 0)
                   return (
                     <tr key={a.id}>
-                      <td><strong>{a.name}</strong>{a.city ? <span style={{ color: '#64748b', fontWeight: 400 }}> — {a.city}</span> : ''}</td>
+                      <td>
+                        <strong>{a.name}</strong>
+                        {a.isSystem && <span className="badge" style={{ marginLeft: 8, background: '#e0f2fe', color: '#0369a1' }}>System</span>}
+                        {a.city ? <span style={{ color: '#64748b', fontWeight: 400 }}> — {a.city}</span> : ''}
+                      </td>
                       <td>{a.country || '—'}</td>
                       <td>{a.email || '—'}</td>
                       <td>{a.phone || '—'}</td>
                       <td>{totalJobs}</td>
                       <td>
-                        <Link to={`/agents/${a.id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(a)}>{t('common.delete')}</button>
+                        {a.isSystem ? (
+                          <span style={{ color: '#64748b', fontSize: 12 }}>Protected</span>
+                        ) : (
+                          <>
+                            <Link to={`/agents/${a.id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(a)}>{t('common.delete')}</button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   )

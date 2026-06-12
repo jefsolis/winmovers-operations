@@ -15,16 +15,20 @@ export default function AgentForm() {
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [isSystemAgent, setIsSystemAgent] = useState(false)
 
   useEffect(() => {
     if (!isEdit) return
     api.get(`/agents/${id}`)
-      .then(a => setForm({
-        name: a.name,
-        country: a.country || '', city: a.city || '',
-        email: a.email || '', phone: a.phone || '',
-        notes: a.notes || ''
-      }))
+      .then(a => {
+        setForm({
+          name: a.name,
+          country: a.country || '', city: a.city || '',
+          email: a.email || '', phone: a.phone || '',
+          notes: a.notes || ''
+        })
+        setIsSystemAgent(Boolean(a.isSystem))
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [id]) // eslint-disable-line
@@ -38,6 +42,10 @@ export default function AgentForm() {
 
   const handleSubmit = async e => {
     e.preventDefault()
+    if (isSystemAgent) {
+      setError('This is a protected system agent and cannot be edited.')
+      return
+    }
     if (!form.name.trim()) { setError('Agent name is required'); return }
     setSaving(true); setError(null)
     try {
@@ -66,6 +74,7 @@ export default function AgentForm() {
       </div>
 
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {isSystemAgent && <div className="alert" style={{ marginBottom: 16, background: '#e0f2fe', color: '#0369a1' }}>This is a protected system agent and cannot be edited.</div>}
 
       <div className="card card-body">
         <form onSubmit={handleSubmit}>
@@ -75,15 +84,15 @@ export default function AgentForm() {
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">{t('common.name')} *</label>
-                <input {...field('name')} required placeholder={t('agents.namePlaceholder')} />
+                <input {...field('name')} required placeholder={t('agents.namePlaceholder')} disabled={isSystemAgent} />
               </div>
               <div className="form-group">
                 <label className="form-label">{t('common.country')}</label>
-                <input {...field('country')} placeholder="e.g. United States" />
+                <input {...field('country')} placeholder="e.g. United States" disabled={isSystemAgent} />
               </div>
               <div className="form-group">
                 <label className="form-label">City</label>
-                <input {...field('city')} placeholder="e.g. Miami" />
+                <input {...field('city')} placeholder="e.g. Miami" disabled={isSystemAgent} />
               </div>
             </div>
           </div>
@@ -93,11 +102,11 @@ export default function AgentForm() {
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">{t('common.email')}</label>
-                <input {...field('email')} type="email" placeholder="agent@company.com" />
+                <input {...field('email')} type="email" placeholder="agent@company.com" disabled={isSystemAgent} />
               </div>
               <div className="form-group">
                 <label className="form-label">{t('common.phone')}</label>
-                <input {...field('phone')} placeholder="+1 555 000 0000" />
+                <input {...field('phone')} placeholder="+1 555 000 0000" disabled={isSystemAgent} />
               </div>
             </div>
           </div>
@@ -105,13 +114,13 @@ export default function AgentForm() {
           <div className="form-section">
             <div className="form-section-title">{t('common.notes')}</div>
             <div className="form-group">
-              <textarea className="form-control" {...field('notes')} placeholder="Internal notes…" />
+              <textarea className="form-control" {...field('notes')} placeholder="Internal notes…" disabled={isSystemAgent} />
             </div>
           </div>
 
           <div className="form-actions">
             <Link to="/agents" className="btn btn-ghost">{t('common.cancel')}</Link>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={saving || isSystemAgent}>
               {saving ? t('common.saving') : isEdit ? t('common.save') : t('agents.createAgent')}
             </button>
           </div>

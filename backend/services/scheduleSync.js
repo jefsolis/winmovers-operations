@@ -15,8 +15,42 @@ const SERVICE_TYPE_LABELS = {
  */
 async function syncJobScheduleEntries(job, req = null) {
   const db = getPrisma()
-  const clientLabel = job.quoteTo || job.companyName || ''
-  const label = clientLabel ? ` — ${clientLabel}` : ''
+
+  // Resolve a stable client label from linked records (never from agent/quoteTo text).
+  let clientLabel = ''
+  try {
+    const jobWithClient = await db.job.findUnique({
+      where: { id: job.id },
+      select: {
+        client: {
+          select: {
+            clientType: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        corporateClient: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    })
+
+    const individualName = jobWithClient?.client
+      ? `${jobWithClient.client.firstName || ''} ${jobWithClient.client.lastName || ''}`.trim()
+      : ''
+
+    clientLabel =
+      (jobWithClient?.client?.clientType === 'INDIVIDUAL' ? (individualName || jobWithClient?.client?.name || '') : '') ||
+      jobWithClient?.corporateClient?.name ||
+      jobWithClient?.client?.name ||
+      job.companyName ||
+      ''
+  } catch (_) {
+    clientLabel = job.companyName || ''
+  }
 
   // Build notes from job details (only written on first create; preserved if user edits later)
   const noteParts = []
@@ -35,8 +69,7 @@ async function syncJobScheduleEntries(job, req = null) {
   const notes = noteParts.length ? noteParts.join('\n') : null
 
   const taskType = { EXPORT: 'EMPAQUE', IMPORT: 'DESEMPAQUE' }[job.type] || 'MUDANZA'
-  const taskLabel = { EMPAQUE: 'Empaque', DESEMPAQUE: 'Desempaque', MUDANZA: 'Mudanza' }[taskType]
-  const description = `${taskLabel}${label}`
+  const description = clientLabel || 'Sin cliente'
 
   // Resolve encargado: prefer MovingFile coordinator, fall back to job coordinator
   let resolvedCoordinatorId = job.coordinatorId || null

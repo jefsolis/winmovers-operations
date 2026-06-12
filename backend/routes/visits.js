@@ -2,6 +2,25 @@ const router = require('express').Router()
 const { getPrisma } = require('../db')
 const { logAudit } = require('../audit')
 const { notifyVisitAssigned } = require('../services/notifications')
+const WINMOVERS_SENTINEL = 'WINMOVERS'
+
+async function normalizeAgentIdForStorage(rawAgentId) {
+  if (rawAgentId === undefined) return undefined
+  if (!rawAgentId) return null
+  if (rawAgentId !== WINMOVERS_SENTINEL) return rawAgentId
+
+  const existing = await getPrisma().agent.findFirst({
+    where: { name: { equals: 'WinMovers', mode: 'insensitive' } },
+    select: { id: true },
+  })
+  if (existing?.id) return existing.id
+
+  const created = await getPrisma().agent.create({
+    data: { name: 'WinMovers' },
+    select: { id: true },
+  })
+  return created.id
+}
 
 async function generateVisitNumber() {
   const year = new Date().getFullYear()
@@ -93,6 +112,8 @@ router.post('/', async (req, res, next) => {
     if (!scheduledDate)                       errs.push('Scheduled date is required.')
     if (!clientId && !prospectName?.trim())   errs.push('Please enter a prospect name or select a linked client.')
     if (errs.length) return res.status(400).json({ error: errs.join(' ') })
+    const resolvedOriginAgentId = await normalizeAgentIdForStorage(originAgentId)
+    const resolvedDestAgentId = await normalizeAgentIdForStorage(destAgentId)
     const visitNumber = await generateVisitNumber()
     const visit = await getPrisma().visit.create({
       data: {
@@ -115,8 +136,8 @@ router.post('/', async (req, res, next) => {
         observations: observations || null,
         language: language || 'EN',
         bookerRole: bookerRole || null,
-        originAgentId: originAgentId || null,
-        destAgentId: destAgentId || null,
+        originAgentId: resolvedOriginAgentId,
+        destAgentId: resolvedDestAgentId,
       },
       include: {
         assignedTo:      { select: { id: true, name: true, email: true } },
@@ -147,6 +168,8 @@ router.put('/:id', async (req, res, next) => {
 
     // Fetch previous state to detect assignee / date changes (also serves as audit before-snapshot)
     const prev = await getPrisma().visit.findUnique({ where: { id: req.params.id } })
+    const resolvedOriginAgentId = await normalizeAgentIdForStorage(originAgentId)
+    const resolvedDestAgentId = await normalizeAgentIdForStorage(destAgentId)
 
     const visit = await getPrisma().visit.update({
       where: { id: req.params.id },
@@ -169,8 +192,8 @@ router.put('/:id', async (req, res, next) => {
         observations: observations || null,
         language: language || 'EN',
         bookerRole: bookerRole !== undefined ? (bookerRole || null) : undefined,
-        originAgentId: originAgentId !== undefined ? (originAgentId || null) : undefined,
-        destAgentId: destAgentId !== undefined ? (destAgentId || null) : undefined,
+        originAgentId: resolvedOriginAgentId,
+        destAgentId: resolvedDestAgentId,
       },
       include: {
         assignedTo:      { select: { id: true, name: true, email: true } },

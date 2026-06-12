@@ -940,3 +940,152 @@ canAccessSchedule Boolean @default(false)  // new — added alongside existing f
 - The filter is reset when the user navigates away and returns to the page.
 - i18n: no new keys needed (status labels already exist in `constants.js` / `i18n.jsx`).
 
+---
+
+## 14. File & Schedule Improvements (June 2026)
+
+### ~~IMP-01~~ ✅ — Restore Origin Address in Import File and Import Job
+
+**User story:** As an operations user, I want Origin Address available again in Import File and Import Job flows so import records have complete route information.
+
+**Context:**
+- Origin Address used to exist in Import flows and was removed from UI.
+- It is currently unclear whether the DB field was removed or only hidden.
+- Origin Address must also appear in generated documents and printouts.
+
+**Acceptance criteria:**
+- Import File create/edit forms include Origin Address and save it.
+- Import Job create/edit forms include Origin Address and save it.
+- Import File and Import Job detail/summary views display Origin Address.
+- Import-related documents and printouts include Origin Address.
+- If the DB field is missing, a safe schema update is added without breaking existing records.
+
+**Test checklist (post-implementation):**
+- [ ] Create a new Import File with Origin Address; save and reopen; verify value persists.
+- [ ] Edit an existing Import File Origin Address; save and verify updated value appears in detail and summary.
+- [ ] Create a new Import Job with Origin Address; save and reopen; verify value persists.
+- [ ] Edit an existing Import Job Origin Address; save and verify updated value appears in detail and summary.
+- [ ] Generate/print relevant Import File document(s); verify Origin Address is shown.
+- [ ] Generate/print relevant Import Job document(s); verify Origin Address is shown.
+- [ ] Regression: create/edit Export and Local records to confirm no unintended field breakage.
+
+---
+
+### ~~IMP-02~~ ✅ — Fix auto-created Schedule entry client naming for new Jobs
+
+**User story:** As a scheduler, I want auto-generated schedule entries created from Jobs to always use the client full name (not the agent name) so the schedule is clear and consistent.
+
+**Context:**
+- Auto-created schedule entries are using agent name in the client portion in some cases.
+- The description currently adds terms like Empaque/Desempaque to the client text; task type already provides this information.
+- Existing descriptive structure can remain; only the client-name source must be corrected.
+
+**Acceptance criteria:**
+- When a Job auto-creates a schedule entry, the client portion uses client full name.
+- Agent name is never used as client name in auto-created schedule entries.
+- Empaque/Desempaque are not prepended/appended to client name text.
+- Existing descriptive format remains otherwise unchanged.
+
+**Test checklist (post-implementation):**
+- [ ] Create a Job with a linked agent and client; verify auto-created schedule item uses client full name.
+- [ ] Create a Job where agent and client names differ clearly; verify schedule text never uses agent as client name.
+- [ ] Create an EMPAQUE-type auto entry and verify client text does not include the word "Empaque".
+- [ ] Create a DESEMPAQUE-type auto entry and verify client text does not include the word "Desempaque".
+- [ ] Verify schedule item still keeps the rest of the description format currently used.
+- [ ] Regression: manually-created schedule items are unchanged.
+
+---
+
+### ~~IMP-03~~ ✅ — Update Export summary: remove Service Type and add Weight/Volume
+
+**User story:** As a file coordinator, I want Export summary to show Weight and Volume instead of Service Type so the summary reflects the operational metrics we need.
+
+**Acceptance criteria:**
+- Export summary no longer displays Service Type.
+- Export summary displays Weight and Volume fields.
+- Weight is shown with unit `KG`.
+- Volume is shown with unit `CMB`.
+
+**Test checklist (post-implementation):**
+- [ ] Open Export summary and confirm Service Type field is removed.
+- [ ] Confirm Weight and Volume fields are visible on Export summary.
+- [ ] Enter/save Weight and confirm summary shows value with `KG`.
+- [ ] Enter/save Volume and confirm summary shows value with `CMB`.
+- [ ] Verify empty-state display for missing Weight/Volume is clear and non-breaking.
+- [ ] Regression: no layout overlap/overflow issues on desktop and mobile widths.
+
+---
+
+### ~~IMP-04~~ ✅ — Add Weight/Volume to Import summary
+
+**User story:** As a file coordinator, I want Import summary to include Weight and Volume so Import and Export summaries are aligned.
+
+**Acceptance criteria:**
+- Import summary displays Weight and Volume fields.
+- Weight is shown with unit `KG`.
+- Volume is shown with unit `CMB`.
+
+**Test checklist (post-implementation):**
+- [ ] Open Import summary and confirm Weight and Volume fields are visible.
+- [ ] Enter/save Weight and confirm summary shows value with `KG`.
+- [ ] Enter/save Volume and confirm summary shows value with `CMB`.
+- [ ] Verify empty-state display for missing Weight/Volume is clear and non-breaking.
+- [ ] Regression: no layout overlap/overflow issues on desktop and mobile widths.
+
+---
+
+### ~~IMP-05~~ ✅ — Block Import/Export file closure when Weight or Volume is missing
+
+**User story:** As an operations manager, I want Import and Export files to be blocked from closing unless Weight and Volume are filled so data quality is enforced at closure.
+
+**Context:**
+- Applies only to `IMPORT` and `EXPORT` files.
+- Already closed historical files are out of scope.
+
+**Acceptance criteria:**
+- Closing an Import or Export file is blocked if Weight is empty.
+- Closing an Import or Export file is blocked if Volume is empty.
+- A clear validation message is shown to users indicating Weight (`KG`) and Volume (`CMB`) are required.
+- Backend also enforces this rule so API calls cannot bypass the validation.
+- Local files are not affected by this validation.
+
+**Test checklist (post-implementation):**
+- [ ] Import file: leave Weight empty, attempt close, verify close is blocked and message is shown.
+- [ ] Import file: leave Volume empty, attempt close, verify close is blocked and message is shown.
+- [ ] Export file: leave Weight empty, attempt close, verify close is blocked and message is shown.
+- [ ] Export file: leave Volume empty, attempt close, verify close is blocked and message is shown.
+- [ ] Import file: fill both Weight and Volume, attempt close, verify close succeeds.
+- [ ] Export file: fill both Weight and Volume, attempt close, verify close succeeds.
+- [ ] Local file: missing Weight/Volume should not block close.
+- [ ] API-level test: call close endpoint for Import/Export without Weight or Volume and verify backend rejection.
+- [ ] API-level test: call close endpoint with both values and verify success.
+
+---
+
+### ~~IMP-06~~ ✅ — Export Delivery Confirmation is optional unless Booker role is Booker
+
+**User story:** As a coordinator, I want Delivery Confirmation to be optional for Export files unless the Booker/OA/DA role is Booker, so required documents match the actual responsibility.
+
+**Context:**
+- Rule applies to all requirement logic, not only one screen.
+
+**Acceptance criteria:**
+- For Export files with Booker role `BOOKER`, `DELIVERY_CONFIRMATION` is required.
+- For Export files with Booker role `OA` or `DA`, `DELIVERY_CONFIRMATION` is optional.
+- The rule is enforced in closure validation.
+- The rule is enforced in required-document progression calculations.
+- The rule is enforced in completion percentage calculations.
+- If Booker role changes, requirement/progression/percentage update accordingly.
+
+**Test checklist (post-implementation):**
+- [ ] Export file with Booker role `BOOKER` and no Delivery Confirmation: verify requirement appears as pending.
+- [ ] Export file with Booker role `BOOKER` and no Delivery Confirmation: verify close is blocked.
+- [ ] Export file with Booker role `BOOKER` and Delivery Confirmation uploaded: verify requirement clears and close can proceed (assuming other validations pass).
+- [ ] Export file with Booker role `OA` and no Delivery Confirmation: verify item is optional and does not block close.
+- [ ] Export file with Booker role `DA` and no Delivery Confirmation: verify item is optional and does not block close.
+- [ ] For each role (`BOOKER`, `OA`, `DA`), verify required-doc progression reflects conditional requirement correctly.
+- [ ] For each role (`BOOKER`, `OA`, `DA`), verify completion percentage recalculates correctly when Delivery Confirmation is added/removed.
+- [ ] Change role dynamically (OA/DA -> BOOKER and BOOKER -> OA/DA) and verify requirement/progression/percentage update immediately.
+
+---
+

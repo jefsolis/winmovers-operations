@@ -36,7 +36,7 @@ export default function FileForm() {
     weightKg: '',
     bookerRole: '',
     originAgent: { agentId: '', name: '' },
-    destAgent: { agentId: defaultCategory === 'IMPORT' ? 'WINMOVERS' : '', name: '' },
+    destAgent: { agentId: defaultCategory === 'IMPORT' ? 'WINMOVERS' : '', name: defaultCategory === 'IMPORT' ? t('movingFiles.winmoversOption') : '' },
     // Shipping fields
     originAddress: '', originCity: '', originCountry: '',
     destAddress: '', destCity: '', destCountry: '',
@@ -112,7 +112,7 @@ export default function FileForm() {
             bookerRole:    f.bookerRole    || '',
             coordinatorId: f.coordinatorId || '',
             originAgent: { agentId: f.originAgentId || '', name: f.originAgent?.name || '' },
-            destAgent:   { agentId: f.category === 'IMPORT' ? 'WINMOVERS' : (f.destAgentId || ''), name: f.category === 'IMPORT' ? '' : (f.destAgent?.name || '') },
+            destAgent:   { agentId: f.destAgentId || '', name: f.destAgent?.name || '' },
             originAddress: f.originAddress || '',
             originCity:    f.originCity    || '',
             originCountry: f.originCountry || '',
@@ -145,12 +145,15 @@ export default function FileForm() {
   const category = form.category
 
   const handleBookerRoleChange = (role) => {
+    const winMovers = { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') }
     setForm(prev => ({
       ...prev,
       bookerRole: role,
-      ...(role === 'BOOKER' ? { originAgent: { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') }, destAgent: { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') } } :
-          role === 'OA'     ? { originAgent: { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') } } :
-          role === 'DA'     ? { destAgent:   { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') } } : {}),
+      ...(role === 'OA'
+        ? { originAgent: prev.originAgent?.agentId ? prev.originAgent : winMovers }
+        : role === 'DA'
+          ? { destAgent: prev.destAgent?.agentId ? prev.destAgent : winMovers }
+          : {}),
     }))
   }
 
@@ -201,8 +204,8 @@ export default function FileForm() {
         weightKg:      form.weightKg  !== '' ? parseFloat(form.weightKg)  : null,
         bookerRole:    form.bookerRole    || null,
         coordinatorId: form.coordinatorId || null,
-        originAgentId: (form.originAgent.agentId === 'WINMOVERS' ? null : form.originAgent.agentId) || null,
-        destAgentId:   (form.destAgent.agentId   === 'WINMOVERS' ? null : form.destAgent.agentId)   || null,
+        originAgentId: form.originAgent.agentId || null,
+        destAgentId:   form.destAgent.agentId   || null,
         originAddress: form.originAddress || null,
         originCity:    form.originCity    || null,
         originCountry: form.originCountry || null,
@@ -418,16 +421,12 @@ export default function FileForm() {
               {/* Destination Agent */}
               <div className="form-group">
                 <label className="form-label">{t('movingFiles.destAgent')}</label>
-                {form.category === 'IMPORT' ? (
-                  <input className="form-control" value={t('movingFiles.winmoversOption')} readOnly style={{ background: 'var(--bg-secondary, #f8f9fa)', cursor: 'default' }} />
-                ) : (
-                  <AgentLookup
-                    value={form.destAgent}
-                    onChange={val => set('destAgent', val)}
-                    allowWinMovers
-                    onCreateNew={name => { setAgentModalTarget('dest'); setAgentModalName(name); setAgentModalOpen(true) }}
-                  />
-                )}
+                <AgentLookup
+                  value={form.destAgent}
+                  onChange={val => set('destAgent', val)}
+                  allowWinMovers
+                  onCreateNew={name => { setAgentModalTarget('dest'); setAgentModalName(name); setAgentModalOpen(true) }}
+                />
               </div>
 
               {/* Coordinator — all categories */}
@@ -456,7 +455,7 @@ export default function FileForm() {
               <div className="section-label" style={{ marginBottom: 12 }}>{t('movingFiles.addressSection') || 'Addresses'}</div>
               <div className="form-grid">
 
-                {category === 'EXPORT' && (
+                {(category === 'IMPORT' || category === 'EXPORT') && (
                   <>
                     <div className="form-group">
                       <label className="form-label">{t('jobs.originAddress')}</label>

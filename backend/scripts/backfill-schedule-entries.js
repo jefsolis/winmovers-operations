@@ -12,14 +12,6 @@ const prisma = new PrismaClient()
 
 const DRY_RUN = process.argv.includes('--dry-run')
 
-const SERVICE_TYPE_LABELS = {
-  DOOR_TO_PORT: 'Puerta a Puerto',
-  DOOR_TO_DOOR: 'Puerta a Puerta',
-  PACKING:      'Empaque',
-  LOCAL_MOVE:   'Mudanza Local',
-  PORT_TO_DOOR: 'Puerto a Puerta',
-}
-
 async function main() {
   console.log(DRY_RUN ? '=== DRY RUN — no DB writes ===' : '=== LIVE RUN ===')
 
@@ -27,61 +19,76 @@ async function main() {
 
   // ── Jobs ───────────────────────────────────────────────────────────────────
   const jobs = await prisma.job.findMany({
-    where: { OR: [{ packDate: { not: null } }, { moveDate: { not: null } }] },
-    select: { id: true, jobNumber: true, packDate: true, moveDate: true, quoteTo: true, companyName: true, coordinatorId: true },
+    where: { OR: [{ serviceDate: { not: null } }, { packDate: { not: null } }, { moveDate: { not: null } }] },
+    select: {
+      id: true,
+      jobNumber: true,
+      type: true,
+      serviceDate: true,
+      packDate: true,
+      moveDate: true,
+      companyName: true,
+      coordinatorId: true,
+      client: { select: { clientType: true, name: true, firstName: true, lastName: true } },
+      corporateClient: { select: { name: true } },
+    },
   })
   console.log(`\nJobs with pack/move dates: ${jobs.length}`)
 
   for (const job of jobs) {
-    const label = job.quoteTo || job.companyName || ''
-    const suffix = label ? ` — ${label}` : ''
+    const individualName = job.client
+      ? `${job.client.firstName || ''} ${job.client.lastName || ''}`.trim()
+      : ''
+    const clientLabel =
+      (job.client?.clientType === 'INDIVIDUAL' ? (individualName || job.client?.name || '') : '') ||
+      job.corporateClient?.name ||
+      job.client?.name ||
+      job.companyName ||
+      ''
 
-    for (const [taskType, date] of [['EMPAQUE', job.packDate], ['MUDANZA', job.moveDate]]) {
+    const serviceTaskType = { EXPORT: 'EMPAQUE', IMPORT: 'DESEMPAQUE' }[job.type] || 'MUDANZA'
+    const serviceDate = job.serviceDate || job.moveDate || job.packDate
+    for (const [taskType, date] of [[serviceTaskType, serviceDate]]) {
       if (!date) continue
       const exists = await prisma.scheduleEntry.findFirst({ where: { jobId: job.id, taskType } })
       if (exists) {
-        console.log(`  SKIP  ${taskType} for Job ${job.jobNumber} (already exists)`)
+        const nextDescription = clientLabel || 'Sin cliente'
+        if (exists.description !== nextDescription) {
+          console.log(`  UPDATE ${taskType} ${date.toISOString().slice(0,10)} — Job ${job.jobNumber} — ${nextDescription}`)
+          if (!DRY_RUN) {
+            await prisma.scheduleEntry.update({
+              where: { id: exists.id },
+              data: {
+                description: nextDescription,
+                date,
+                startDate: date,
+                endDate: date,
+                assignedToId: job.coordinatorId || null,
+              },
+            })
+          }
+        } else {
+          console.log(`  SKIP  ${taskType} for Job ${job.jobNumber} (already up to date)`)
+        }
         continue
       }
-      const data = { date, startDate: date, endDate: date, taskType, description: `${taskType === 'EMPAQUE' ? 'Empaque' : 'Mudanza'}${suffix}`, jobId: job.id, assignedToId: job.coordinatorId || null }
-      console.log(`  CREATE ${taskType} ${date.toISOString().slice(0,10)} — Job ${job.jobNumber}${suffix}`)
+      const data = {
+        date,
+        startDate: date,
+        endDate: date,
+        taskType,
+        description: clientLabel || 'Sin cliente',
+        jobId: job.id,
+        assignedToId: job.coordinatorId || null,
+      }
+      console.log(`  CREATE ${taskType} ${date.toISOString().slice(0,10)} — Job ${job.jobNumber} — ${clientLabel || 'Sin cliente'}`)
       if (!DRY_RUN) { await prisma.scheduleEntry.create({ data }); created++ }
     }
   }
 
-  // ── Visits ─────────────────────────────────────────────────────────────────
-  const visits = await prisma.visit.findMany({
-    where: { scheduledDate: { not: null } },
-    select: {
-      id: true, visitNumber: true, scheduledDate: true, serviceType: true,
-      assignedToId: true, prospectName: true,
-      client: { select: { name: true, firstName: true, lastName: true } },
-    },
-  })
-  console.log(`\nVisits with scheduled dates: ${visits.length}`)
-
-  for (const visit of visits) {
-    const exists = await prisma.scheduleEntry.findFirst({ where: { visitId: visit.id, taskType: 'VISITA' } })
-    if (exists) {
-      console.log(`  SKIP  VISITA for Visit ${visit.visitNumber} (already exists)`)
-      continue
-    }
-    const clientLabel = visit.client?.name
-      || (visit.client ? `${visit.client.firstName || ''} ${visit.client.lastName || ''}`.trim() : '')
-      || visit.prospectName || ''
-    const serviceLabel = SERVICE_TYPE_LABELS[visit.serviceType] || visit.serviceType || ''
-    const description = [clientLabel, serviceLabel].filter(Boolean).join(' — ') || 'Visita'
-
-    console.log(`  CREATE VISITA ${visit.scheduledDate.toISOString().slice(0,10)} — ${description}`)
-    if (!DRY_RUN) {
-      await prisma.scheduleEntry.create({
-        data: { date: visit.scheduledDate, startDate: visit.scheduledDate, endDate: visit.scheduledDate, taskType: 'VISITA', description, visitId: visit.id, assignedToId: visit.assignedToId || null },
-      })
-      created++
-    }
-  }
-
-  console.log(`\n${DRY_RUN ? 'Would create' : 'Created'}: ${DRY_RUN ? (jobs.length * 2) + visits.length + ' (max, some may be skipped)' : created} entries`)
+  // NOTE: Visit sync is intentionally omitted here because ScheduleEntry no longer
+  // stores a visitId relation in the current schema.
+  console.log(`\n${DRY_RUN ? 'Would create/update (max)' : 'Created/updated'}: ${DRY_RUN ? jobs.length : created} job-linked entries (some may be skipped)`)
 }
 
 main()

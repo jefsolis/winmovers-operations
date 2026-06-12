@@ -214,6 +214,7 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
                                 setForm(p => ({
                                   ...p,
                                   jobId:       j.id,
+                                  assignedToId: j.coordinator?.id || '',
                                   taskType,
                                   description,
                                   startDate:   j.serviceDate ? j.serviceDate.slice(0, 10) : p.startDate,

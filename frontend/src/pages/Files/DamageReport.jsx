@@ -23,8 +23,8 @@ const DamageReport = forwardRef(function DamageReport(
         ? `${file.client.firstName || ''} ${file.client.lastName || ''}`.trim() || file.client.name
         : file.client.name)
     : ''
-  const originAddr = [job?.originCity, job?.originCountry].filter(Boolean).join(', ')
-  const destAddr   = [job?.destCity,   job?.destCountry  ].filter(Boolean).join(', ')
+  const originAddr = [file?.originAddress || job?.originAddress, file?.originCity || job?.originCity, file?.originCountry || job?.originCountry].filter(Boolean).join(', ')
+  const destAddr   = [file?.destAddress || job?.destAddress, file?.destCity || job?.destCity, file?.destCountry || job?.destCountry].filter(Boolean).join(', ')
 
   const items    = data?.items    ?? EMPTY_DR.items
   const unpacking = data?.unpacking ?? null

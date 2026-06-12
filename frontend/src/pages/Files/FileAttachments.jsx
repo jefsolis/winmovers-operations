@@ -52,7 +52,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
 
   // Determine which optional categories are promoted to required based on bookerRole
   const promotedToRequired = []
-  if (bookerRole === 'BOOKER') promotedToRequired.push('SIGNED_QUOTATION')
+  if (bookerRole === 'BOOKER') promotedToRequired.push('SIGNED_QUOTATION', 'DELIVERY_CONFIRMATION')
   if (bookerRole === 'OA')     promotedToRequired.push('TARIFF_CONTESTATION')
 
   const baseRequired = REQUIRED_ATTACHMENTS[fileCategory] || []

@@ -4,6 +4,25 @@ const { getPrisma } = require("../db")
 const { notifyFileCoordinator, diffFileFields } = require('../services/notifications')
 
 const CATEGORY_PREFIX = { EXPORT: "E", IMPORT: "DF", LOCAL: "M" }
+const WINMOVERS_SENTINEL = 'WINMOVERS'
+
+async function normalizeAgentIdForStorage(rawAgentId) {
+  if (rawAgentId === undefined) return undefined
+  if (!rawAgentId) return null
+  if (rawAgentId !== WINMOVERS_SENTINEL) return rawAgentId
+
+  const existing = await getPrisma().agent.findFirst({
+    where: { name: { equals: 'WinMovers', mode: 'insensitive' } },
+    select: { id: true },
+  })
+  if (existing?.id) return existing.id
+
+  const created = await getPrisma().agent.create({
+    data: { name: 'WinMovers' },
+    select: { id: true },
+  })
+  return created.id
+}
 
 async function generateFileNumber(category) {
   const prefix = CATEGORY_PREFIX[category]
@@ -27,14 +46,18 @@ async function generateFileNumber(category) {
   return prefix + "-" + String(next).padStart(4, "0") + "-" + year
 }
 
-async function checkAutoClose(fileId, category) {
+async function checkAutoClose(fileId, category, bookerRole = null) {
   const REQUIRED = {
     EXPORT: ["SURVEY_REPORT","QUOTATION","INSURANCE_INVENTORY","SIGNED_QUOTATION","WORK_ORDER","PRE_ADVICE","SHIPPING_INSTRUCTIONS","TRANSPORT_DOCUMENT","INSURANCE_CERTIFICATE","SIGNED_PACKING_LIST","INVOICE","DELIVERY_CONFIRMATION"],
     IMPORT: ["QUOTATION","INSURANCE_INVENTORY","SIGNED_QUOTATION","WORK_ORDER","SHIPPING_INSTRUCTIONS","TRANSPORT_DOCUMENT","INSURANCE_CERTIFICATE","SIGNED_PACKING_LIST","INVOICE","DELIVERY_CONFIRMATION"],
     LOCAL:  ["INVOICE"],
   }
-  const required = REQUIRED[category]
-  if (!required) return
+  const baseRequired = REQUIRED[category]
+  if (!baseRequired) return
+  const required = baseRequired.filter(cat => {
+    if (category === 'EXPORT' && cat === 'DELIVERY_CONFIRMATION') return bookerRole === 'BOOKER'
+    return true
+  })
   const atts = await getPrisma().attachment.findMany({ where: { fileId }, select: { category: true } })
   const attached = new Set(atts.map(a => a.category))
   if (required.every(r => attached.has(r))) {
@@ -134,6 +157,9 @@ router.post("/", async (req, res, next) => {
       resolvedClientId = created.id
     }
 
+    const resolvedOriginAgentId = await normalizeAgentIdForStorage(originAgentId)
+    const resolvedDestAgentId = await normalizeAgentIdForStorage(destAgentId)
+
     const fileNumber = await generateFileNumber(category)
     const file = await getPrisma().movingFile.create({
       data: {
@@ -147,8 +173,8 @@ router.post("/", async (req, res, next) => {
         volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
         weightKg:  weightKg  ? parseFloat(weightKg)  : null,
         bookerRole: bookerRole || null,
-        originAgentId: originAgentId || null,
-        destAgentId:   destAgentId   || null,
+        originAgentId: resolvedOriginAgentId,
+        destAgentId:   resolvedDestAgentId,
         originAddress: originAddress || null,
         originCity:    originCity    || null,
         originCountry: originCountry || null,
@@ -209,6 +235,29 @@ router.put("/:id", async (req, res, next) => {
       include: { coordinator: { select: { id: true, name: true } } },
     }).catch(() => null)
 
+    // IMP-05: IMPORT/EXPORT files cannot be closed without both Weight and Volume.
+    const nextStatus = status !== undefined ? status : prevFile?.status
+    const nextVolume = volumeCbm !== undefined ? (volumeCbm ? parseFloat(volumeCbm) : null) : prevFile?.volumeCbm
+    const nextWeight = weightKg  !== undefined ? (weightKg  ? parseFloat(weightKg)  : null) : prevFile?.weightKg
+    const nextBookerRole = bookerRole !== undefined ? (bookerRole || null) : prevFile?.bookerRole
+    const needsWeightVolume = prevFile && (prevFile.category === 'IMPORT' || prevFile.category === 'EXPORT')
+    if (nextStatus === 'CLOSED' && needsWeightVolume && (nextVolume == null || nextWeight == null)) {
+      return res.status(400).json({ error: 'Cannot close file: Weight (KG) and Volume (CMB) are required for Import and Export files.' })
+    }
+
+    if (nextStatus === 'CLOSED' && prevFile?.category === 'EXPORT' && nextBookerRole === 'BOOKER') {
+      const hasDeliveryConfirmation = await getPrisma().attachment.findFirst({
+        where: { fileId: req.params.id, category: 'DELIVERY_CONFIRMATION' },
+        select: { id: true },
+      })
+      if (!hasDeliveryConfirmation) {
+        return res.status(400).json({ error: 'Cannot close file: Delivery Confirmation is required for Export files when Booker role is BOOKER.' })
+      }
+    }
+
+    const resolvedOriginAgentId = await normalizeAgentIdForStorage(originAgentId)
+    const resolvedDestAgentId = await normalizeAgentIdForStorage(destAgentId)
+
     const file = await getPrisma().movingFile.update({
       where: { id: req.params.id },
       data: {
@@ -222,8 +271,8 @@ router.put("/:id", async (req, res, next) => {
         volumeCbm:    volumeCbm    !== undefined ? (volumeCbm    ? parseFloat(volumeCbm) : null) : undefined,
         weightKg:     weightKg     !== undefined ? (weightKg     ? parseFloat(weightKg)  : null) : undefined,
         bookerRole:   bookerRole   !== undefined ? (bookerRole   || null) : undefined,
-        originAgentId: originAgentId !== undefined ? (originAgentId || null) : undefined,
-        destAgentId:   destAgentId   !== undefined ? (destAgentId   || null) : undefined,
+        originAgentId: resolvedOriginAgentId,
+        destAgentId:   resolvedDestAgentId,
         originAddress: originAddress !== undefined ? (originAddress || null) : undefined,
         originCity:    originCity    !== undefined ? (originCity    || null) : undefined,
         originCountry: originCountry !== undefined ? (originCountry || null) : undefined,

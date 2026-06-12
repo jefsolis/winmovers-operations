@@ -419,8 +419,8 @@ export default function JobDetail() {
           </Section>
 
           <Section title={t('jobs.route_section')}>
-            {job.type !== 'IMPORT' && <Field label={t('jobs.originAddress')} value={job.originAddress} />}
-            {job.type !== 'IMPORT' && <Field label={t('jobs.originCity')} value={job.originCity} />}
+            <Field label={t('jobs.originAddress')} value={job.originAddress} />
+            <Field label={t('jobs.originCity')} value={job.originCity} />
             <Field label={t('jobs.originCountry')} value={job.originCountry} />
             <Field label={t('jobs.destAddress')} value={job.destAddress} />
             <Field label={t('jobs.destCity')} value={job.destCity} />

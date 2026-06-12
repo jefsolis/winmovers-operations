@@ -28,7 +28,7 @@ const EMPTY = {
   serviceType: '',
   language: 'ES',
   scheduledDate: '',
-  bookerRole: '', originAgentId: 'WINMOVERS', destAgent: { agentId: '', name: '' },
+  bookerRole: '', originAgent: { agentId: '', name: '' }, destAgent: { agentId: '', name: '' },
   originAddress: '', originCity: '', originCountry: '',
   destAddress: '',   destCity: '',   destCountry: '',
   observations: '',
@@ -51,6 +51,7 @@ export default function VisitForm() {
   const errorRef = useRef(null)
   const [agentModalOpen, setAgentModalOpen]   = useState(false)
   const [agentModalName, setAgentModalName]   = useState('')
+  const [agentModalTarget, setAgentModalTarget] = useState('dest')
   const [corpModalOpen, setCorpModalOpen]     = useState(false)
   const [corpModalName, setCorpModalName]     = useState('')
   const currentStaff = useCurrentStaff()
@@ -93,7 +94,7 @@ export default function VisitForm() {
             language:      v.language      || 'ES',
             scheduledDate: toLocalDatetimeInput(v.scheduledDate),
             bookerRole:    v.bookerRole    || '',
-            originAgentId: 'WINMOVERS',
+            originAgent: { agentId: v.originAgentId || '', name: v.originAgent?.name || '' },
             destAgent:   { agentId: v.destAgentId || '', name: v.destAgent?.name || '' },
             originAddress: v.originAddress || '',
             originCity:    v.originCity    || '',
@@ -163,8 +164,8 @@ export default function VisitForm() {
         language:      form.language      || 'ES',
         scheduledDate: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
         bookerRole:    form.bookerRole    || null,
-        originAgentId: (form.originAgentId === 'WINMOVERS' ? null : form.originAgentId) || null,
-        destAgentId:   (form.destAgent.agentId   === 'WINMOVERS' ? null : form.destAgent.agentId)   || null,
+        originAgentId: form.originAgent.agentId || null,
+        destAgentId:   form.destAgent.agentId   || null,
         originAddress: form.originAddress || null,
         originCity:    form.originCity    || null,
         originCountry: form.originCountry || null,
@@ -295,9 +296,14 @@ export default function VisitForm() {
               <label className="form-label">{t('visits.bookerRole')}<Req /></label>
               <select className="form-control" value={form.bookerRole} onChange={e => {
                 const role = e.target.value
+                const winMovers = { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') }
                 setForm(prev => ({
                   ...prev, bookerRole: role,
-                  ...(role === 'BOOKER' || role === 'DA' ? { destAgent: { agentId: 'WINMOVERS', name: t('movingFiles.winmoversOption') } } : {}),
+                  ...(role === 'OA'
+                    ? { originAgent: prev.originAgent?.agentId ? prev.originAgent : winMovers }
+                    : role === 'DA'
+                      ? { destAgent: prev.destAgent?.agentId ? prev.destAgent : winMovers }
+                    : {}),
                 }))
               }}>
                 <option value="">{t('common.none')}</option>
@@ -306,7 +312,12 @@ export default function VisitForm() {
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.originAgent')}</label>
-              <input className="form-control" value={t('movingFiles.winmoversOption')} readOnly style={{ background: 'var(--bg-secondary, #f8f9fa)', cursor: 'default' }} />
+              <AgentLookup
+                value={form.originAgent}
+                onChange={val => set('originAgent', val)}
+                allowWinMovers
+                onCreateNew={name => { setAgentModalTarget('origin'); setAgentModalName(name); setAgentModalOpen(true) }}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">{t('visits.destAgent')}</label>
@@ -314,7 +325,7 @@ export default function VisitForm() {
                 value={form.destAgent}
                 onChange={val => set('destAgent', val)}
                 allowWinMovers
-                onCreateNew={name => { setAgentModalName(name); setAgentModalOpen(true) }}
+                onCreateNew={name => { setAgentModalTarget('dest'); setAgentModalName(name); setAgentModalOpen(true) }}
               />
             </div>
           </div>
@@ -386,7 +397,7 @@ export default function VisitForm() {
         onClose={() => setAgentModalOpen(false)}
         initialName={agentModalName}
         onCreated={agent => {
-          set('destAgent', { agentId: agent.id, name: agent.name })
+          set(agentModalTarget === 'origin' ? 'originAgent' : 'destAgent', { agentId: agent.id, name: agent.name })
           setAgentModalOpen(false)
         }}
       />

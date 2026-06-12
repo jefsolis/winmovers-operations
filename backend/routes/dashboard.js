@@ -112,6 +112,7 @@ router.get('/', async (req, res, next) => {
         select: {
           id: true,
           category: true,
+          bookerRole: true,
           attachments: { select: { category: true } },
         },
       }),
@@ -219,7 +220,10 @@ router.get('/', async (req, res, next) => {
     }
     const completionBuckets = { none: 0, low: 0, mid: 0, high: 0, complete: 0 }
     for (const file of openFilesWithAttachments) {
-      const required = REQUIRED_DOCS[file.category] || []
+      const required = (REQUIRED_DOCS[file.category] || []).filter(cat => {
+        if (file.category === 'EXPORT' && cat === 'DELIVERY_CONFIRMATION') return file.bookerRole === 'BOOKER'
+        return true
+      })
       if (required.length === 0) continue
       const attached = new Set(file.attachments.map(a => a.category))
       const pct = Math.round((required.filter(r => attached.has(r)).length / required.length) * 100)
