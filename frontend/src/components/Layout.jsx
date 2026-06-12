@@ -79,14 +79,20 @@ export default function Layout() {
               }}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
-              <NavLink
-                to="/profile"
-                onClick={() => setOpen(false)}
-                title={t('nav.myProfile')}
-                style={{ fontSize: 12, color: 'var(--sidebar-text)', opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textDecoration: 'none' }}
-              >
-                {displayName}
-              </NavLink>
+              {isBodega ? (
+                <span style={{ fontSize: 12, color: 'var(--sidebar-text)', opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                  {displayName}
+                </span>
+              ) : (
+                <NavLink
+                  to="/profile"
+                  onClick={() => setOpen(false)}
+                  title={t('nav.myProfile')}
+                  style={{ fontSize: 12, color: 'var(--sidebar-text)', opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textDecoration: 'none' }}
+                >
+                  {displayName}
+                </NavLink>
+              )}
               <button
                 onClick={handleLogout}
                 title={t('nav.signOut')}

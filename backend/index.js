@@ -4,6 +4,7 @@ const cors = require('cors')
 const path = require('path')
 const fs = require('fs')
 const authMiddleware = require('./middleware/auth')
+const accessControlMiddleware = require('./middleware/accessControl')
 
 const app = express()
 const port = process.env.PORT || 3000
@@ -18,6 +19,7 @@ app.get('/api/version', (_req, res) => {
 
 // Protect all API routes
 app.use('/api', authMiddleware)
+app.use('/api', accessControlMiddleware)
 
 // API routes
 app.use('/api/dashboard',          require('./routes/dashboard'))
