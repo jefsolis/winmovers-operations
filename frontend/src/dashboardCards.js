@@ -49,6 +49,12 @@ export const DASHBOARD_CARDS = [
     defaultVisible: false,
   },
   {
+    id: 'pound_report',
+    titleKey: 'dashboard.store.cards.poundReport.title',
+    descKey:  'dashboard.store.cards.poundReport.desc',
+    defaultVisible: true,
+  },
+  {
     id: 'files_completion',
     titleKey: 'dashboard.store.cards.filesCompletion.title',
     descKey:  'dashboard.store.cards.filesCompletion.desc',

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend, LabelList
 } from 'recharts'
 import { api } from '../api'
 import { formatDate, stripFilePrefix } from '../constants'
@@ -26,6 +26,18 @@ function fmtMonth(key) {
 }
 
 const ACTIVITY_COLORS = { visits: '#0d9488', quotes: '#8b5cf6', jobs: '#2563eb' }
+const POUND_COLORS = { packed: '#0ea5e9', unpacked: '#f97316', local: '#16a34a' }
+
+function toInputDate(value) {
+  const d = new Date(value)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function defaultPoundsRange() {
+  const to = new Date()
+  const from = new Date(to.getFullYear(), to.getMonth() - 11, 1)
+  return { from: toInputDate(from), to: toInputDate(to) }
+}
 
 const ActivityTooltip = ({ active, payload, label: month }) => {
   if (!active || !payload?.length) return null
@@ -57,10 +69,15 @@ function clientName(obj) {
 }
 
 export default function Dashboard() {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [poundData, setPoundData] = useState(null)
+  const [poundLoading, setPoundLoading] = useState(true)
+  const [poundError, setPoundError] = useState(null)
+  const [poundTab, setPoundTab] = useState('packed')
+  const [poundRange, setPoundRange] = useState(defaultPoundsRange)
 
   // Dashboard layout — must be here (before early returns) to satisfy Rules of Hooks
   const { isVisible, toggle, hiddenCards, reset } = useDashboardLayout()
@@ -73,6 +90,22 @@ export default function Dashboard() {
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!poundRange.from || !poundRange.to) return
+    if (poundRange.from > poundRange.to) {
+      setPoundError(t('dashboard.poundsInvalidRange'))
+      setPoundData(null)
+      setPoundLoading(false)
+      return
+    }
+    setPoundLoading(true)
+    setPoundError(null)
+    api.get(`/dashboard/pounds?from=${encodeURIComponent(poundRange.from)}&to=${encodeURIComponent(poundRange.to)}`)
+      .then(setPoundData)
+      .catch(e => setPoundError(e.message))
+      .finally(() => setPoundLoading(false))
+  }, [poundRange.from, poundRange.to, t])
 
   if (loading) return <div className="loading"><div className="spinner" /> {t('common.loading')}</div>
   if (error)   return <div className="alert alert-error">{error}</div>
@@ -108,6 +141,23 @@ export default function Dashboard() {
   const quotesLabel = t('nav.quotes')
   const jobsLabel   = t('nav.jobs')
   const PieTooltip = makePieTooltip(jobsLabel)
+  const poundTabs = [
+    { key: 'packed', label: t('dashboard.poundsPackedTab') },
+    { key: 'unpacked', label: t('dashboard.poundsUnpackedTab') },
+    { key: 'local', label: t('dashboard.poundsLocalTab') },
+  ]
+  const poundsSeriesLabel = {
+    packed: t('dashboard.poundsPackedTab'),
+    unpacked: t('dashboard.poundsUnpackedTab'),
+    local: t('dashboard.poundsLocalTab'),
+  }
+  const isLocalPoundTab = poundTab === 'local'
+  const poundValueUnit = isLocalPoundTab ? t('dashboard.poundsLocalUnit') : t('dashboard.poundsUnit')
+  const poundsChartData = (poundData?.months || []).map(d => ({
+    ...d,
+    monthLabel: new Date(`${d.month}-01T00:00:00Z`).toLocaleString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', timeZone: 'UTC' }),
+  }))
+  const hasPoundData = poundsChartData.some(d => Number(d.packed || 0) > 0 || Number(d.unpacked || 0) > 0 || Number(d.local || 0) > 0)
 
   const pipelineSteps = [
     { label: t('dashboard.pipelineVisits'), value: pipeline?.visits ?? 0, color: '#6366f1' },
@@ -486,6 +536,102 @@ export default function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </>}
+      </div>
+      )}
+
+      {/* Pound report */}
+      {isVisible('pound_report') && (
+      <div className="card card-body" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+          <div className="section-label" style={{ marginBottom: 0 }}>{t('dashboard.poundsTitle')}</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {t('dashboard.poundsFrom')}
+              <input
+                type="date"
+                className="form-control"
+                style={{ marginTop: 4, minWidth: 150 }}
+                value={poundRange.from}
+                onChange={e => setPoundRange(prev => ({ ...prev, from: e.target.value }))}
+              />
+            </label>
+            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {t('dashboard.poundsTo')}
+              <input
+                type="date"
+                className="form-control"
+                style={{ marginTop: 4, minWidth: 150 }}
+                value={poundRange.to}
+                onChange={e => setPoundRange(prev => ({ ...prev, to: e.target.value }))}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', marginBottom: 12, width: 'fit-content' }}>
+          {poundTabs.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setPoundTab(tab.key)}
+              style={{
+                padding: '6px 14px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 12,
+                background: poundTab === tab.key ? 'var(--primary)' : 'transparent',
+                color: poundTab === tab.key ? '#fff' : 'var(--text)',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {poundLoading ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('common.loading')}</p>
+        ) : poundError ? (
+          <p style={{ color: '#dc2626', fontSize: 13 }}>{poundError}</p>
+        ) : !hasPoundData ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('dashboard.poundsNoData')}</p>
+        ) : (
+          <>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: POUND_COLORS[poundTab], display: 'inline-block' }} />
+              {poundsSeriesLabel[poundTab]} ({poundValueUnit})
+            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={poundsChartData} margin={{ top: 24, right: 8, left: -8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="monthLabel" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis
+                  domain={[0, (max) => Math.ceil((Number(max) || 0) * 1.15)]}
+                  tickFormatter={v => Number(v).toLocaleString()}
+                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  formatter={(value) => [
+                    isLocalPoundTab
+                      ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${poundValueUnit}`
+                      : `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${poundValueUnit}`,
+                    poundsSeriesLabel[poundTab],
+                  ]}
+                />
+                <Bar dataKey={poundTab} name={poundsSeriesLabel[poundTab]} fill={POUND_COLORS[poundTab]} radius={[4, 4, 0, 0]} maxBarSize={36}>
+                  <LabelList
+                    dataKey={poundTab}
+                    position="top"
+                    fill="#475569"
+                    fontSize={11}
+                    formatter={(value) => `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${poundValueUnit}`}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </>
+        )}
       </div>
       )}
 

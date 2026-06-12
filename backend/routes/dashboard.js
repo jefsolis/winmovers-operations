@@ -1,6 +1,105 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
 
+const KG_TO_LB = 2.2046226218
+
+function toMonthKey(date) {
+  const d = new Date(date)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function toInputDate(date) {
+  const d = new Date(date)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function buildMonthKeys(start, end) {
+  const keys = []
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+  const last = new Date(end.getFullYear(), end.getMonth(), 1)
+  while (cursor <= last) {
+    keys.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`)
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+  return keys
+}
+
+function parseDateRange(fromRaw, toRaw) {
+  const now = new Date()
+  const fallbackTo = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  const fallbackFrom = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0, 0)
+
+  const parsedFrom = fromRaw ? new Date(`${fromRaw}T00:00:00`) : null
+  const parsedTo = toRaw ? new Date(`${toRaw}T23:59:59.999`) : null
+  const isValid = parsedFrom && parsedTo && !Number.isNaN(parsedFrom.getTime()) && !Number.isNaN(parsedTo.getTime()) && parsedFrom <= parsedTo
+
+  return {
+    from: isValid ? parsedFrom : fallbackFrom,
+    to: isValid ? parsedTo : fallbackTo,
+  }
+}
+
+router.get('/pounds', async (req, res, next) => {
+  try {
+    const p = getPrisma()
+    const { fromRaw, toRaw } = { fromRaw: req.query.from, toRaw: req.query.to }
+    const { from, to } = parseDateRange(fromRaw, toRaw)
+
+    const monthKeys = buildMonthKeys(from, to)
+    const totalsByMonth = Object.fromEntries(monthKeys.map(k => [k, { packed: 0, unpacked: 0, local: 0 }]))
+
+    const [files, localJobs] = await Promise.all([
+      p.movingFile.findMany({
+        where: {
+          createdAt: { gte: from, lte: to },
+          category: { in: ['EXPORT', 'IMPORT'] },
+        },
+        select: { createdAt: true, category: true, weightKg: true },
+      }),
+      p.job.findMany({
+        where: {
+          createdAt: { gte: from, lte: to },
+          type: { in: ['DOMESTIC', 'LOCAL'] },
+        },
+        select: { createdAt: true },
+      }),
+    ])
+
+    for (const f of files) {
+      const key = toMonthKey(f.createdAt)
+      if (!totalsByMonth[key]) continue
+      if (f.category === 'EXPORT') {
+        if (f.weightKg == null) continue
+        totalsByMonth[key].packed += Number(f.weightKg || 0) * KG_TO_LB
+      } else if (f.category === 'IMPORT') {
+        if (f.weightKg == null) continue
+        totalsByMonth[key].unpacked += Number(f.weightKg || 0) * KG_TO_LB
+      }
+    }
+
+    for (const j of localJobs) {
+      const key = toMonthKey(j.createdAt)
+      if (!totalsByMonth[key]) continue
+      totalsByMonth[key].local += 1
+    }
+
+    const months = monthKeys.map(month => ({
+      month,
+      packed: Number(totalsByMonth[month].packed.toFixed(2)),
+      unpacked: Number(totalsByMonth[month].unpacked.toFixed(2)),
+      local: totalsByMonth[month].local,
+    }))
+
+    res.json({
+      from: toInputDate(from),
+      to: toInputDate(to),
+      months,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
 router.get('/', async (req, res, next) => {
   try {
     const p = getPrisma()
