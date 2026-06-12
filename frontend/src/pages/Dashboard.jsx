@@ -28,15 +28,17 @@ function fmtMonth(key) {
 const ACTIVITY_COLORS = { visits: '#0d9488', quotes: '#8b5cf6', jobs: '#2563eb' }
 const POUND_COLORS = { packed: '#0ea5e9', unpacked: '#f97316', local: '#16a34a' }
 
-function toInputDate(value) {
+function toInputMonth(value) {
   const d = new Date(value)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 function defaultPoundsRange() {
-  const to = new Date()
-  const from = new Date(to.getFullYear(), to.getMonth() - 11, 1)
-  return { from: toInputDate(from), to: toInputDate(to) }
+  const year = new Date().getFullYear()
+  return {
+    from: `${year}-01`,
+    to: `${year}-12`,
+  }
 }
 
 const ActivityTooltip = ({ active, payload, label: month }) => {
@@ -153,11 +155,25 @@ export default function Dashboard() {
   }
   const isLocalPoundTab = poundTab === 'local'
   const poundValueUnit = isLocalPoundTab ? t('dashboard.poundsLocalUnit') : t('dashboard.poundsUnit')
+  const poundJobsKey = poundTab === 'packed' ? 'packedJobs' : poundTab === 'unpacked' ? 'unpackedJobs' : 'localJobs'
+  const poundCountUnit = poundTab === 'packed'
+    ? t('dashboard.poundsPackedCountUnit')
+    : poundTab === 'unpacked'
+      ? t('dashboard.poundsUnpackedCountUnit')
+      : t('dashboard.poundsLocalUnit')
   const poundsChartData = (poundData?.months || []).map(d => ({
     ...d,
     monthLabel: new Date(`${d.month}-01T00:00:00Z`).toLocaleString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', timeZone: 'UTC' }),
   }))
-  const hasPoundData = poundsChartData.some(d => Number(d.packed || 0) > 0 || Number(d.unpacked || 0) > 0 || Number(d.local || 0) > 0)
+  const hasPoundData = poundsChartData.some(d =>
+    Number(d.packed || 0) > 0 ||
+    Number(d.unpacked || 0) > 0 ||
+    Number(d.local || 0) > 0 ||
+    Number(d.packedJobs || 0) > 0 ||
+    Number(d.unpackedJobs || 0) > 0 ||
+    Number(d.localJobs || 0) > 0
+  )
+  const poundTotals = poundData?.totals || {}
 
   const pipelineSteps = [
     { label: t('dashboard.pipelineVisits'), value: pipeline?.visits ?? 0, color: '#6366f1' },
@@ -548,7 +564,7 @@ export default function Dashboard() {
             <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               {t('dashboard.poundsFrom')}
               <input
-                type="date"
+                type="month"
                 className="form-control"
                 style={{ marginTop: 4, minWidth: 150 }}
                 value={poundRange.from}
@@ -558,7 +574,7 @@ export default function Dashboard() {
             <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               {t('dashboard.poundsTo')}
               <input
-                type="date"
+                type="month"
                 className="form-control"
                 style={{ marginTop: 4, minWidth: 150 }}
                 value={poundRange.to}
@@ -596,6 +612,16 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('dashboard.poundsNoData')}</p>
         ) : (
           <>
+            {!isLocalPoundTab && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                <span className="badge" style={{ background: '#eef2ff', color: '#1d4ed8', border: '1px solid #c7d2fe', fontWeight: 600 }}>
+                  {t('dashboard.poundsTotalLbs')}: {Number(poundTotals[poundTab] || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} {t('dashboard.poundsUnit')}
+                </span>
+                <span className="badge" style={{ background: '#ecfeff', color: '#0f766e', border: '1px solid #99f6e4', fontWeight: 600 }}>
+                  {t('dashboard.poundsTotalCount')}: {Number(poundTotals[poundJobsKey] || 0).toLocaleString()} {poundCountUnit}
+                </span>
+              </div>
+            )}
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 10, height: 10, borderRadius: 2, background: POUND_COLORS[poundTab], display: 'inline-block' }} />
               {poundsSeriesLabel[poundTab]} ({poundValueUnit})
@@ -612,20 +638,51 @@ export default function Dashboard() {
                   tickLine={false}
                 />
                 <Tooltip
-                  formatter={(value) => [
-                    isLocalPoundTab
-                      ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${poundValueUnit}`
-                      : `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${poundValueUnit}`,
-                    poundsSeriesLabel[poundTab],
-                  ]}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null
+                    const row = payload[0]?.payload || {}
+                    const jobsCount = Number(row[poundJobsKey] || 0)
+                    const value = Number(payload[0]?.value || 0)
+                    return (
+                      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 13, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}</div>
+                        <div style={{ color: payload[0]?.fill || '#334155' }}>
+                          {poundsSeriesLabel[poundTab]}: {isLocalPoundTab
+                            ? `${value.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${t('dashboard.poundsLocalUnit')}`
+                            : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${t('dashboard.poundsUnit')}`}
+                        </div>
+                        {!isLocalPoundTab && (
+                          <div style={{ color: '#0f766e' }}>
+                            {t('dashboard.poundsTotalCount')}: {jobsCount.toLocaleString()} {poundCountUnit}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }}
                 />
                 <Bar dataKey={poundTab} name={poundsSeriesLabel[poundTab]} fill={POUND_COLORS[poundTab]} radius={[4, 4, 0, 0]} maxBarSize={36}>
                   <LabelList
                     dataKey={poundTab}
-                    position="top"
-                    fill="#475569"
-                    fontSize={11}
-                    formatter={(value) => `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${poundValueUnit}`}
+                    content={(props) => {
+                      const { x, y, width, value, index } = props
+                      if (x == null || y == null || width == null || value == null) return null
+                      const row = poundsChartData[index] || {}
+                      const jobsCount = Number(row[poundJobsKey] || 0)
+                      const text = isLocalPoundTab
+                        ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${poundValueUnit}`
+                        : `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${t('dashboard.poundsUnit')} (${jobsCount.toLocaleString()} ${poundCountUnit})`
+                      return (
+                        <text
+                          x={x + width / 2}
+                          y={y - 6}
+                          textAnchor="middle"
+                          fill="#475569"
+                          fontSize={10}
+                        >
+                          {text}
+                        </text>
+                      )
+                    }}
                   />
                 </Bar>
               </BarChart>
