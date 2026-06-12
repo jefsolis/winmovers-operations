@@ -668,18 +668,19 @@ export default function Dashboard() {
                       if (x == null || y == null || width == null || value == null) return null
                       const row = poundsChartData[index] || {}
                       const jobsCount = Number(row[poundJobsKey] || 0)
-                      const text = isLocalPoundTab
-                        ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${poundValueUnit}`
-                        : `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${t('dashboard.poundsUnit')} (${jobsCount.toLocaleString()} ${poundCountUnit})`
+                      const lbText = `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${isLocalPoundTab ? poundValueUnit : t('dashboard.poundsUnit')}`
+                      const barColor = POUND_COLORS[poundTab]
+                      if (isLocalPoundTab) {
+                        return (
+                          <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={10}>
+                            <tspan fontWeight="700" fill={barColor}>{lbText}</tspan>
+                          </text>
+                        )
+                      }
                       return (
-                        <text
-                          x={x + width / 2}
-                          y={y - 6}
-                          textAnchor="middle"
-                          fill="#475569"
-                          fontSize={10}
-                        >
-                          {text}
+                        <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={10}>
+                          <tspan fontWeight="700" fill={barColor}>{lbText}</tspan>
+                          <tspan fontWeight="400" fill="#0f766e">{` (${jobsCount.toLocaleString()} ${poundCountUnit})`}</tspan>
                         </text>
                       )
                     }}
