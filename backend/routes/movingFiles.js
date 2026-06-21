@@ -68,11 +68,13 @@ async function checkAutoClose(fileId, category, bookerRole = null) {
 // GET /api/files
 router.get("/", async (req, res, next) => {
   try {
-    const { category, status, notStatus, search } = req.query
+    const { category, status, notStatus, search, includeDeleted, onlyDeleted } = req.query
     const where = {}
     if (category)  where.category = category
     if (status)    where.status   = status
     if (notStatus) where.status   = { notIn: notStatus.split(',') }
+    if (onlyDeleted === 'true') where.deletedAt = { not: null }
+    else if (includeDeleted !== 'true') where.deletedAt = null
     if (search)   where.OR = [
       { fileNumber: { contains: search, mode: "insensitive" } },
       { client: { name: { contains: search, mode: "insensitive" } } },
@@ -97,6 +99,7 @@ router.get("/", async (req, res, next) => {
 // GET /api/files/:id
 router.get("/:id", async (req, res, next) => {
   try {
+    const includeDeleted = req.query.includeDeleted === 'true'
     const file = await getPrisma().movingFile.findUnique({
       where: { id: req.params.id },
       include: {
@@ -111,6 +114,7 @@ router.get("/:id", async (req, res, next) => {
       },
     })
     if (!file) return res.status(404).json({ error: "Not found" })
+    if (file.deletedAt && !includeDeleted) return res.status(404).json({ error: "Not found" })
 
     // Fallback: if job has no direct visitId, resolve visit through quote→visit chain
     if (file.job && !file.job.visit && file.job.quote?.id) {
@@ -172,6 +176,7 @@ router.post("/", async (req, res, next) => {
         loadType: loadType || null,
         volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
         weightKg:  weightKg  ? parseFloat(weightKg)  : null,
+        weightUnit: weightKg ? 'LB' : null,
         bookerRole: bookerRole || null,
         originAgentId: resolvedOriginAgentId,
         destAgentId:   resolvedDestAgentId,
@@ -234,6 +239,8 @@ router.put("/:id", async (req, res, next) => {
       where: { id: req.params.id },
       include: { coordinator: { select: { id: true, name: true } } },
     }).catch(() => null)
+    if (!prevFile) return res.status(404).json({ error: 'Not found' })
+    if (prevFile.deletedAt) return res.status(409).json({ error: 'Cannot modify a deleted file. Restore it first.' })
 
     // IMP-05: IMPORT/EXPORT files cannot be closed without both Weight and Volume.
     const nextStatus = status !== undefined ? status : prevFile?.status
@@ -242,7 +249,7 @@ router.put("/:id", async (req, res, next) => {
     const nextBookerRole = bookerRole !== undefined ? (bookerRole || null) : prevFile?.bookerRole
     const needsWeightVolume = prevFile && (prevFile.category === 'IMPORT' || prevFile.category === 'EXPORT')
     if (nextStatus === 'CLOSED' && needsWeightVolume && (nextVolume == null || nextWeight == null)) {
-      return res.status(400).json({ error: 'Cannot close file: Weight (KG) and Volume (CMB) are required for Import and Export files.' })
+      return res.status(400).json({ error: 'Cannot close file: Weight (LB) and Volume (CMB) are required for Import and Export files.' })
     }
 
     if (nextStatus === 'CLOSED' && prevFile?.category === 'EXPORT' && nextBookerRole === 'BOOKER') {
@@ -270,6 +277,7 @@ router.put("/:id", async (req, res, next) => {
         loadType:     loadType     !== undefined ? (loadType     || null) : undefined,
         volumeCbm:    volumeCbm    !== undefined ? (volumeCbm    ? parseFloat(volumeCbm) : null) : undefined,
         weightKg:     weightKg     !== undefined ? (weightKg     ? parseFloat(weightKg)  : null) : undefined,
+        weightUnit:   weightKg     !== undefined ? (weightKg     ? 'LB' : null) : undefined,
         bookerRole:   bookerRole   !== undefined ? (bookerRole   || null) : undefined,
         originAgentId: resolvedOriginAgentId,
         destAgentId:   resolvedDestAgentId,
@@ -330,9 +338,49 @@ router.put("/:id", async (req, res, next) => {
 router.delete("/:id", async (req, res, next) => {
   try {
     const before = await getPrisma().movingFile.findUnique({ where: { id: req.params.id } })
-    await getPrisma().movingFile.delete({ where: { id: req.params.id } })
-    logAudit(req, 'MovingFile', req.params.id, 'DELETE', before, null)
+    if (!before) return res.status(404).json({ error: 'Not found' })
+    if (before.deletedAt) return res.status(204).end()
+
+    const after = await getPrisma().movingFile.update({
+      where: { id: req.params.id },
+      data: {
+        deletedAt: new Date(),
+        deletedByOid: req.user?.oid || null,
+        deletedByName: req.user?.name || null,
+        status: 'VOID',
+      },
+    })
+    logAudit(req, 'MovingFile', req.params.id, 'DELETE', before, after)
     res.status(204).end()
+  } catch (e) { next(e) }
+})
+
+// POST /api/files/:id/restore
+router.post("/:id/restore", async (req, res, next) => {
+  try {
+    const before = await getPrisma().movingFile.findUnique({ where: { id: req.params.id } })
+    if (!before) return res.status(404).json({ error: 'Not found' })
+    if (!before.deletedAt) return res.status(400).json({ error: 'File is not deleted.' })
+
+    const after = await getPrisma().movingFile.update({
+      where: { id: req.params.id },
+      data: {
+        deletedAt: null,
+        deletedByOid: null,
+        deletedByName: null,
+        status: before.status === 'VOID' ? 'OPEN' : before.status,
+      },
+      include: {
+        client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
+        corporateClient: { select: { id: true, name: true } },
+        coordinator:     { select: { id: true, name: true, email: true } },
+        originAgent: { select: { id: true, name: true } },
+        destAgent:   { select: { id: true, name: true } },
+      },
+    })
+
+    logAudit(req, 'MovingFile', req.params.id, 'UPDATE', before, after)
+    res.json(after)
   } catch (e) { next(e) }
 })
 

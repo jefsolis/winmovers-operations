@@ -430,7 +430,7 @@ export default function JobDetail() {
 
           <Section title={t('jobs.cargo')}>
             <Field label={t('jobs.volumeCbm')} value={job.volumeCbm != null ? `${job.volumeCbm} CBM` : null} />
-            <Field label={t('jobs.weightKg')} value={job.weightKg != null ? `${job.weightKg} KG` : null} />
+            <Field label={t('jobs.weightKg')} value={job.weightKg != null ? `${job.weightKg} LB` : null} />
           </Section>
 
           {job.notes && (

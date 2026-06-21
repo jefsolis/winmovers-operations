@@ -272,7 +272,7 @@ function diffFileFields(prev, next) {
     ['shipmentMode',        'Modo de envío',          null],
     ['loadType',            'Tipo de carga',          null],
     ['volumeCbm',           'Volumen (m³)',            null],
-    ['weightKg',            'Peso (kg)',               null],
+    ['weightKg',            'Peso (lb)',               null],
     ['etd',                 'ETD',                    v => ds(v) || null],
     ['eta',                 'ETA',                    v => ds(v) || null],
     ['navieraAerolinea',    'Naviera / Aerolínea',    null],

@@ -16,6 +16,7 @@ export default function FilesList({ category }) {
   const [search, setSearch]       = useState('')
   const [showClosed, setShowClosed] = useState(false)
   const [selectedStatuses, setSelectedStatuses] = useState(new Set())
+  const [visibilityFilter, setVisibilityFilter] = useState('active') // active | deleted | all
 
   const handleDelete = async (id, fileNumber) => {
     if (!window.confirm(t('movingFiles.deleteConfirm', { num: fileNumber }))) return
@@ -32,20 +33,34 @@ export default function FilesList({ category }) {
     } catch (e) { alert(e.message) }
   }
 
+  const handleRestore = async (id) => {
+    if (!window.confirm(t('movingFiles.restoreConfirm'))) return
+    try {
+      await api.post(`/files/${id}/restore`)
+      setFiles(prev => prev.map(f => f.id === id ? { ...f, deletedAt: null, deletedByOid: null, deletedByName: null, status: f.status === 'VOID' ? 'OPEN' : f.status } : f))
+      if (visibilityFilter === 'deleted') {
+        setFiles(prev => prev.filter(f => f.id !== id))
+      }
+    } catch (e) { alert(e.message) }
+  }
+
   useEffect(() => {
     setSearch('')
     setSelectedStatuses(new Set())
+    setVisibilityFilter('active')
   }, [category])
 
   useEffect(() => {
     setLoading(true)
     const params = new URLSearchParams({ category })
     if (search) params.set('search', search)
+    if (visibilityFilter === 'deleted') params.set('onlyDeleted', 'true')
+    if (visibilityFilter === 'all') params.set('includeDeleted', 'true')
     api.get(`/files?${params}`)
       .then(setFiles)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [category, search])
+  }, [category, search, visibilityFilter])
 
   const clientName = (c) => {
     if (!c) return '—'
@@ -73,7 +88,9 @@ export default function FilesList({ category }) {
 
   const displayed = selectedStatuses.size > 0
     ? files.filter(f => selectedStatuses.has(f.status))
-    : (!showClosed ? files.filter(f => !TERMINAL.includes(f.status)) : files)
+    : (visibilityFilter === 'deleted' || visibilityFilter === 'all'
+      ? files
+      : (!showClosed ? files.filter(f => !TERMINAL.includes(f.status)) : files))
 
   const prefix = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
 
@@ -98,11 +115,35 @@ export default function FilesList({ category }) {
             onChange={e => setSearch(e.target.value)}
             style={{ flex: 1 }}
           />
+          <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+            {[
+              { key: 'active', label: t('movingFiles.activeOnly') },
+              { key: 'deleted', label: t('movingFiles.deletedOnly') },
+              { key: 'all', label: t('movingFiles.allRecords') },
+            ].map(v => (
+              <button
+                key={v.key}
+                type="button"
+                onClick={() => setVisibilityFilter(v.key)}
+                style={{
+                  padding: '5px 10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  background: visibilityFilter === v.key ? 'var(--primary)' : 'transparent',
+                  color: visibilityFilter === v.key ? '#fff' : 'var(--text)',
+                }}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
             <input
               type="checkbox"
               checked={showClosed}
               onChange={e => setShowClosed(e.target.checked)}
+              disabled={visibilityFilter !== 'active'}
               style={{ cursor: 'pointer' }}
             />
             {t('movingFiles.showClosed')}
@@ -175,9 +216,10 @@ export default function FilesList({ category }) {
                   {displayed.map(f => {
                     const sm = fileStatusMeta(f.status, t)
                     const progressionStatuses = getFileProgressionStatuses(category, t)
-                    const canChangeStatus = category !== 'LOCAL' && f.status !== 'CLOSED' && f.status !== 'VOID'
+                    const isDeleted = Boolean(f.deletedAt)
+                    const canChangeStatus = category !== 'LOCAL' && f.status !== 'CLOSED' && f.status !== 'VOID' && !isDeleted
                     return (
-                      <tr key={f.id}>
+                      <tr key={f.id} style={isDeleted ? { opacity: 0.78, background: '#f8fafc' } : undefined}>
                           <td><Link to={`${prefix[category]}/${f.id}`} style={{ color: 'var(--primary)', fontWeight: 700 }}>{stripFilePrefix(f.fileNumber)}</Link></td>
                         <td>{clientName(f.client)}</td>
                         <td>
@@ -196,7 +238,10 @@ export default function FilesList({ category }) {
                               ))}
                             </select>
                           ) : (
-                            <span className="badge" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
+                            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                              <span className="badge" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
+                              {isDeleted && <span className="badge" style={{ background: '#fee2e2', color: '#991b1b' }}>{t('movingFiles.deletedTag')}</span>}
+                            </span>
                           )}
                         </td>
                         {category !== 'LOCAL' && (
@@ -213,8 +258,12 @@ export default function FilesList({ category }) {
                         )}
                         <td>{f._count?.attachments ?? 0}</td>
                         <td className="td-actions">
-                          <Link to={`${prefix[category]}/${f.id}`} className="btn btn-ghost btn-sm">{t('common.view')}</Link>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(f.id, f.fileNumber)}>{t('common.delete')}</button>
+                          <Link to={`${prefix[category]}/${f.id}${isDeleted ? '?includeDeleted=true' : ''}`} className="btn btn-ghost btn-sm">{t('common.view')}</Link>
+                          {isDeleted ? (
+                            <button className="btn btn-secondary btn-sm" onClick={() => handleRestore(f.id)}>{t('movingFiles.restoreFile')}</button>
+                          ) : (
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(f.id, f.fileNumber)}>{t('common.delete')}</button>
+                          )}
                         </td>
                       </tr>
                     )

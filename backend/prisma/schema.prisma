@@ -77,6 +77,8 @@ model Job {
   deliveryDate  DateTime?
   volumeCbm     Float?
   weightKg      Float?
+  weightUnit    String?
+  weightConvertedAt DateTime?
   shipmentMode  String?
   notes         String?
   serviceDate     DateTime?
@@ -116,6 +118,9 @@ model MovingFile {
   fileNumber  String       @unique
   category    String       // EXPORT | IMPORT | LOCAL
   status      String       @default("OPEN") // OPEN | CLOSED
+  deletedAt   DateTime?
+  deletedByOid String?
+  deletedByName String?
   clientId    String?
   client      Client?      @relation("FileClient", fields: [clientId], references: [id])
   corporateClientId String?
@@ -126,6 +131,8 @@ model MovingFile {
   loadType      String?
   volumeCbm     Float?
   weightKg      Float?
+  weightUnit    String?
+  weightConvertedAt DateTime?
   bookerRole    String?
   originAgentId String?
   originAgent   Agent?   @relation("FileOriginAgent", fields: [originAgentId], references: [id])
@@ -161,6 +168,8 @@ model MovingFile {
   attachments Attachment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+
+  @@index([deletedAt])
 }
 
 model Attachment {

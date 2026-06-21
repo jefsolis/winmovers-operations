@@ -5,6 +5,106 @@
 
 ---
 
+## 15. File Deletion & Weight Unit Migration (June 2026)
+
+### ~~SD-FILE-01~~ ✅ — Soft delete File records instead of physical delete
+
+**User story:** As an operations user, I want deleting a File to archive it (soft delete) so records can be recovered and historical references remain valid.
+
+**Context:**
+- Current File deletion removes rows physically.
+- The system needs reversible deletion behavior for Files while keeping operational integrity.
+
+**Acceptance criteria:**
+- Deleting a File marks it as deleted (for example with `deletedAt` and `deletedBy`) instead of removing the row.
+- File list APIs exclude deleted records by default.
+- Deleted Files cannot be edited, closed, or receive new attachments unless restored.
+- Delete action is recorded in audit logs.
+
+**Test checklist (post-implementation):**
+- [x] Delete a File and verify the DB row remains with deleted marker fields set.
+- [x] Confirm deleted File does not appear in default File lists.
+- [x] Confirm direct update/close/upload calls on deleted File are rejected.
+- [x] Confirm audit log contains the soft-delete action with actor and timestamp.
+
+---
+
+### ~~SD-FILE-02~~ ✅ — Add Deleted Files view and restore action
+
+**User story:** As an admin/supervisor, I want to view and restore deleted Files from the UI so I can recover records deleted by mistake.
+
+**Acceptance criteria:**
+- File list UI supports filter/toggle: Active / Deleted / All.
+- Deleted rows are visually distinct.
+- Deleted File detail view is read-only except Restore.
+- Restore action reactivates the File and makes it visible in normal views.
+- Restore action is audited.
+
+**Test checklist (post-implementation):**
+- [x] Toggle Deleted filter and verify soft-deleted Files are listed.
+- [x] Open deleted File and verify edit/close/upload actions are unavailable.
+- [x] Restore deleted File and verify it reappears in active list.
+- [x] Confirm restore action is logged in audit history.
+
+---
+
+### ~~SD-FILE-03~~ ✅ — Exclude deleted Files from all dashboard metrics and widgets
+
+**User story:** As management, I want dashboards to ignore deleted Files so KPIs and operational reports reflect active data only.
+
+**Acceptance criteria:**
+- All dashboard queries and file-derived widgets exclude soft-deleted Files.
+- Pound report, completion charts, no-invoice cards, and delivery alerts ignore deleted Files.
+- Deleted Files only appear where explicitly requested (Deleted view / admin filters).
+
+**Test checklist (post-implementation):**
+- [x] Soft-delete a File that contributes to a dashboard card and verify the metric decreases accordingly.
+- [x] Restore the same File and verify the metric returns.
+- [x] Confirm deleted Files are absent from non-admin default dashboard flows.
+
+---
+
+### WT-LB-01 — Standardize weight unit to pounds (LB) for new and edited records
+
+**User story:** As an operations user, I want weight captured and displayed in pounds so the system aligns with operational reporting.
+
+**Acceptance criteria:**
+- All relevant forms, details, documents, and reports use `LB` as displayed weight unit.
+- API contract for weight fields is explicitly documented as pounds.
+- Validation/help text references pounds instead of kilograms.
+
+**Test checklist (post-implementation):**
+- [ ] Create new File with weight and verify value is treated as LB in UI and API.
+- [ ] Edit existing File weight and verify updated value is interpreted as LB.
+- [ ] Verify all weight labels in File detail, summaries, and report widgets show LB.
+
+---
+
+### WT-LB-02 — Convert historical KG values to LB with safe migration controls
+
+**Runbook:** [docs/WT_LB_02_PRODUCTION_RUNBOOK.md](docs/WT_LB_02_PRODUCTION_RUNBOOK.md)
+
+**User story:** As a data owner, I want all historical weight values converted from KG to LB safely so existing records remain accurate after unit standardization.
+
+**Context:**
+- Historical records currently store weight values that were entered as kilograms.
+- Migration must avoid double conversion.
+
+**Acceptance criteria:**
+- Migration converts historical values using: `LB = KG * 2.2046226218`.
+- Conversion is idempotent (records are not converted twice).
+- A conversion marker/strategy is implemented (for example: `weightUnit`, `weightConvertedAt`, or equivalent migration guard).
+- Migration output includes counts: converted, skipped-null, skipped-already-converted, failed.
+- Backup/snapshot and rollback procedure is documented before production run.
+
+**Test checklist (post-implementation):**
+- [ ] Run migration in staging and verify sample records against manual conversion.
+- [ ] Re-run migration and verify no additional conversion occurs.
+- [ ] Compare pre/post dashboard totals to validate expected proportional change.
+- [ ] Execute production runbook with backup confirmation and post-run validation report.
+
+---
+
 ## 1. Bug Fixes
 
 ### ~~BUG-01~~ ✅ — Coordinator email not sent for Export files

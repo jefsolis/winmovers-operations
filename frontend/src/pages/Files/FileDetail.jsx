@@ -40,7 +40,7 @@ export default function FileDetail() {
 
   const load = () => {
     setLoading(true)
-    api.get(`/files/${id}`)
+    api.get(`/files/${id}?includeDeleted=true`)
       .then(f => {
         setFile(f)
       })
@@ -57,6 +57,19 @@ export default function FileDetail() {
       await api.delete(`/files/${id}`)
       navigate(CATEGORY_ROUTES[file.category] || '/files/export')
     } catch (e) { alert(e.message); setDeleting(false) }
+  }
+
+  const handleRestore = async () => {
+    if (!window.confirm(t('movingFiles.restoreConfirm'))) return
+    setClosing(true)
+    try {
+      const updated = await api.post(`/files/${id}/restore`)
+      setFile(updated)
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setClosing(false)
+    }
   }
 
   const handleStatusChange = (newStatus) => {
@@ -176,6 +189,7 @@ export default function FileDetail() {
   ] : []
   const allFieldsDone = requiredFieldsList.every(f => f.done)
   const canClose = allRequiredDone && allFieldsDone
+  const isDeleted = Boolean(file.deletedAt)
 
   const tabStyle = (tab) => ({
     padding: '8px 18px',
@@ -196,16 +210,22 @@ export default function FileDetail() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div className="page-title">{stripFilePrefix(file.fileNumber)}</div>
             <span className="badge" style={{ background: sm.bg, color: sm.color, fontSize: 13 }}>{statusLabel}</span>
+            {isDeleted && <span className="badge" style={{ background: '#fee2e2', color: '#991b1b', fontSize: 13 }}>{t('movingFiles.deletedTag')}</span>}
             <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: 13 }}>
               {t(`movingFiles.${file.category.toLowerCase()}Title`)}
             </span>
           </div>
           <div className="page-subtitle">{clientName}</div>
+          {isDeleted && <div style={{ fontSize: 12, color: '#991b1b', marginTop: 4 }}>{t('movingFiles.deletedReadonly')}</div>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to={back} className="btn btn-ghost">{t('movingFiles.backToFiles')}</Link>
-          <Link to={`${back}/${id}/edit`} className="btn btn-primary">{t('common.edit')}</Link>
-          {file.status !== 'CLOSED' && file.status !== 'VOID' ? (
+          {!isDeleted && <Link to={`${back}/${id}/edit`} className="btn btn-primary">{t('common.edit')}</Link>}
+          {isDeleted ? (
+            <button className="btn btn-secondary" onClick={handleRestore} disabled={closing}>
+              {closing ? t('common.saving') : t('movingFiles.restoreFile')}
+            </button>
+          ) : file.status !== 'CLOSED' && file.status !== 'VOID' ? (
             <>
               {file.category !== 'LOCAL' && (
                 <select
@@ -250,9 +270,11 @@ export default function FileDetail() {
               {closing ? t('common.saving') : t('movingFiles.reopenFile')}
             </button>
           )}
-          <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
-            {deleting ? t('common.saving') : t('common.delete')}
-          </button>
+          {!isDeleted && (
+            <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+              {deleting ? t('common.saving') : t('common.delete')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -297,7 +319,7 @@ export default function FileDetail() {
                 const origAddr = [file.originAddress || job?.originAddress, file.originCity || job?.originCity, file.originCountry || job?.originCountry].filter(Boolean).join(', ') || '\u2014'
                 const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
                 const volumeText = (file.volumeCbm ?? job?.volumeCbm) != null ? `${file.volumeCbm ?? job?.volumeCbm} CMB` : '\u2014'
-                const weightText = (file.weightKg ?? job?.weightKg) != null ? `${file.weightKg ?? job?.weightKg} KG` : '\u2014'
+                const weightText = (file.weightKg ?? job?.weightKg) != null ? `${file.weightKg ?? job?.weightKg} LB` : '\u2014'
                 return (<>
                   <InfoRow label={t('common.name')}>{clientName}</InfoRow>
                   <InfoRow label={t('movingFiles.destAddress')}>{destAddr}</InfoRow>
@@ -346,7 +368,7 @@ export default function FileDetail() {
                 const navieraLabel = isAir ? t('movingFiles.aerolinea') : isSea ? t('movingFiles.naviera') : `${t('movingFiles.naviera')} / ${t('movingFiles.aerolinea')}`
                 const vaporLabel = isAir ? t('movingFiles.vuelo') : isSea ? t('movingFiles.vapor') : `${t('movingFiles.vapor')} / ${t('movingFiles.vuelo')}`
                 const volumeText = file.volumeCbm != null ? `${file.volumeCbm} CMB` : '\u2014'
-                const weightText = file.weightKg != null ? `${file.weightKg} KG` : '\u2014'
+                const weightText = file.weightKg != null ? `${file.weightKg} LB` : '\u2014'
                 return (<>
                   <InfoRow label={t('common.name')}>{clientName}</InfoRow>
                   <InfoRow label={t('jobs.originAddress')}>{origAddr}</InfoRow>
@@ -391,7 +413,7 @@ export default function FileDetail() {
                     <InfoRow label={t('movingFiles.volumeCbm')}>{file.volumeCbm} CBM</InfoRow>
                   )}
                   {file.weightKg != null && (
-                    <InfoRow label={t('movingFiles.weightKg')}>{file.weightKg} Kg</InfoRow>
+                    <InfoRow label={t('movingFiles.weightKg')}>{file.weightKg} LB</InfoRow>
                   )}
                   {file.fechaTraslado && (
                     <InfoRow label={t('movingFiles.fechaTraslado')}>
@@ -516,7 +538,7 @@ export default function FileDetail() {
               )}
 
               <div style={{ marginTop: 14, textAlign: 'right' }}>
-                <Link to={`${back}/${id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>
+                {!isDeleted && <Link to={`${back}/${id}/edit`} className="btn btn-ghost btn-sm">{t('common.edit')}</Link>}
               </div>
             </div>
           )}
@@ -529,7 +551,7 @@ export default function FileDetail() {
           <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 16 }}>
             {t('files.title')}
           </div>
-          <FileAttachments fileId={id} fileCategory={file.category} fechaEntrega={file.fechaEntrega} job={file.job} quote={file.quotes?.[0] || null} bookerRole={file.bookerRole} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} onPctChange={setAttachmentPct} />
+          <FileAttachments fileId={id} fileCategory={file.category} fechaEntrega={file.fechaEntrega} job={file.job} quote={file.quotes?.[0] || null} bookerRole={file.bookerRole} onStatusChange={handleStatusChange} onAllRequiredDone={setAllRequiredDone} onPctChange={setAttachmentPct} canEdit={!isDeleted} />
         </div>
       </div>
 

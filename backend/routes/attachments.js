@@ -26,6 +26,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
 
     const mf = await getPrisma().movingFile.findUnique({ where: { id: fileId } })
     if (!mf) return res.status(404).json({ error: 'File not found' })
+    if (mf.deletedAt) return res.status(409).json({ error: 'Cannot upload attachments to a deleted file. Restore it first.' })
 
     // multer decodes the Content-Disposition filename as latin1 by default;
     // re-encode as Buffer then decode as utf8 to restore accented characters (ñ, á, é, etc.)
@@ -55,6 +56,10 @@ router.get('/:attId/download', async (req, res, next) => {
 // DELETE /api/files/:fileId/attachments/:attId
 router.delete('/:attId', async (req, res, next) => {
   try {
+    const mf = await getPrisma().movingFile.findUnique({ where: { id: req.params.fileId }, select: { id: true, deletedAt: true } })
+    if (!mf) return res.status(404).json({ error: 'File not found' })
+    if (mf.deletedAt) return res.status(409).json({ error: 'Cannot delete attachments from a deleted file. Restore it first.' })
+
     const att = await getPrisma().attachment.findFirst({
       where: { id: req.params.attId, fileId: req.params.fileId },
     })

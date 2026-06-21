@@ -11,3 +11,13 @@ npm-debug.log*
 app-logs/
 app-logs.zip
 run*.log
+
+# SECURITY: Azure/Cloud Credentials - NEVER commit these
+sp.json
+*.credentials.json
+service-principal.json
+azure-credentials.json
+.azure/
+secrets/
+*.pfx
+*.p12

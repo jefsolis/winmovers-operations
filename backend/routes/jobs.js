@@ -151,6 +151,7 @@ router.post("/", forbidBodegaWrite, async (req, res, next) => {
                 corporateClientId: corporateClientId || null,
                 volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
                 weightKg:  weightKg  ? parseFloat(weightKg)  : null,
+                weightUnit: weightKg ? 'LB' : null,
                 bookerRole: visitBookerRole,
                 coordinatorId: coordinatorId || null },
       })
@@ -164,6 +165,7 @@ router.post("/", forbidBodegaWrite, async (req, res, next) => {
                 corporateClientId: corporateClientId || null,
                 volumeCbm: volumeCbm ? parseFloat(volumeCbm) : null,
                 weightKg:  weightKg  ? parseFloat(weightKg)  : null,
+                weightUnit: weightKg ? 'LB' : null,
                 bookerRole: visitBookerRole,
                 coordinatorId: coordinatorId || null },
       })
@@ -197,6 +199,7 @@ router.post("/", forbidBodegaWrite, async (req, res, next) => {
       deliveryDate:toDate(deliveryDate),
       volumeCbm:   volumeCbm ? parseFloat(volumeCbm) : null,
       weightKg:    weightKg  ? parseFloat(weightKg)  : null,
+      weightUnit:  weightKg  ? 'LB' : null,
       shipmentMode, notes,
       serviceDate:    serviceDate    ? new Date(serviceDate)   : null,
       serviceTime:    serviceTime    || null,
@@ -286,6 +289,7 @@ router.put("/:id", forbidBodegaWrite, async (req, res, next) => {
         deliveryDate:toDate(deliveryDate),
         volumeCbm:   volumeCbm ? parseFloat(volumeCbm) : null,
         weightKg:    weightKg  ? parseFloat(weightKg)  : null,
+        weightUnit:  weightKg  ? 'LB' : null,
         shipmentMode, notes,
         serviceDate:    serviceDate     !== undefined ? (serviceDate     ? new Date(serviceDate) : null) : undefined,
         serviceTime:    serviceTime     !== undefined ? (serviceTime     || null) : undefined,

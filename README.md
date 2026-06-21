@@ -6,6 +6,10 @@ Quick file overview:
 - frontend/: Vite + React app
 - backend/: Express API and static server
 
+Weight API contract
+- The `weightKg` field name is kept for backward compatibility, but values are treated as pounds (`LB`) for create/update/display flows.
+- Clients should send and read `weightKg` as pounds in all Job and MovingFile payloads.
+
 Local development
 1. Install Node.js (18+ recommended).
 2. Open two shells.

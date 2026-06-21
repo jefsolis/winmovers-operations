@@ -207,7 +207,7 @@ function EntryModal({ entry, defaultDate, onClose, onSaved }) {
                                 if (origin || dest) noteParts.push([origin && `Origen: ${origin}`, dest && `Destino: ${dest}`].filter(Boolean).join(' \u2192 '))
                                 const measures = []
                                 if (j.volumeCbm != null) measures.push(`${j.volumeCbm} m\u00b3`)
-                                if (j.weightKg  != null) measures.push(`${j.weightKg} kg`)
+                                if (j.weightKg  != null) measures.push(`${j.weightKg} lb`)
                                 if (j.bultos    != null) measures.push(`${j.bultos} bultos`)
                                 if (measures.length) noteParts.push(measures.join(' \u00b7 '))
                                 if (j.serviceDetails) noteParts.push(j.serviceDetails)

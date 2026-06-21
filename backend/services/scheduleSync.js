@@ -62,7 +62,7 @@ async function syncJobScheduleEntries(job, req = null) {
   if (origin || dest)        noteParts.push([origin && `Origen: ${origin}`, dest && `Destino: ${dest}`].filter(Boolean).join(' → '))
   const measures = []
   if (job.volumeCbm != null) measures.push(`${job.volumeCbm} m³`)
-  if (job.weightKg  != null) measures.push(`${job.weightKg} kg`)
+  if (job.weightKg  != null) measures.push(`${job.weightKg} lb`)
   if (job.bultos    != null) measures.push(`${job.bultos} bultos`)
   if (measures.length)       noteParts.push(measures.join(' · '))
   if (job.serviceDetails)    noteParts.push(job.serviceDetails)

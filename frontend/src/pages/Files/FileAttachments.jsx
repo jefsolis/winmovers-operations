@@ -13,7 +13,7 @@ import { fileCategoryMeta, formatFileSize, getFileCategories, REQUIRED_ATTACHMEN
  *   fileCategory String   EXPORT | IMPORT | LOCAL
  *   onStatusChange fn(status)   called when file auto-closes or re-opens
  */
-export default function FileAttachments({ fileId, fileCategory, fechaEntrega, job, quote, bookerRole, onStatusChange, onAllRequiredDone, onPctChange }) {
+export default function FileAttachments({ fileId, fileCategory, fechaEntrega, job, quote, bookerRole, onStatusChange, onAllRequiredDone, onPctChange, canEdit = true }) {
   const { t } = useLanguage()
   const { accounts } = useMsal()
   const userOid = accounts[0]?.localAccountId || 'default'
@@ -82,7 +82,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
               </span>
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(att)} title={t('common.print')}>🖨</button>
-            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
+            {canEdit && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>}
           </div>
         ))}
       </div>
@@ -272,14 +272,16 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                       {cat.linkedRecord.number} →
                     </Link>
                   )}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => triggerUpload(cat.value)}
-                    disabled={uploading === cat.value}
-                    style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
-                  >
-                    {uploading === cat.value ? '…' : `+ ${t('files.upload')}`}
-                  </button>
+                  {canEdit && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => triggerUpload(cat.value)}
+                      disabled={uploading === cat.value}
+                      style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
+                    >
+                      {uploading === cat.value ? '…' : `+ ${t('files.upload')}`}
+                    </button>
+                  )}
                 </div>
               )
             })}
@@ -304,14 +306,16 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                 <span style={{ fontSize: 16 }}>{cat.done ? '✅' : '⬜'}</span>
                 <span className="badge" style={{ background: catStyle(cat).bg, color: catStyle(cat).color, fontSize: 11, whiteSpace: 'nowrap' }}>{cat.label}</span>
                 {cat.items.length > 0 && renderAttachmentList(cat.items)}
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => triggerUpload(cat.value)}
-                  disabled={uploading === cat.value}
-                  style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
-                >
-                  {uploading === cat.value ? '…' : `+ ${t('files.upload')}`}
-                </button>
+                {canEdit && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => triggerUpload(cat.value)}
+                    disabled={uploading === cat.value}
+                    style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
+                  >
+                    {uploading === cat.value ? '…' : `+ ${t('files.upload')}`}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -322,9 +326,11 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div className="section-label">{t('files.otherDocs')}</div>
-          <button className="btn btn-ghost btn-sm" onClick={() => triggerUpload('OTHER')} disabled={uploading === 'OTHER'}>
-            {uploading === 'OTHER' ? '…' : `+ ${t('files.upload')}`}
-          </button>
+          {canEdit && (
+            <button className="btn btn-ghost btn-sm" onClick={() => triggerUpload('OTHER')} disabled={uploading === 'OTHER'}>
+              {uploading === 'OTHER' ? '…' : `+ ${t('files.upload')}`}
+            </button>
+          )}
         </div>
         {otherItems.length === 0 ? (
           <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('files.noOtherDocs')}</p>
@@ -339,7 +345,7 @@ export default function FileAttachments({ fileId, fileCategory, fechaEntrega, jo
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatFileSize(att.sizeBytes)}</span>
                   <button className="btn btn-ghost btn-sm" onClick={() => handleDownload(att)}>⬇</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(att)} title={t('common.print')}>🖨</button>
-                  <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>
+                  {canEdit && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(att)}>✕</button>}
                 </div>
               )
             })}

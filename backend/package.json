@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start:dev": "nodemon index.js"
+    "start:dev": "nodemon index.js",
+    "weights:convert:dry": "node scripts/convert-weights-kg-to-lb.js",
+    "weights:convert:apply": "node scripts/convert-weights-kg-to-lb.js --apply"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.31.0",

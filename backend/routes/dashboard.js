@@ -1,8 +1,6 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
 
-const KG_TO_LB = 2.2046226218
-
 function toMonthKey(date) {
   const d = new Date(date)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -90,6 +88,7 @@ router.get('/pounds', async (req, res, next) => {
         where: {
           createdAt: { gte: from, lte: to },
           category: { in: ['EXPORT', 'IMPORT'] },
+          deletedAt: null,
         },
         select: { createdAt: true, category: true, weightKg: true },
       }),
@@ -108,11 +107,11 @@ router.get('/pounds', async (req, res, next) => {
       if (f.category === 'EXPORT') {
         totalsByMonth[key].packedJobs += 1
         if (f.weightKg == null) continue
-        totalsByMonth[key].packed += Number(f.weightKg || 0) * KG_TO_LB
+        totalsByMonth[key].packed += Number(f.weightKg || 0)
       } else if (f.category === 'IMPORT') {
         totalsByMonth[key].unpackedJobs += 1
         if (f.weightKg == null) continue
-        totalsByMonth[key].unpacked += Number(f.weightKg || 0) * KG_TO_LB
+        totalsByMonth[key].unpacked += Number(f.weightKg || 0)
       }
     }
 
@@ -199,7 +198,7 @@ router.get('/', async (req, res, next) => {
 
     const myCoordinationsQuery = oid
       ? p.movingFile.findMany({
-          where: { status: 'OPEN', coordinator: { azureOid: oid } },
+          where: { status: 'OPEN', deletedAt: null, coordinator: { azureOid: oid } },
           orderBy: [{ category: 'asc' }, { fileNumber: 'asc' }],
           take: 50,
           select: {
@@ -277,7 +276,7 @@ router.get('/', async (req, res, next) => {
       }),
       // Open files with their attachment categories for completion calculation
       p.movingFile.findMany({
-        where: { status: 'OPEN' },
+        where: { status: 'OPEN', deletedAt: null },
         select: {
           id: true,
           category: true,
@@ -287,7 +286,7 @@ router.get('/', async (req, res, next) => {
       }),
       // Open LOCAL files (for no-invoice cards)
       p.movingFile.findMany({
-        where: { status: 'OPEN', category: 'LOCAL' },
+        where: { status: 'OPEN', category: 'LOCAL', deletedAt: null },
         orderBy: { createdAt: 'asc' },
         select: {
           id: true, fileNumber: true, createdAt: true,
@@ -298,7 +297,7 @@ router.get('/', async (req, res, next) => {
       }),
       // Open EXPORT files (for no-invoice card)
       p.movingFile.findMany({
-        where: { status: 'OPEN', category: 'EXPORT' },
+        where: { status: 'OPEN', category: 'EXPORT', deletedAt: null },
         orderBy: { createdAt: 'asc' },
         select: {
           id: true, fileNumber: true, createdAt: true,
@@ -309,7 +308,7 @@ router.get('/', async (req, res, next) => {
       }),
       // Open IMPORT files (for no-invoice card)
       p.movingFile.findMany({
-        where: { status: 'OPEN', category: 'IMPORT' },
+        where: { status: 'OPEN', category: 'IMPORT', deletedAt: null },
         orderBy: { createdAt: 'asc' },
         select: {
           id: true, fileNumber: true, createdAt: true,
@@ -324,6 +323,7 @@ router.get('/', async (req, res, next) => {
           status: { notIn: ['CLOSED', 'VOID'] },
           category: 'IMPORT',
           fechaEntrega: { not: null, lt: new Date() },
+          deletedAt: null,
         },
         orderBy: { fechaEntrega: 'asc' },
         select: {
