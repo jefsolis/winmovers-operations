@@ -1,7 +1,102 @@
 # WinMovers Operations — Feature Backlog
 
-> Last updated: May 31, 2026  
+> Last updated: June 27, 2026  
 > Items are grouped by theme. Priority and sprint assignment to be determined separately.
+
+---
+
+## 16. FIDI — Operational Inter-Continental Moving Activities Declaration (June 2026)
+
+### ~~FIDI-01~~ ✅ — Year selection and summary totals for FIDI declaration report
+
+**User story:** As an operations manager, I want to select one or more years and generate the FIDI declaration summary so I can fill in the annual activity report required for FAIM certification.
+
+**Context:**
+- FIDI requires members to declare inter-continental moving activity annually.
+- The report has three sheets: Summary, List of Export Moves, and List of Import Moves.
+- Only EXPORT and IMPORT jobs are included; DOMESTIC/LOCAL jobs are excluded.
+- The "year" of a job is determined by its File creation date (`createdAt` on `MovingFile`).
+- "Third Country Moves" is always 0% for WinMovers.
+- "Custom clearance needed?" is always YES for all jobs.
+
+**Acceptance criteria:**
+- A new FIDI Report page is accessible from the main navigation (admin or management role).
+- The user can select one or more calendar years to include in the report.
+- The UI renders a summary table per selected year with:
+  - Total Number of Inter-Continental Shipments acting as the Booker (jobs where `bookerRole = BOOKER`)
+  - Total Number of Inter-Continental Shipments acting as the OA non-booker (jobs where `bookerRole = OA`)
+  - Total Number of Inter-Continental Shipments acting as the DA non-booker (jobs where `bookerRole = DA`)
+- The UI renders a percentages table per selected year with:
+  - % Acting as the booker of the move (`BOOKER count / total * 100`)
+  - % Performing OA services (`OA count / total * 100`)
+  - % Performing DA services (`DA count / total * 100`)
+  - % Booking Third Country Moves (always `0%`)
+  - Total (always sums to `100%`)
+- Percentages are rounded to two decimal places.
+- If total jobs for a year is 0, percentages display as `0.00%` without dividing by zero.
+- A backend API endpoint `GET /api/reports/fidi?years=2024,2025` returns the structured data for the selected years.
+
+**Test checklist (post-implementation):**
+- [ ] Select a single year and verify summary counts match manual count of EXPORT+IMPORT jobs by bookerRole for that year.
+- [ ] Select multiple years and verify each year has its own independent table.
+- [ ] Verify percentages sum to 100% for each year (accounting for rounding).
+- [ ] Verify a year with 0 jobs shows 0 counts and 0.00% without errors.
+- [ ] Verify DOMESTIC/LOCAL jobs are excluded from all counts.
+- [ ] Verify Third Country Moves percentage is always 0%.
+
+---
+
+### ~~FIDI-02~~ ✅ — Export and Import job detail lists for FIDI declaration report
+
+**User story:** As an operations manager, I want the FIDI report to show the full sequential list of Export jobs and the full sequential list of Import jobs per selected years, with no gaps, so I can copy the data into the FIDI Excel template and auditors can verify continuity.
+
+**Context:**
+- Sheet 2 of the FIDI template is "List of Export Moves"; sheet 3 is "List of Import Moves". They are separate lists.
+- Transport method must be normalized: `ROAD`/`TERRESTRE` → `Land`, `SEA`/`MARITIMO` → `Sea`, `AIR`/`AEREO` → `Air`.
+- "Custom clearance needed?" is always `YES`.
+- All file numbers in the sequence must appear — no gaps. If a file has been soft-deleted or cancelled, its row must still appear so the numbering is complete and auditable.
+- A soft-deleted or cancelled file row shows only Year and File Number; all other columns display `CANCELADO`.
+- Data is read-only display — the user copies rows manually into the Excel template.
+
+**Columns for Export list and Import list (separate tables):**
+| Column | Source |
+|---|---|
+| Year | File `createdAt` year |
+| File Number | `MovingFile.fileNumber` |
+| Import or Export | `EXPORT` or `IMPORT` (from `MovingFile.category`) |
+| Booker/OA/DA | `MovingFile.bookerRole` |
+| Origin Agent | `Job.originAgent.name` |
+| Destination Agent | `Job.destAgent.name` |
+| Origin Country | `Job.originCountry` |
+| Destination Country | `Job.destCountry` |
+| DTD / PTD / DTP | `Job.serviceType` |
+| Transport Method | Normalized from `Job.shipmentMode`: `Land` / `Sea` / `Air` |
+| Volume | `Job.volumeCbm` (in CBM) |
+| Custom clearance needed? | Always `YES` |
+
+**Acceptance criteria:**
+- The FIDI Report page displays the Export list and Import list as two separate tables below the summary tables.
+- Each list is filtered to the selected years.
+- The API query includes soft-deleted files (uses `includeDeleted: true` or equivalent) so no file number is omitted.
+- Soft-deleted or cancelled file rows show Year and File Number only; all remaining columns display `CANCELADO`.
+- Active rows have all columns populated normally.
+- Transport method values are normalized to `Land`, `Sea`, or `Air` regardless of the stored language/case.
+- Rows are sorted by year ascending, then by file number ascending with no gaps in the sequence.
+- The API endpoint from FIDI-01 returns separate `exportList` and `importList` arrays.
+- Each table has a "Copy to clipboard" or similar affordance to facilitate pasting into the Excel template.
+
+**Test checklist (post-implementation):**
+- [ ] Verify Export list and Import list are rendered as two separate tables.
+- [ ] Verify Export list contains only EXPORT files; Import list contains only IMPORT files.
+- [ ] Soft-delete an Export file and verify it still appears in the Export list as `CANCELADO`.
+- [ ] Verify no file numbers are missing from either sequence (e.g. E-0001 through E-0010 all present if they exist).
+- [ ] Verify `Road`/`Terrestre`/`ROAD` all normalize to `Land`.
+- [ ] Verify `Sea`/`Maritimo`/`SEA` normalizes to `Sea`.
+- [ ] Verify `Air`/`Aereo`/`AIR` normalizes to `Air`.
+- [ ] Verify "Custom clearance needed?" always shows `YES` on active rows.
+- [ ] Verify rows with null origin/destination agent display blank (no crash).
+- [ ] Verify active job count in lists matches counts in the FIDI-01 summary tables for each year.
+- [ ] Verify rows are sorted by year ascending then file number ascending.
 
 ---
 

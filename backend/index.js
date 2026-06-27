@@ -37,6 +37,7 @@ app.use('/api/admin',                    require('./routes/admin'))
 app.use('/api/audit',                    require('./routes/audit'))
 app.use('/api/schedule',                 require('./routes/schedule'))
 app.use('/api/email',                    require('./routes/email'))
+app.use('/api/reports',                  require('./routes/reports'))
 
 // Legacy health check
 app.get('/api/hello', (req, res) => {

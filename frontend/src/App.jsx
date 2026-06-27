@@ -27,6 +27,7 @@ import SurveyDetail from './pages/Surveys/SurveyDetail'
 import AdminPage from './pages/Admin/AdminPage'
 import AuditLogPage from './pages/Admin/AuditLogPage'
 import SchedulePage from './pages/Schedule/SchedulePage'
+import FidiReport from './pages/Reports/FidiReport'
 import RequireAdmin from './auth/RequireAdmin'
 import RequireScheduleAccess from './auth/RequireScheduleAccess'
 import RequireJobWriteAccess from './auth/RequireJobWriteAccess'
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="surveys/:id/edit"         element={<RequireNonBodega><SurveyForm /></RequireNonBodega>} />
           <Route path="admin" element={<RequireNonBodega><RequireAdmin><AdminPage /></RequireAdmin></RequireNonBodega>} />
           <Route path="admin/audit" element={<RequireNonBodega><RequireAdmin><AuditLogPage /></RequireAdmin></RequireNonBodega>} />
+          <Route path="reports/fidi" element={<RequireNonBodega><RequireAdmin><FidiReport /></RequireAdmin></RequireNonBodega>} />
           <Route path="schedule" element={<RequireScheduleAccess><SchedulePage /></RequireScheduleAccess>} />
         </Route>
       </Routes>

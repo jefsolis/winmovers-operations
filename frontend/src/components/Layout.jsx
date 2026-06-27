@@ -35,8 +35,9 @@ export default function Layout() {
     { to: '/agents',    label: t('nav.agents'),    icon: '🤝' },
     { to: '/staff',     label: t('nav.staff'),     icon: '👷' },
     ...(isAdmin ? [
-      { to: '/admin',       label: t('nav.admin'),    icon: '⚙️' },
-      { to: '/admin/audit', label: t('nav.auditLog'), icon: '📋' },
+      { to: '/admin',        label: t('nav.admin'),      icon: '⚙️' },
+      { to: '/admin/audit',  label: t('nav.auditLog'),   icon: '📋' },
+      { to: '/reports/fidi', label: t('nav.fidiReport'), icon: '📊' },
     ] : []),
   ]
 
