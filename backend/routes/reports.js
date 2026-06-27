@@ -4,11 +4,23 @@ const { getPrisma } = require('../db')
 // Normalize shipment mode to FIDI standard values
 function normalizeShipmentMode(mode) {
   if (!mode) return ''
-  const m = mode.toUpperCase()
-  if (m === 'AIR' || m === 'AEREO' || m === 'AÉREO') return 'Air'
-  if (m === 'SEA' || m === 'MARITIMO' || m === 'MARÍTIMO') return 'Sea'
-  if (m === 'ROAD' || m === 'TERRESTRE') return 'Land'
+  const m = mode.toUpperCase().trim()
+  if (['AIR', 'AEREO', 'AÉREO', 'AIRE'].includes(m)) return 'Air'
+  if (['SEA', 'MARITIMO', 'MARÍTIMO'].includes(m)) return 'Sea'
+  if (['ROAD', 'TERRESTRE', 'LAND', 'TIERRA'].includes(m)) return 'Land'
   return mode
+}
+
+// Normalize service type to FIDI short form
+function normalizeServiceType(st) {
+  if (!st) return ''
+  switch (st.toUpperCase()) {
+    case 'DOOR_TO_DOOR': return 'DTD'
+    case 'DOOR_TO_PORT': return 'DTP'
+    case 'PORT_TO_DOOR': return 'PTD'
+    case 'PORT_TO_PORT': return 'PTP'
+    default: return st
+  }
 }
 
 function pct(n, total) {
@@ -157,7 +169,7 @@ router.get('/fidi', async (req, res, next) => {
         destAgent:        f.destAgent?.name   || '',
         originCountry:    f.job?.originCountry || '',
         destCountry:      f.job?.destCountry   || '',
-        serviceType:      f.serviceType        || '',
+        serviceType:      normalizeServiceType(f.serviceType),
         transportMethod:  normalizeShipmentMode(f.shipmentMode),
         volumeCbm:        f.volumeCbm != null ? f.volumeCbm : '',
         customsClearance: 'YES',
