@@ -1,14 +1,19 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
 
-// Normalize shipment mode to FIDI standard values
-function normalizeShipmentMode(mode) {
-  if (!mode) return ''
-  const m = mode.toUpperCase().trim()
+// Normalize a single shipment mode token to FIDI standard value
+function normalizeShipmentToken(token) {
+  const m = token.toUpperCase().trim()
   if (['AIR', 'AEREO', 'AÉREO', 'AIRE'].includes(m)) return 'Air'
   if (['SEA', 'MARITIMO', 'MARÍTIMO'].includes(m)) return 'Sea'
   if (['ROAD', 'TERRESTRE', 'LAND', 'TIERRA'].includes(m)) return 'Land'
-  return mode
+  return token.trim()
+}
+
+// Normalize shipment mode to FIDI standard values — supports comma-separated multi-values
+function normalizeShipmentMode(mode) {
+  if (!mode) return ''
+  return mode.split(',').map(normalizeShipmentToken).join(', ')
 }
 
 // Normalize service type to FIDI short form
