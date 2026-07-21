@@ -420,6 +420,7 @@ export default function JobDetail() {
 
           <Section title={t('jobs.route_section')}>
             <Field label={t('jobs.originAddress')} value={job.originAddress} />
+            <Field label={t('jobs.originWarehouse')} value={job.originWarehouse} />
             <Field label={t('jobs.originCity')} value={job.originCity} />
             <Field label={t('jobs.originCountry')} value={job.originCountry} />
             <Field label={t('jobs.destAddress')} value={job.destAddress} />

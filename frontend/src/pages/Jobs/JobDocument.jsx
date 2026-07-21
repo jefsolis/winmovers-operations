@@ -20,6 +20,7 @@ const LABELS = {
   company:        'Compañía',
   companyPhone:   'Tel. Empresa',
   address:        'Dirección de Origen',
+  almacenOrigen:  'Almacén de Origen',
   destAddress:    'Dirección de Destino',
   serviceDetails: 'Detalle del Servicio',
   materials:      'Materiales',
@@ -315,6 +316,13 @@ const JobDocument = forwardRef(function JobDocument(
               )}
             </div>
           </Row>
+
+          {/* Almacén de Origen — Import only */}
+          {isImport && (
+            <Row>
+              <Cell label={L.almacenOrigen} value={fv('originWarehouse')} editMode={editMode} onChange={ch('originWarehouse')} />
+            </Row>
+          )}
 
           {/* Row 7: Destination Address */}
           <Row>

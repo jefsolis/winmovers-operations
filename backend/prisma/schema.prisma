@@ -65,6 +65,7 @@ model Job {
   customsAgentId String?
   customsAgent   Agent?      @relation("CustomsAgent", fields: [customsAgentId], references: [id])
   originAddress String?
+  originWarehouse String?
   originCity    String?
   originCountry String?
   destAddress   String?
