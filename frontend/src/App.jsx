@@ -26,6 +26,7 @@ import SurveyForm from './pages/Surveys/SurveyForm'
 import SurveyDetail from './pages/Surveys/SurveyDetail'
 import AdminPage from './pages/Admin/AdminPage'
 import AuditLogPage from './pages/Admin/AuditLogPage'
+import PackingItemTypesPage from './pages/Admin/PackingItemTypes/PackingItemTypesPage'
 import SchedulePage from './pages/Schedule/SchedulePage'
 import FidiReport from './pages/Reports/FidiReport'
 import RequireAdmin from './auth/RequireAdmin'
@@ -77,11 +78,16 @@ export default function App() {
           <Route path="files/local/new"          element={<RequireNonBodega><FileForm /></RequireNonBodega>} />
           <Route path="files/local/:id"          element={<RequireNonBodega><FileDetail /></RequireNonBodega>} />
           <Route path="files/local/:id/edit"     element={<RequireNonBodega><FileForm /></RequireNonBodega>} />
+          <Route path="files/warehouse"              element={<RequireNonBodega><FilesList category="WAREHOUSE" /></RequireNonBodega>} />
+          <Route path="files/warehouse/new"          element={<RequireNonBodega><FileForm /></RequireNonBodega>} />
+          <Route path="files/warehouse/:id"          element={<RequireNonBodega><FileDetail /></RequireNonBodega>} />
+          <Route path="files/warehouse/:id/edit"     element={<RequireNonBodega><FileForm /></RequireNonBodega>} />
           <Route path="surveys/new"              element={<RequireNonBodega><SurveyForm /></RequireNonBodega>} />
           <Route path="surveys/:id"              element={<RequireNonBodega><SurveyDetail /></RequireNonBodega>} />
           <Route path="surveys/:id/edit"         element={<RequireNonBodega><SurveyForm /></RequireNonBodega>} />
           <Route path="admin" element={<RequireNonBodega><RequireAdmin><AdminPage /></RequireAdmin></RequireNonBodega>} />
           <Route path="admin/audit" element={<RequireNonBodega><RequireAdmin><AuditLogPage /></RequireAdmin></RequireNonBodega>} />
+          <Route path="admin/packing-item-types" element={<RequireNonBodega><RequireAdmin><PackingItemTypesPage /></RequireAdmin></RequireNonBodega>} />
           <Route path="reports/fidi" element={<RequireNonBodega><RequireAdmin><FidiReport /></RequireAdmin></RequireNonBodega>} />
           <Route path="schedule" element={<RequireScheduleAccess><SchedulePage /></RequireScheduleAccess>} />
         </Route>

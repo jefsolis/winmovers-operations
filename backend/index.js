@@ -29,6 +29,8 @@ app.use('/api/clients',            require('./routes/clients'))
 app.use('/api/agents',             require('./routes/agents'))
 app.use('/api/visits',             require('./routes/visits'))
 app.use('/api/quotes',             require('./routes/quotes'))
+app.use('/api/packing-item-types',        require('./routes/packingItemTypes'))
+app.use('/api/packing-lists',             require('./routes/packingLists'))
 app.use('/api/files/:fileId/attachments', require('./routes/attachments'))  // must be before /api/files
 app.use('/api/files',                    require('./routes/movingFiles'))
 app.use('/api/jobs',                     require('./routes/jobs'))

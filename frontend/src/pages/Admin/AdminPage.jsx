@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../api'
 
 import { useLanguage } from '../../i18n'
@@ -136,6 +137,11 @@ export default function AdminPage() {
       <div style={{ marginBottom: 24 }}>
         <h1 className="page-title">{t('admin.title')}</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>{t('admin.subtitle')}</p>
+        <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
+          <Link to="/admin/packing-item-types" className="btn btn-outline-secondary btn-sm">
+            {t('packingItemTypes.adminLink')}
+          </Link>
+        </div>
       </div>
 
       {version && (

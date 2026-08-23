@@ -68,7 +68,7 @@ async function syncJobScheduleEntries(job, req = null) {
   if (job.serviceDetails)    noteParts.push(job.serviceDetails)
   const notes = noteParts.length ? noteParts.join('\n') : null
 
-  const taskType = { EXPORT: 'EMPAQUE', IMPORT: 'DESEMPAQUE' }[job.type] || 'MUDANZA'
+  const taskType = { EXPORT: 'EMPAQUE', IMPORT: 'DESEMPAQUE', WAREHOUSE: 'ALMACENAJE' }[job.type] || 'MUDANZA'
   const description = clientLabel || 'Sin cliente'
 
   // Resolve encargado: prefer MovingFile coordinator, fall back to job coordinator

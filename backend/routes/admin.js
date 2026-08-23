@@ -5,6 +5,7 @@ const COUNTERS = [
   { key: 'counter.EXPORT',      label: 'Export Files (E-####-YYYY)',         prefix: 'E',  model: 'movingFile', field: 'fileNumber',  startsWith: 'E-' },
   { key: 'counter.IMPORT',      label: 'Import Files (DF-####-YYYY)',        prefix: 'DF', model: 'movingFile', field: 'fileNumber',  startsWith: 'DF-' },
   { key: 'counter.LOCAL',       label: 'Local Files (M-####-YYYY)',          prefix: 'M',  model: 'movingFile', field: 'fileNumber',  startsWith: 'M-' },
+  { key: 'counter.WAREHOUSE',   label: 'Warehouse Files (B-####-YYYY)',      prefix: 'B',  model: 'movingFile', field: 'fileNumber',  startsWith: 'B-' },
   { key: 'counter.IMPORT_JOB',  label: 'Import Work Orders (D-####-YYYY)',  prefix: null, model: 'job',        field: 'jobNumber',   startsWith: 'D-' },
   { key: 'counter.VISIT',       label: 'Visits (VIS-YYYY-####)',             prefix: null, model: 'visit',      field: 'visitNumber', startsWith: `VIS-${new Date().getFullYear()}-` },
   { key: 'counter.QUOTE',       label: 'Quotes (QUO-YYYY-####)',             prefix: null, model: 'quote',      field: 'quoteNumber', startsWith: `QUO-${new Date().getFullYear()}-` },

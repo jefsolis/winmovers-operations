@@ -162,11 +162,13 @@ model MovingFile {
   fechaTrasladoBodega String?
   fechaTraslado       DateTime?
   fechaEntrega        DateTime?
+  bultos              Int?
   coordinatorId   String?
   coordinator     StaffMember? @relation("FileCoordinator", fields: [coordinatorId], references: [id])
   job         Job?         // back-relation; null for LOCAL files
   quotes      Quote[]      // import quotes linked directly to this file
   attachments Attachment[]
+  packingLists PackingList[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -369,4 +371,85 @@ model EmailLog {
 
   @@index([entityType, entityId])
   @@index([sentAt])
+}
+
+// ── Packing Item Type catalog ─────────────────────────────────────────────────
+// Used by the mobile packing app; both language names stored for bilingual PDFs.
+model PackingItemType {
+  id        String   @id @default(cuid())
+  nameEs    String
+  nameEn    String
+  active    Boolean  @default(true)
+  packageItems PackageItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── Packing List (mobile app) ─────────────────────────────────────────────────
+model PackingList {
+  id            String    @id @default(cuid())
+  listNumber    String    @unique
+  movingFileId  String
+  movingFile    MovingFile @relation(fields: [movingFileId], references: [id])
+  operatorName  String
+  status        String    @default("ACTIVE") // ACTIVE | COMPLETE_PENDING_SYNC | CLOSED | ERROR
+  reviewLanguage String?
+  completionRequestedAt DateTime?
+  completionConfirmedAt DateTime?
+  completionRetryCount Int @default(0)
+  completionLastError String?
+  signatureUrl  String?
+  signatureDeclined Boolean @default(false)
+  signatureDeclineNote String?
+  deletedAt      DateTime?
+  deletedByOid   String?
+  deletedByName  String?
+  lockedByDeviceId String?
+  lockedAt         DateTime?
+  lockExpiresAt    DateTime?
+  packages      Package[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([movingFileId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([lockedByDeviceId])
+}
+
+model Package {
+  id            String      @id @default(cuid())
+  packingListId String
+  packingList   PackingList @relation(fields: [packingListId], references: [id], onDelete: Cascade)
+  barcode       String
+  items         PackageItem[]
+  photos        PackagePhoto[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([packingListId, barcode])
+  @@index([packingListId])
+}
+
+model PackageItem {
+  id                String           @id @default(cuid())
+  packageId         String
+  package           Package          @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  packingItemTypeId String?
+  packingItemType   PackingItemType? @relation(fields: [packingItemTypeId], references: [id])
+  customName        String?
+  quantity          Int              @default(1)
+  note              String?
+  createdAt         DateTime         @default(now())
+
+  @@index([packageId])
+}
+
+model PackagePhoto {
+  id         String   @id @default(cuid())
+  packageId  String
+  package    Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  blobPath   String
+  uploadedAt DateTime @default(now())
+
+  @@index([packageId])
 }

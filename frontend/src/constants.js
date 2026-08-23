@@ -10,7 +10,7 @@ const STATUS_META = [
   { value: 'CANCELLED',  bg: '#fee2e2', color: '#991b1b' },
 ]
 
-const TYPE_VALUES  = ['EXPORT', 'IMPORT', 'INTERNATIONAL', 'DOMESTIC']
+const TYPE_VALUES  = ['EXPORT', 'IMPORT', 'INTERNATIONAL', 'DOMESTIC', 'WAREHOUSE']
 const MODE_VALUES  = ['ROAD', 'SEA', 'AIR']
 
 // Pass the t() function from useLanguage() to get translated labels
@@ -36,6 +36,7 @@ const TYPE_META = {
   IMPORT:        { bg: '#dbeafe', color: '#1e40af' },
   INTERNATIONAL: { bg: '#ede9fe', color: '#5b21b6' },
   DOMESTIC:      { bg: '#fef9c3', color: '#854d0e' },
+  WAREHOUSE:     { bg: '#fef3c7', color: '#92400e' },
 }
 
 export function typeMeta(value, t) {

@@ -92,7 +92,7 @@ export default function FilesList({ category }) {
       ? files
       : (!showClosed ? files.filter(f => !TERMINAL.includes(f.status)) : files))
 
-  const prefix = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
+  const prefix = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local', WAREHOUSE: '/files/warehouse' }
 
   return (
     <>

@@ -340,7 +340,7 @@ export default function VisitDetail() {
       {/* ====== PRINT DOCUMENT (hidden on screen) ====== */}
       <div className="visit-print-doc">
         <div className="vpd-header">
-          <img src="/winmovers-logo.jpg" className="vpd-logo" alt="WinMovers"
+          <img src="/winmovers-logo.png" className="vpd-logo" alt="WinMovers"
                onError={e => { e.currentTarget.style.display = 'none' }} />
           <div className="vpd-contact">
             Tel: (506) 2215-3536 &nbsp;&middot;&nbsp; Fax: (506) 2215-3530<br />

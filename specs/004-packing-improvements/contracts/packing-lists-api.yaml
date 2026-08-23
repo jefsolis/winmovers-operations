@@ -1,0 +1,296 @@
+openapi: 3.0.3
+info:
+  title: Packing Lists API - Packing Improvements
+  version: 0.1.0
+  description: |
+    Contract additions and behavioral expectations for packing improvements.
+servers:
+  - url: /api
+paths:
+  /packing-lists:
+    get:
+      summary: List packing lists for a moving file
+      parameters:
+        - in: query
+          name: movingFileId
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of non-deleted packing lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PackingListSummary'
+    post:
+      summary: Create packing list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePackingListRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePackingListResponse'
+
+  /packing-lists/{id}:
+    get:
+      summary: Get packing list detail
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      responses:
+        '200':
+          description: Detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingListDetail'
+        '404':
+          description: Not found
+    put:
+      summary: Full-state live-save for packages/items/photos
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavePackingListRequest'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavePackingListResponse'
+        '409':
+          description: Locked by another device
+
+  /packing-lists/{id}/complete:
+    patch:
+      summary: Complete packing list after review-language selection and signature decision
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletePackingListRequest'
+      responses:
+        '200':
+          description: Completion confirmed (closed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletePackingListResponse'
+        '400':
+          description: Validation error
+        '409':
+          description: Locked by another device
+
+  /packing-lists/{id}/claim-lock:
+    patch:
+      summary: Claim packing list lock
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId]
+              properties:
+                deviceId:
+                  type: string
+      responses:
+        '200':
+          description: Lock claimed
+        '409':
+          description: Locked by another device
+
+  /packing-lists/{id}/soft-delete:
+    patch:
+      summary: Soft-delete packing list from active views
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      requestBody:
+        required: false
+      responses:
+        '200':
+          description: Soft deleted
+        '404':
+          description: Not found
+
+components:
+  parameters:
+    PackingListId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    PackingListSummary:
+      type: object
+      required: [id, listNumber, movingFileId, operatorName, status, packageCount, itemCount, photoCount, syncVisibilityState, updatedAt]
+      properties:
+        id: { type: string }
+        listNumber: { type: string }
+        movingFileId: { type: string }
+        operatorName: { type: string }
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETE_PENDING_SYNC, CLOSED, ERROR]
+        packageCount: { type: integer, minimum: 0 }
+        itemCount: { type: integer, minimum: 0 }
+        photoCount: { type: integer, minimum: 0 }
+        syncVisibilityState:
+          type: string
+          enum: [IN_SYNC, SYNC_IN_PROGRESS]
+        updatedAt:
+          type: string
+          format: date-time
+
+    PackingListDetail:
+      type: object
+      required: [id, listNumber, movingFileId, operatorName, status, packages]
+      properties:
+        id: { type: string }
+        listNumber: { type: string }
+        movingFileId: { type: string }
+        operatorName: { type: string }
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETE_PENDING_SYNC, CLOSED, ERROR]
+        reviewLanguage:
+          type: string
+          enum: [EN, ES]
+          nullable: true
+        signatureUrl:
+          type: string
+          nullable: true
+        signatureDeclined:
+          type: boolean
+        signatureDeclineNote:
+          type: string
+          nullable: true
+        packages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Package'
+
+    Package:
+      type: object
+      required: [id, barcode, items, photos]
+      properties:
+        id: { type: string }
+        barcode: { type: string }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackageItem'
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackagePhoto'
+
+    PackageItem:
+      type: object
+      required: [id, quantity]
+      properties:
+        id: { type: string }
+        packingItemTypeId:
+          type: string
+          nullable: true
+        customName:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+          minimum: 1
+        note:
+          type: string
+          nullable: true
+
+    PackagePhoto:
+      type: object
+      required: [id, blobPath]
+      properties:
+        id: { type: string }
+        blobPath: { type: string }
+
+    CreatePackingListRequest:
+      type: object
+      required: [movingFileId, operatorName, deviceId]
+      properties:
+        movingFileId: { type: string }
+        operatorName: { type: string }
+        deviceId: { type: string }
+
+    CreatePackingListResponse:
+      type: object
+      required: [id, listNumber, lockedByDeviceId, lockExpiresAt]
+      properties:
+        id: { type: string }
+        listNumber: { type: string }
+        lockedByDeviceId: { type: string }
+        lockExpiresAt: { type: string, format: date-time }
+
+    SavePackingListRequest:
+      type: object
+      required: [deviceId, operatorName, packages]
+      properties:
+        deviceId: { type: string }
+        operatorName: { type: string }
+        packages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Package'
+
+    SavePackingListResponse:
+      type: object
+      required: [id, updatedAt, lockExpiresAt]
+      properties:
+        id: { type: string }
+        updatedAt: { type: string, format: date-time }
+        lockExpiresAt: { type: string, format: date-time }
+
+    CompletePackingListRequest:
+      type: object
+      required: [deviceId, reviewLanguage, signatureDeclined]
+      properties:
+        deviceId: { type: string }
+        reviewLanguage:
+          type: string
+          enum: [EN, ES]
+        signatureUrl:
+          type: string
+          nullable: true
+        signatureDeclined:
+          type: boolean
+        signatureDeclineNote:
+          type: string
+          nullable: true
+
+    CompletePackingListResponse:
+      type: object
+      required: [id, status, listNumber]
+      properties:
+        id: { type: string }
+        status:
+          type: string
+          enum: [CLOSED]
+        listNumber: { type: string }
+

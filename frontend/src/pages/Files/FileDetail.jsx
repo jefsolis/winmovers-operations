@@ -5,8 +5,9 @@ import { useLanguage } from '../../i18n'
 import { fileStatusMeta, getFileProgressionStatuses, stripFilePrefix } from '../../constants'
 import FileAttachments from './FileAttachments'
 import AuditHistory from '../../components/AuditHistory'
+import PackingListsPanel from './PackingListsPanel'
 
-const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
+const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local', WAREHOUSE: '/files/warehouse' }
 
 // Formats an ISO date string as DD/MM/YYYY without any Date object / timezone conversion
 const fmtDate = (iso) => iso ? `${iso.slice(8,10)}/${iso.slice(5,7)}/${iso.slice(0,4)}` : '—'
@@ -286,6 +287,9 @@ export default function FileDetail() {
         <button style={tabStyle('attachments')} onClick={() => setActiveTab('attachments')}>
           {t('movingFiles.attachmentsTab')}
         </button>
+        <button style={tabStyle('packing')} onClick={() => setActiveTab('packing')}>
+          {t('movingFiles.packingTab')}
+        </button>
         <button style={tabStyle('history')} onClick={() => setActiveTab('history')}>
           {t('audit.historyTab')}
         </button>
@@ -431,6 +435,31 @@ export default function FileDetail() {
                 </>
               )}
 
+              {/* WAREHOUSE-specific layout */}
+              {file.category === 'WAREHOUSE' && (
+                <>
+                  <InfoRow label={t('common.name')}>{clientName}</InfoRow>
+                  {file.corporateClient && (
+                    <InfoRow label={t('movingFiles.company')}>{file.corporateClient.name}</InfoRow>
+                  )}
+                  {file.bultos != null && (
+                    <InfoRow label={t('movingFiles.bultos')}>{file.bultos}</InfoRow>
+                  )}
+                  {file.volumeCbm != null && (
+                    <InfoRow label={t('movingFiles.volumeCbm')}>{file.volumeCbm} CBM</InfoRow>
+                  )}
+                  {file.weightKg != null && (
+                    <InfoRow label={t('movingFiles.weightKg')}>{file.weightKg} LB</InfoRow>
+                  )}
+                  {file.fechaEntrega && (
+                    <InfoRow label={t('movingFiles.fechaEntrega')}>{fmtDate(file.fechaEntrega)}</InfoRow>
+                  )}
+                  {file.coordinator && (
+                    <InfoRow label={t('movingFiles.coordinator')}>{file.coordinator.name}</InfoRow>
+                  )}
+                </>
+              )}
+
               {/* Linked Job */}
               {file.job ? (
                 <InfoRow label={t('movingFiles.linkedJob')}>
@@ -558,6 +587,16 @@ export default function FileDetail() {
       {/* History Tab */}
       {activeTab === 'history' && (
         <AuditHistory entityType="MovingFile" entityId={id} />
+      )}
+
+      {/* Packing Lists Tab */}
+      {activeTab === 'packing' && (
+        <div className="card card-body">
+          <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 16 }}>
+            Listas de Empaque
+          </div>
+          <PackingListsPanel fileId={id} />
+        </div>
       )}
 
       {/* Exception Close Modal */}

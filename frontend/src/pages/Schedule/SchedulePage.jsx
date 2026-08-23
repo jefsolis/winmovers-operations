@@ -18,6 +18,7 @@ const TASK_TYPES = [
 const taskMeta = (type) => TASK_TYPES.find(t => t.value === type) || TASK_TYPES[TASK_TYPES.length - 1]
 
 const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const SCHEDULE_REFRESH_MS = 10_000
 
 function pad2(n) { return String(n).padStart(2, '0') }
 function toDateStr(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}` }
@@ -472,15 +473,34 @@ export default function SchedulePage() {
   }, [view, loading, year, month]) // eslint-disable-line
 
   // Fetch entries overlapping the current month
-  const fetchEntries = useCallback(() => {
-    setLoading(true)
+  const fetchEntries = useCallback((showLoading = false) => {
+    if (showLoading) setLoading(true)
     api.get(`/schedule?from=${monthStartStr}&to=${monthEndStr}`)
       .then(data => setEntries(data))
-      .catch(() => setEntries([]))
-      .finally(() => setLoading(false))
+      .catch(() => {
+        if (showLoading) setEntries([])
+      })
+      .finally(() => {
+        if (showLoading) setLoading(false)
+      })
   }, [monthEndStr, monthStartStr])
 
-  useEffect(() => { fetchEntries() }, [fetchEntries])
+  useEffect(() => { fetchEntries(true) }, [fetchEntries])
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') fetchEntries()
+    }
+    const intervalId = window.setInterval(refreshIfVisible, SCHEDULE_REFRESH_MS)
+    window.addEventListener('focus', refreshIfVisible)
+    document.addEventListener('visibilitychange', refreshIfVisible)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refreshIfVisible)
+      document.removeEventListener('visibilitychange', refreshIfVisible)
+    }
+  }, [fetchEntries])
 
   useEffect(() => {
     return () => {

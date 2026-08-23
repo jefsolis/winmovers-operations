@@ -2,8 +2,9 @@ const router = require("express").Router()
 const { logAudit } = require('../audit')
 const { getPrisma } = require("../db")
 const { notifyFileCoordinator, diffFileFields } = require('../services/notifications')
+const { syncJobScheduleEntries } = require('../services/scheduleSync')
 
-const CATEGORY_PREFIX = { EXPORT: "E", IMPORT: "DF", LOCAL: "M" }
+const CATEGORY_PREFIX = { EXPORT: "E", IMPORT: "DF", LOCAL: "M", WAREHOUSE: "B" }
 const WINMOVERS_SENTINEL = 'WINMOVERS'
 
 async function normalizeAgentIdForStorage(rawAgentId) {
@@ -133,7 +134,7 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", async (req, res, next) => {
   try {
     const { category, clientId, corporateClientId, notes, newClient,
-            serviceType, shipmentMode, loadType, volumeCbm, weightKg,
+            serviceType, shipmentMode, loadType, volumeCbm, weightKg, bultos,
             bookerRole, originAgentId, destAgentId,
             originAddress, originCity, originCountry,
             destAddress, destCity, destCountry,
@@ -201,6 +202,7 @@ router.post("/", async (req, res, next) => {
         anticipado:           anticipado           === true || anticipado === 'true',
         fechaTraslado:        fechaTraslado        ? new Date(fechaTraslado)        : null,
         fechaEntrega:         fechaEntrega         ? new Date(fechaEntrega)         : null,
+        bultos:               bultos != null       ? parseInt(bultos, 10)          : null,
         coordinatorId:        coordinatorId        || null,
       },
       include: {
@@ -214,6 +216,27 @@ router.post("/", async (req, res, next) => {
     // Fire-and-forget coordinator notification
     if (coordinatorId) notifyFileCoordinator(file, 'created')
     logAudit(req, 'MovingFile', file.id, 'CREATE', null, file)
+    if (category === 'WAREHOUSE') {
+      try {
+        const warehouseJob = await getPrisma().job.create({
+          data: {
+            jobNumber:         fileNumber,
+            type:              'WAREHOUSE',
+            status:            'SURVEY',
+            clientId:          resolvedClientId,
+            corporateClientId: corporateClientId || null,
+            movingFileId:      file.id,
+            coordinatorId:     coordinatorId || null,
+            serviceDate:       fechaEntrega ? new Date(fechaEntrega) : eta ? new Date(eta) : null,
+            language:          'EN',
+          },
+        })
+        logAudit(req, 'Job', warehouseJob.id, 'CREATE', null, warehouseJob)
+        syncJobScheduleEntries(warehouseJob, req)
+      } catch (jobErr) {
+        console.error('Failed to auto-create WAREHOUSE job for file', file.id, jobErr)
+      }
+    }
     res.status(201).json(file)
   } catch (e) { next(e) }
 })
@@ -222,7 +245,7 @@ router.post("/", async (req, res, next) => {
 router.put("/:id", async (req, res, next) => {
   try {
     const { clientId, corporateClientId, notes, status,
-            serviceType, shipmentMode, loadType, volumeCbm, weightKg,
+            serviceType, shipmentMode, loadType, volumeCbm, weightKg, bultos,
             bookerRole, originAgentId, destAgentId,
             originAddress, originCity, originCountry,
             destAddress, destCity, destCountry,
@@ -304,6 +327,7 @@ router.put("/:id", async (req, res, next) => {
         anticipado:           anticipado           !== undefined ? (anticipado === true || anticipado === 'true') : undefined,
         fechaTraslado:        fechaTraslado        !== undefined ? (fechaTraslado        ? new Date(fechaTraslado)        : null) : undefined,
         fechaEntrega:         fechaEntrega         !== undefined ? (fechaEntrega         ? new Date(fechaEntrega)         : null) : undefined,
+        bultos:               bultos               !== undefined ? (bultos != null ? parseInt(bultos, 10) : null) : undefined,
         coordinatorId:        coordinatorId        !== undefined ? (coordinatorId        || null) : undefined,
       },
       include: {

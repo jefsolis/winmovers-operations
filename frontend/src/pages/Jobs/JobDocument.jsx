@@ -192,7 +192,7 @@ const JobDocument = forwardRef(function JobDocument(
     <div className="qd-outer-wrapper">
       <div ref={headerRef} className="qd-page-header">
         <img
-          src="/winmovers-logo.jpg"
+          src="/winmovers-logo.png"
           className="qd-header-logo"
           alt="WinMovers"
           onError={e => { e.currentTarget.style.display = 'none' }}

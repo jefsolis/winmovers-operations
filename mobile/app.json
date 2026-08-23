@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "WinMovers Packing",
+    "slug": "winmovers-packing",
+    "owner": "jefsolis",
+    "version": "1.0.0",
+    "scheme": "com.winmovers.packing",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.winmovers.packing",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Required to photograph packages during packing.",
+        "NSPhotoLibraryUsageDescription": "Required to attach photos to packages.",
+        "NSMicrophoneUsageDescription": "Required for video recording if needed."
+      }
+    },
+    "android": {
+      "package": "com.winmovers.packing",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-barcode-scanner",
+        {
+          "cameraPermission": "Allow WinMovers Packing to access your camera for scanning barcodes."
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow WinMovers Packing to access your camera to photograph packages."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "FILL_IN_EAS_PROJECT_ID"
+      }
+    }
+  }
+}

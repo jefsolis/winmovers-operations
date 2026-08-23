@@ -9,7 +9,7 @@ import QuickCreateAgentModal from '../../components/QuickCreateAgentModal'
 import QuickCreateCorporateClientModal from '../../components/QuickCreateCorporateClientModal'
 import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 
-const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local' }
+const CATEGORY_ROUTES = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local', WAREHOUSE: '/files/warehouse' }
 
 export default function FileForm() {
   const { id } = useParams()
@@ -21,7 +21,7 @@ export default function FileForm() {
   const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }} title="Required">*</span>
 
   const defaultCategory = searchParams.get('category')
-    || (pathname.includes('/import') ? 'IMPORT' : pathname.includes('/local') ? 'LOCAL' : 'EXPORT')
+    || (pathname.includes('/warehouse') ? 'WAREHOUSE' : pathname.includes('/import') ? 'IMPORT' : pathname.includes('/local') ? 'LOCAL' : 'EXPORT')
 
   const [form, setForm] = useState({
     category: defaultCategory,
@@ -34,6 +34,7 @@ export default function FileForm() {
     loadType: [],
     volumeCbm: '',
     weightKg: '',
+    bultos: '',
     bookerRole: '',
     originAgent: { agentId: '', name: '' },
     destAgent: { agentId: defaultCategory === 'IMPORT' ? 'WINMOVERS' : '', name: defaultCategory === 'IMPORT' ? t('movingFiles.winmoversOption') : '' },
@@ -109,6 +110,7 @@ export default function FileForm() {
             loadType:      f.loadType     ? f.loadType.split(',').filter(Boolean)     : [],
             volumeCbm:     f.volumeCbm     ?? '',
             weightKg:      f.weightKg      ?? '',
+            bultos:        f.bultos        ?? '',
             bookerRole:    f.bookerRole    || '',
             coordinatorId: f.coordinatorId || '',
             originAgent: { agentId: f.originAgentId || '', name: f.originAgent?.name || '' },
@@ -202,6 +204,7 @@ export default function FileForm() {
         loadType:      form.loadType.length     ? form.loadType.join(',')     : null,
         volumeCbm:     form.volumeCbm !== '' ? parseFloat(form.volumeCbm) : null,
         weightKg:      form.weightKg  !== '' ? parseFloat(form.weightKg)  : null,
+        bultos:        form.bultos !== '' ? parseInt(form.bultos, 10) : null,
         bookerRole:    form.bookerRole    || null,
         coordinatorId: form.coordinatorId || null,
         originAgentId: form.originAgent.agentId || null,
@@ -321,27 +324,41 @@ export default function FileForm() {
                 </div>
               )}
 
-              {/* Shipment Mode */}
-              <div className="form-group">
-                <label className="form-label">{t('movingFiles.shipmentMode')}</label>
-                <div style={{ display: 'flex', gap: 20, marginTop: 6 }}>
-                  {SHIPMENT_MODES.map(m => (
-                    <label key={m.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 400 }}>
-                      <input
-                        type="checkbox"
-                        checked={form.shipmentMode.includes(m.value)}
-                        onChange={e => {
-                          const next = e.target.checked
-                            ? [...form.shipmentMode, m.value]
-                            : form.shipmentMode.filter(v => v !== m.value)
-                          set('shipmentMode', next)
-                        }}
-                      />
-                      {m.label}
-                    </label>
-                  ))}
+              {/* Shipment Mode (non-WAREHOUSE) / Bultos (WAREHOUSE) */}
+              {category === 'WAREHOUSE' ? (
+                <div className="form-group">
+                  <label className="form-label">{t('movingFiles.bultos')}</label>
+                  <input
+                    className="form-control"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.bultos}
+                    onChange={e => set('bultos', e.target.value)}
+                  />
                 </div>
-              </div>
+              ) : (
+                <div className="form-group">
+                  <label className="form-label">{t('movingFiles.shipmentMode')}</label>
+                  <div style={{ display: 'flex', gap: 20, marginTop: 6 }}>
+                    {SHIPMENT_MODES.map(m => (
+                      <label key={m.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 400 }}>
+                        <input
+                          type="checkbox"
+                          checked={form.shipmentMode.includes(m.value)}
+                          onChange={e => {
+                            const next = e.target.checked
+                              ? [...form.shipmentMode, m.value]
+                              : form.shipmentMode.filter(v => v !== m.value)
+                            set('shipmentMode', next)
+                          }}
+                        />
+                        {m.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Type of Load */}
               <div className="form-group">

@@ -3,8 +3,8 @@
 This document explains how to execute the weight conversion in your Azure environment (Azure App Service + Azure Database for PostgreSQL).
 
 Reference deployment:
-- App Service: `winmovers-ops-2026`
-- Resource Group: `winmovers-rg`
+- App Service: `winmoversops-app`
+- Resource Group: `Sistema`
 - PostgreSQL Server: `winmovers-db` (or similar)
 
 ---
@@ -33,7 +33,7 @@ Reference deployment:
 
 ### Option A: Azure Portal UI Snapshot (Recommended for Safety)
 
-1. Go to **Azure Portal** → **Resource Groups** → `winmovers-rg` → PostgreSQL server (e.g., `winmovers-db`).
+1. Go to **Azure Portal** → **Resource Groups** → `Sistema` → PostgreSQL server (e.g., `winmovers-db`).
 2. In left sidebar, click **Backups**.
 3. Click **Create backup** (on-demand).
 4. Wait for backup to complete and note the backup ID.
@@ -74,7 +74,7 @@ Get PostgreSQL connection string from Azure Portal:
 
 3. Monitor deployment:
    ```powershell
-   az webapp log tail --resource-group winmovers-rg --name winmovers-ops-2026 --follow
+   az webapp log tail --resource-group Sistema --name winmoversops-app --follow
    ```
 
 4. Wait for deployment to complete (check in Azure Portal or logs show "Ready to receive requests").
@@ -121,15 +121,15 @@ Get PostgreSQL connection string from Azure Portal:
 4. Deploy zip to App Service:
    ```powershell
    az webapp deploy `
-     --resource-group winmovers-rg `
-     --name winmovers-ops-2026 `
+     --resource-group Sistema `
+     --name winmoversops-app `
      --src-path $deployZip `
      --type zip
    ```
 
 5. Monitor logs:
    ```powershell
-   az webapp log tail --resource-group winmovers-rg --name winmovers-ops-2026 --follow
+   az webapp log tail --resource-group Sistema --name winmoversops-app --follow
    ```
 
 6. Wait until you see "Ready to receive requests" (or similar success message).
@@ -141,7 +141,7 @@ Get PostgreSQL connection string from Azure Portal:
 Once deployed, verify Prisma schema was applied:
 
 ```powershell
-az webapp ssh --resource-group winmovers-rg --name winmovers-ops-2026
+az webapp ssh --resource-group Sistema --name winmoversops-app
 ```
 
 Inside the SSH shell:
@@ -163,7 +163,7 @@ exit
 
 Connect via SSH:
 ```powershell
-az webapp ssh --resource-group winmovers-rg --name winmovers-ops-2026
+az webapp ssh --resource-group Sistema --name winmoversops-app
 ```
 
 Inside the SSH shell:
@@ -190,7 +190,7 @@ exit
 
 Connect via SSH:
 ```powershell
-az webapp ssh --resource-group winmovers-rg --name winmovers-ops-2026
+az webapp ssh --resource-group Sistema --name winmoversops-app
 ```
 
 Inside the SSH shell:
@@ -215,7 +215,7 @@ exit
 
 Connect via SSH:
 ```powershell
-az webapp ssh --resource-group winmovers-rg --name winmovers-ops-2026
+az webapp ssh --resource-group Sistema --name winmoversops-app
 ```
 
 Inside the SSH shell:
@@ -243,14 +243,14 @@ exit
 
 Monitor App Service logs for errors:
 ```powershell
-az webapp log tail --resource-group winmovers-rg --name winmovers-ops-2026 --follow
+az webapp log tail --resource-group Sistema --name winmoversops-app --follow
 ```
 
 Look for any `ERROR` or `WARN` related to weight fields.
 
 ### Via Application UI
 
-1. Open the deployed app in browser: `https://winmovers-ops-2026.azurewebsites.net`
+1. Open the deployed app in browser: `https://winmoversops-app.azurewebsites.net`
 2. Create a new file with weight value and verify it displays as LB.
 3. Edit an existing job and verify weight label shows LB.
 4. Check dashboard for expected pound totals.
@@ -284,8 +284,8 @@ If critical issue detected:
 
 ```powershell
 az webapp deployment slot create `
-  --resource-group winmovers-rg `
-  --name winmovers-ops-2026 `
+  --resource-group Sistema `
+  --name winmoversops-app `
   --slot backup
 ```
 
@@ -301,14 +301,14 @@ git checkout <last-known-good-commit>
 
 ### Real-time Logs
 ```powershell
-az webapp log tail --resource-group winmovers-rg --name winmovers-ops-2026 --follow
+az webapp log tail --resource-group Sistema --name winmoversops-app --follow
 ```
 
 ### Historical Logs (Last 100 lines)
 ```powershell
 az webapp log download `
-  --resource-group winmovers-rg `
-  --name winmovers-ops-2026 `
+  --resource-group Sistema `
+  --name winmoversops-app `
   --log-file C:\temp\app-logs.zip
 ```
 
@@ -326,11 +326,11 @@ Go to Azure Portal → App Service → Application Insights → Logs and search 
 
 To allow App Service IP:
 ```powershell
-$appServiceIP = az webapp show --resource-group winmovers-rg --name winmovers-ops-2026 --query "possibleOutboundIpAddresses" -o tsv
+$appServiceIP = az webapp show --resource-group Sistema --name winmoversops-app --query "possibleOutboundIpAddresses" -o tsv
 
 # Add to PostgreSQL firewall in Portal or via CLI:
 az postgres server firewall-rule create `
-  --resource-group winmovers-rg `
+  --resource-group Sistema `
   --server-name <postgres-server> `
   --name "AllowAppService" `
   --start-ip-address $appServiceIP `
@@ -345,7 +345,7 @@ Record this after production run:
 - Date/time: _______________
 - Operator: _______________
 - Azure Backup ID: _______________
-- App Service: winmovers-ops-2026
+- App Service: winmoversops-app
 - Deployment method: [GitHub Actions / Manual ZIP]
 - Deployment timestamp: _______________
 - Dry-run pre-check counts (from Step 4): _______________

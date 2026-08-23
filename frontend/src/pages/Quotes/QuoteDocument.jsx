@@ -48,7 +48,7 @@ const QuoteDocument = forwardRef(function QuoteDocument(
     <div className="qd-outer-wrapper">
       {/* Page header — captured separately for repeating on every PDF page */}
       <div ref={headerRef} className="qd-page-header">
-        <img src="/winmovers-logo.jpg" className="qd-header-logo" alt="WinMovers"
+        <img src="/winmovers-logo.png" className="qd-header-logo" alt="WinMovers"
              onError={e => { e.currentTarget.style.display = 'none' }} />
         <div className="qd-header-contact">
           {contactLines.map((line, i) => <div key={i}>{line}</div>)}

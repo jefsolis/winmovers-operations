@@ -173,7 +173,7 @@ export default function SurveyForm() {
         {/*  Letterhead  */}
         <div className="card card-body" style={{ marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-            <img src="/winmovers-logo.jpg" alt="WinMovers" style={{ height: 64, objectFit: 'contain' }} />
+            <img src="/winmovers-logo.png" alt="WinMovers" style={{ width: 266, height: 64, objectFit: 'contain', objectPosition: 'left center' }} />
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 15, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text)' }}>Non-Binding Estimate</div>
               <div style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)' }}>Table of Measurements in Cubic Feet</div>

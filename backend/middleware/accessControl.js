@@ -32,6 +32,9 @@ module.exports = async function accessControlMiddleware(req, res, next) {
     // Bodega: Schedule module allowed.
     if (pathMatches(pathname, '/schedule')) return next()
 
+    // Bodega: full access to packing lists (primary workflow for warehouse staff).
+    if (pathMatches(pathname, '/packing-lists')) return next()
+
     // Bodega: Jobs module read-only.
     if (pathMatches(pathname, '/jobs') && isReadOnlyMethod(req.method)) return next()
 

@@ -431,8 +431,10 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 
 .qd-header-logo {
-  max-height: 60px;
-  width: auto;
+  width: 249px;
+  height: 60px;
+  object-fit: contain;
+  object-position: left center;
   display: block;
 }
 
@@ -730,7 +732,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 /* Visit print document — hidden on screen, shown only when printing */
 .visit-print-doc { display: none; }
 .vpd-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; border-bottom: 2px solid #1a3a6b; padding-bottom: 12px; }
-.vpd-logo { max-height: 58px; }
+.vpd-logo { width: 241px; height: 58px; object-fit: contain; object-position: left center; }
 .vpd-contact { font-size: 9.5px; color: #555; text-align: right; line-height: 1.65; }
 .vpd-doc-title { font-size: 20px; font-weight: 700; color: #1a3a6b; margin-bottom: 2px; }
 .vpd-doc-subtitle { font-size: 11px; color: #777; margin-bottom: 18px; }
@@ -777,6 +779,6 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 @media (max-width: 900px) {
   .qd-outer-wrapper { width: 100%; }
   .qd-page-header { padding: 8px 6mm; }
-  .qd-header-logo { max-height: 44px; }
+  .qd-header-logo { width: 183px; height: 44px; }
   .quote-document { width: 100%; padding: 10mm 6mm; }
 }

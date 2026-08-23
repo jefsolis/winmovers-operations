@@ -91,7 +91,7 @@ const ServiceEvaluation = forwardRef(function ServiceEvaluation(
   return (
     <div className="qd-outer-wrapper">
       <div ref={headerRef} className="qd-page-header">
-        <img src="/winmovers-logo.jpg" className="qd-header-logo" alt="WinMovers"
+        <img src="/winmovers-logo.png" className="qd-header-logo" alt="WinMovers"
              onError={e => { e.currentTarget.style.display = 'none' }} />
         <div className="qd-header-contact">
           {CONTACT_INFO.map((line, i) => <div key={i}>{line}</div>)}

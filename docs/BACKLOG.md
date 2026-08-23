@@ -3,6 +3,30 @@
 > Last updated: June 27, 2026  
 > Items are grouped by theme. Priority and sprint assignment to be determined separately.
 
+## 17. Packing Improvements Rollout Notes (August 2026)
+
+### PI-ROLL-01 — Deployment and fallback sequence for packing reliability changes
+
+**Scope implemented:**
+- Web packing list soft-delete endpoint and UI action (active-view removal with audit retention).
+- Spanish tab label update from "Packing" to "Lista de empaque".
+- Mobile home screen changed to packing-list-first flow with explicit "Nueva Lista" action.
+- New list eligibility filter enforced to OPEN EXPORT/LOCAL/WAREHOUSE files only (IMPORT excluded).
+- Completion flow updated with review language selection and resilient pending-close behavior.
+- Web packing panel now uses server counts and displays "Sync in progress" instead of misleading zero placeholders.
+
+**Recommended rollout order:**
+1. Deploy backend schema + route updates first.
+2. Deploy web frontend updates (panel delete + labels + sync indicator).
+3. Deploy mobile app update with completion retry and new home/create flows.
+
+**Rollback notes:**
+- If mobile release must be rolled back, keep backend changes in place (backward compatible with existing active packing data).
+- If web release must be rolled back, soft-deleted packing lists remain recoverable in DB because deletion is non-destructive.
+- If completion sync issues appear, verify backend `/api/packing-lists/:id/complete` receives reviewLanguage and inspect lock ownership responses (409) before reverting.
+
+---
+
 ---
 
 ## 16. FIDI — Operational Inter-Continental Moving Activities Declaration (June 2026)
