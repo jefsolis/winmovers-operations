@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [poundError, setPoundError] = useState(null)
   const [poundTab, setPoundTab] = useState('packed')
   const [poundRange, setPoundRange] = useState(defaultPoundsRange)
+  const [scheduleAttention, setScheduleAttention] = useState([])
 
   // Dashboard layout — must be here (before early returns) to satisfy Rules of Hooks
   const { isVisible, toggle, hiddenCards, reset } = useDashboardLayout()
@@ -91,6 +92,10 @@ export default function Dashboard() {
       .then(setData)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    api.get('/schedule/attention').then(setScheduleAttention).catch(() => setScheduleAttention([]))
   }, [])
 
   useEffect(() => {
@@ -791,6 +796,43 @@ export default function Dashboard() {
         </div>)}
 
       </div>
+      )}
+
+      {/* Schedule attention */}
+      {isVisible('schedule_attention') && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-body" style={{ paddingBottom: 0 }}>
+            <div className="section-label">{t('dashboard.store.cards.scheduleAttention.title')}</div>
+          </div>
+          {!scheduleAttention.length
+            ? <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.store.cards.scheduleAttention.empty')}</div>
+            : <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('dashboard.jobNumber')}</th>
+                      <th>{t('dashboard.shipper')}</th>
+                      <th>{t('schedule.date')}</th>
+                      <th>{t('schedule.needsAttentionReason')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleAttention.map(a => {
+                      const start = (a.startDate || a.date || '').slice(0, 10)
+                      const end = (a.endDate || a.startDate || a.date || '').slice(0, 10)
+                      return (
+                        <tr key={a.id}>
+                          <td>{a.job ? <Link to={`/jobs/${a.job.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{a.job.jobNumber}</Link> : '—'}</td>
+                          <td>{a.job?.client?.name || a.job?.companyName || a.job?.quoteTo || a.description || '—'}</td>
+                          <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{start === end ? start : `${start} → ${end}`}</td>
+                          <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{a.overrideReason || '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>}
+        </div>
       )}
 
       {/* Recent jobs */}

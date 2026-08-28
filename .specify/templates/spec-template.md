@@ -98,6 +98,13 @@
 - **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
 - **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
+### Language Surface Requirements *(mandatory for user-facing features)*
+
+- **Web**: Identify all new web text; require English and Spanish through the central i18n system.
+- **Operator-facing mobile**: Specify Spanish copy unless the feature explicitly requires another language.
+- **Client-facing mobile**: Require English/Spanish selection and consistent rendering for review, signature, acknowledgement, observations, and satisfaction interactions.
+- **Backend/domain values**: Define language-neutral enums and keep localized labels at presentation boundaries.
+
 ### Key Entities *(include if feature involves data)*
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]

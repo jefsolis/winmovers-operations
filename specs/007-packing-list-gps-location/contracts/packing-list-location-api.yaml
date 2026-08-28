@@ -1,0 +1,477 @@
+openapi: 3.0.3
+info:
+  title: Packing List GPS Location API
+  version: 1.0.0
+  description: >
+    Additive contract changes for feature 007-packing-list-gps-location.
+    Only the additions and their behavior are described here; all existing
+    request fields, responses, status codes, idempotency, and locking semantics
+    of these endpoints remain unchanged.
+
+servers:
+  - url: /api
+
+components:
+  schemas:
+    LocationUnavailableReason:
+      type: string
+      description: Language-neutral reason a device position could not be captured.
+      enum:
+        - PERMISSION_DENIED
+        - SERVICES_DISABLED
+        - TIMEOUT
+        - UNSUPPORTED
+        - ERROR
+
+    StageLocation:
+      type: object
+      description: >
+        Device position associated with a single packing list lifecycle event.
+        Either latitude and longitude are both present, or unavailableReason is
+        present. Immutable once the owning event is confirmed.
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          nullable: true
+        accuracy:
+          type: number
+          format: double
+          nullable: true
+          description: Reported accuracy radius in meters.
+        capturedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Moment the position was measured on the device.
+        unavailableReason:
+          allOf:
+            - $ref: '#/components/schemas/LocationUnavailableReason'
+          nullable: true
+
+    JobCoordinates:
+      type: object
+      description: >
+        Exact service coordinates for a job. Both values must be supplied
+        together, or both must be null.
+      properties:
+        serviceLatitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          nullable: true
+        serviceLongitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          nullable: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+paths:
+  /packing-lists:
+    post:
+      summary: Create a packing list (existing endpoint, additive request field)
+      description: >
+        Accepts an optional `location` capturing where the device was when the
+        list was created. Omitting it or sending null is valid and MUST NOT
+        cause a failure.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [movingFileId, operatorName, deviceId]
+              properties:
+                movingFileId:
+                  type: string
+                operatorName:
+                  type: string
+                deviceId:
+                  type: string
+                location:
+                  allOf:
+                    - $ref: '#/components/schemas/StageLocation'
+                  nullable: true
+      responses:
+        '201':
+          description: Created. Existing response body is unchanged.
+        '200':
+          description: Existing duplicate-window reuse response, unchanged.
+        '409':
+          description: Existing conflict response, unchanged.
+
+  /packing-lists/{id}/progress-transitions:
+    post:
+      summary: Record a progress transition (existing endpoint, additive request field)
+      description: >
+        Covers travel start (`toStatus = TRAVELING`) and work start
+        (`toStatus = WORKING`). `location` is persisted only when the event is
+        first created; on an idempotent replay of an existing `idempotencyKey`
+        the stored location MUST be returned unchanged and MUST NOT be
+        overwritten.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idempotencyKey, deviceId, toStatus, occurredAt]
+              properties:
+                idempotencyKey:
+                  type: string
+                  format: uuid
+                deviceId:
+                  type: string
+                toStatus:
+                  type: string
+                  enum: [TRAVELING, WORKING]
+                occurredAt:
+                  type: string
+                  format: date-time
+                observations:
+                  type: string
+                  nullable: true
+                  maxLength: 4000
+                signatureUrl:
+                  type: string
+                  nullable: true
+                location:
+                  allOf:
+                    - $ref: '#/components/schemas/StageLocation'
+                  nullable: true
+      responses:
+        '200':
+          description: Transition confirmed. Serialized transition now includes `location`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  packingListId:
+                    type: string
+                  progressStatus:
+                    type: string
+                  transition:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      toStatus:
+                        type: string
+                      occurredAt:
+                        type: string
+                        format: date-time
+                      confirmedAt:
+                        type: string
+                        format: date-time
+                      actorName:
+                        type: string
+                        nullable: true
+                      observations:
+                        type: string
+                        nullable: true
+                      signatureUrl:
+                        type: string
+                        nullable: true
+                      location:
+                        allOf:
+                          - $ref: '#/components/schemas/StageLocation'
+                        nullable: true
+        '409':
+          description: Existing conflict semantics, unchanged.
+
+  /packing-lists/{id}/workday-events:
+    post:
+      summary: Record a workday event (existing endpoint, additive request field)
+      description: >
+        Covers `DAY_START` and `DAY_CLOSE`. Same immutability rule as progress
+        transitions: `location` is stored on first create only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idempotencyKey, deviceId, eventType, occurredAt, signatures]
+              properties:
+                idempotencyKey:
+                  type: string
+                  format: uuid
+                deviceId:
+                  type: string
+                eventType:
+                  type: string
+                  enum: [DAY_START, DAY_CLOSE]
+                occurredAt:
+                  type: string
+                  format: date-time
+                observations:
+                  type: string
+                  nullable: true
+                  maxLength: 4000
+                signatures:
+                  type: object
+                  description: Existing dual-signature payload, unchanged.
+                location:
+                  allOf:
+                    - $ref: '#/components/schemas/StageLocation'
+                  nullable: true
+      responses:
+        '200':
+          description: Event confirmed. Serialized event now includes `location`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  packingListId:
+                    type: string
+                  workdayIndex:
+                    type: integer
+                  event:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      workdayIndex:
+                        type: integer
+                      eventType:
+                        type: string
+                        enum: [DAY_START, DAY_CLOSE, FINAL_COMPLETE]
+                      occurredAt:
+                        type: string
+                        format: date-time
+                      confirmedAt:
+                        type: string
+                        format: date-time
+                      actorName:
+                        type: string
+                        nullable: true
+                      observations:
+                        type: string
+                        nullable: true
+                      signatures:
+                        type: object
+                        nullable: true
+                      location:
+                        allOf:
+                          - $ref: '#/components/schemas/StageLocation'
+                        nullable: true
+        '409':
+          description: Existing sequencing conflicts, unchanged.
+
+  /packing-lists/{id}/complete:
+    patch:
+      summary: Complete a packing list (existing endpoint, additive request field)
+      description: >
+        `location` is attached to the `FINAL_COMPLETE` workday event created by
+        this endpoint. All existing completion validation, including the
+        missing-barcode gate and crew leader signature requirement, is unchanged.
+        Location MUST NOT be able to block completion.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idempotencyKey, deviceId, reviewLanguage, crewLeaderSignatureUrl]
+              properties:
+                idempotencyKey:
+                  type: string
+                  format: uuid
+                deviceId:
+                  type: string
+                occurredAt:
+                  type: string
+                  format: date-time
+                reviewLanguage:
+                  type: string
+                  enum: [ES, EN]
+                signatureUrl:
+                  type: string
+                  nullable: true
+                signatureDeclined:
+                  type: boolean
+                signatureDeclineNote:
+                  type: string
+                  nullable: true
+                crewLeaderSignatureUrl:
+                  type: string
+                crewLeaderName:
+                  type: string
+                  nullable: true
+                completionObservations:
+                  type: string
+                  nullable: true
+                satisfaction:
+                  type: object
+                location:
+                  allOf:
+                    - $ref: '#/components/schemas/StageLocation'
+                  nullable: true
+      responses:
+        '200':
+          description: Completed. Existing response body is unchanged.
+        '409':
+          description: Existing conflict semantics, including MISSING_BOX_BARCODES.
+
+  /packing-lists/{id}:
+    get:
+      summary: Get packing list detail (existing endpoint, additive response fields)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: >
+            Detail payload. Each entry of `progressTransitions` and
+            `workdayHistory` now carries `location`. `creationLocation` carries
+            the position captured when the list was created. `serviceContext`
+            now carries the job's exact coordinates when available.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  creationLocation:
+                    allOf:
+                      - $ref: '#/components/schemas/StageLocation'
+                    nullable: true
+                  serviceContext:
+                    type: object
+                    properties:
+                      address:
+                        type: string
+                        nullable: true
+                      serviceLatitude:
+                        type: number
+                        format: double
+                        nullable: true
+                      serviceLongitude:
+                        type: number
+                        format: double
+                        nullable: true
+                  progressTransitions:
+                    type: array
+                    items:
+                      type: object
+                  workdayHistory:
+                    type: array
+                    items:
+                      type: object
+
+  /jobs:
+    post:
+      summary: Create a job (existing endpoint, additive request fields)
+      description: >
+        Adds `serviceLatitude` and `serviceLongitude`. Both must be provided
+        together or both omitted/null. Out-of-range or partial values are
+        rejected with 400 and no record is created.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/JobCoordinates'
+                - type: object
+                  description: All existing job fields remain required as today.
+      responses:
+        '201':
+          description: Created.
+        '400':
+          description: Invalid coordinates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{id}:
+    get:
+      summary: Get a job (existing endpoint, additive response fields)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job including `serviceLatitude` and `serviceLongitude`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCoordinates'
+    put:
+      summary: Update a job (existing endpoint, additive request fields)
+      description: >
+        Full-object semantics are preserved. Clients MUST send the complete job
+        object including `serviceLatitude` and `serviceLongitude`; omitting them
+        clears the stored coordinates, consistent with existing behavior for
+        every other job field. Sending both as null is the supported way to
+        remove coordinates.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/JobCoordinates'
+                - type: object
+                  description: All existing job fields, sent in full.
+      responses:
+        '200':
+          description: Updated.
+        '400':
+          description: Invalid coordinates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found.

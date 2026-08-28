@@ -179,7 +179,7 @@ router.post('/', async (req, res, next) => {
   try {
     const { name, email, phone, isActive,
             canBeAssignedToVisit, canCreateQuotes, canBeCreatorInWorkOrder,
-            canCoordinateFiles, canAccessSchedule, role, azureOid, emailSignature } = req.body
+            canCoordinateFiles, canAccessSchedule, canManageSchedule, role, azureOid, emailSignature } = req.body
     if (!name?.trim()) return res.status(400).json({ error: 'Name is required.' })
     if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' })
     const member = await getPrisma().staffMember.create({
@@ -193,6 +193,7 @@ router.post('/', async (req, res, next) => {
         canBeCreatorInWorkOrder: Boolean(canBeCreatorInWorkOrder),
         canCoordinateFiles:      Boolean(canCoordinateFiles),
         canAccessSchedule:       Boolean(canAccessSchedule),
+        canManageSchedule:       Boolean(canManageSchedule),
         role: role || null,
         azureOid: azureOid || null,
         emailSignature: emailSignature || null,
@@ -211,7 +212,7 @@ router.put('/:id', async (req, res, next) => {
   try {
     const { name, email, phone, isActive,
             canBeAssignedToVisit, canCreateQuotes, canBeCreatorInWorkOrder,
-            canCoordinateFiles, canAccessSchedule, role, azureOid, emailSignature } = req.body
+            canCoordinateFiles, canAccessSchedule, canManageSchedule, role, azureOid, emailSignature } = req.body
     if (!name?.trim()) return res.status(400).json({ error: 'Name is required.' })
     if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' })
     const before = await getPrisma().staffMember.findUnique({ where: { id: req.params.id } })
@@ -227,6 +228,7 @@ router.put('/:id', async (req, res, next) => {
         canBeCreatorInWorkOrder: Boolean(canBeCreatorInWorkOrder),
         canCoordinateFiles:      Boolean(canCoordinateFiles),
         canAccessSchedule:       Boolean(canAccessSchedule),
+        canManageSchedule:       Boolean(canManageSchedule),
         role: role || null,
         azureOid: azureOid || null,
         emailSignature: emailSignature || null,

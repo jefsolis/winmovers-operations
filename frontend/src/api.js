@@ -20,7 +20,13 @@ export async function apiFetch(path, { method = 'GET', body } = {}) {
     throw new Error('Session expired. Redirecting to login…')
   }
   const data = await res.json().catch(() => ({ error: res.statusText }))
-  if (!res.ok) throw new Error(data.error || res.statusText)
+  if (!res.ok) {
+    const err = new Error(data.error || res.statusText)
+    err.status = res.status
+    err.code = data.code
+    err.suggestions = data.suggestions
+    throw err
+  }
   return data
 }
 

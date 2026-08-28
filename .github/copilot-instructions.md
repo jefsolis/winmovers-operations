@@ -153,7 +153,7 @@ When adding fields to existing models, always run `npx prisma db push` then `npx
 ## Frontend Conventions
 
 ### i18n
-All user-facing strings go through `i18n.jsx`. Use the `useLanguage()` hook:
+All web user-facing strings go through `i18n.jsx`. Use the `useLanguage()` hook:
 ```jsx
 const { t } = useLanguage()
 // t('nav.visits'), t('common.save'), t('visitStatuses.SCHEDULED'), etc.
@@ -189,6 +189,14 @@ await api.put(`/visits/${id}`, {
 
 ### QuickCreateClientModal
 Always creates `INDIVIDUAL` clients — no `clientType` dropdown. Hardcodes `clientType: 'INDIVIDUAL'` in the POST payload.
+
+---
+
+## Mobile Language Policy
+
+- Operator-facing mobile UI is Spanish unless a feature explicitly requires another language.
+- Client-facing mobile screens for review, signature, acknowledgement, observations, or satisfaction must allow English and Spanish and render the full interaction consistently in the selected language.
+- Shared backend statuses and types remain language-neutral enums; translate only at the presentation boundary.
 
 ---
 

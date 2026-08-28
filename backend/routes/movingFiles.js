@@ -84,9 +84,9 @@ router.get("/", async (req, res, next) => {
       where,
       orderBy: { createdAt: "desc" },
       include: {
-        client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true } },
-        corporateClient: { select: { id: true, name: true } },
-        job:    { select: { id: true, jobNumber: true, status: true, coordinator: { select: { id: true, name: true } } } },
+        client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true, phone: true, address: true } },
+        corporateClient: { select: { id: true, name: true, phone: true, address: true } },
+        job:    { select: { id: true, jobNumber: true, status: true, type: true, clientPhone: true, clientHomePhone: true, companyPhone: true, originAddress: true, originCity: true, originCountry: true, serviceLatitude: true, serviceLongitude: true, coordinator: { select: { id: true, name: true } } } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
         coordinator: { select: { id: true, name: true } },
@@ -106,7 +106,7 @@ router.get("/:id", async (req, res, next) => {
       include: {
         client:          true,
         corporateClient: { select: { id: true, name: true } },
-        job:         { select: { id: true, jobNumber: true, status: true, type: true, shipmentMode: true, volumeCbm: true, weightKg: true, serviceDate: true, originAddress: true, originCity: true, originCountry: true, destAddress: true, destCity: true, destCountry: true, companyName: true, clientPhone: true, clientHomePhone: true, coordinator: { select: { id: true, name: true } }, quote: { select: { id: true, quoteNumber: true, status: true } }, visit: { select: { id: true, visitNumber: true } } } },
+        job:         { select: { id: true, jobNumber: true, status: true, type: true, shipmentMode: true, volumeCbm: true, weightKg: true, serviceDate: true, originAddress: true, originCity: true, originCountry: true, serviceLatitude: true, serviceLongitude: true, destAddress: true, destCity: true, destCountry: true, companyName: true, clientPhone: true, clientHomePhone: true, coordinator: { select: { id: true, name: true } }, quote: { select: { id: true, quoteNumber: true, status: true } }, visit: { select: { id: true, visitNumber: true } } } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
         coordinator: { select: { id: true, name: true } },

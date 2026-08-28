@@ -9,6 +9,7 @@ const AD_ROLE_MAP = { Admin: 'ADMIN', Coordinator: 'COORDINATOR' }
 const EMPTY = {
   name: '', email: '', phone: '', isActive: true,
   canBeAssignedToVisit: true, canCreateQuotes: false, canBeCreatorInWorkOrder: false, canCoordinateFiles: false, canAccessSchedule: false,
+  canManageSchedule: false,
   role: '', azureOid: '',
 }
 
@@ -46,6 +47,7 @@ export default function StaffForm() {
         canBeCreatorInWorkOrder: m.canBeCreatorInWorkOrder,
         canCoordinateFiles:      m.canCoordinateFiles,
         canAccessSchedule:       m.canAccessSchedule ?? false,
+        canManageSchedule:       m.canManageSchedule ?? false,
         role: m.role || '',
         azureOid: m.azureOid || '',
       }))
@@ -265,6 +267,7 @@ export default function StaffForm() {
               ['canBeCreatorInWorkOrder', t('staff.canBeCreatorInWorkOrder')],
               ['canCoordinateFiles',      t('staff.canCoordinateFiles')],
               ['canAccessSchedule',        t('staff.canAccessSchedule')],
+              ['canManageSchedule',        t('staff.canManageSchedule')],
             ].map(([key, label]) => (
               <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer', userSelect: 'none' }}>
                 <input

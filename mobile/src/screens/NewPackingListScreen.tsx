@@ -87,7 +87,13 @@ export default function NewPackingListScreen({ navigation }: Props) {
         id: selectedFile.id,
         fileNumber: selectedFile.file_number,
         category: selectedFile.category,
+        clientId: selectedFile.client_id,
         clientName: selectedFile.client_name ?? null,
+        phone: selectedFile.phone,
+        address: selectedFile.address,
+        serviceLatitude: selectedFile.service_latitude ?? null,
+        serviceLongitude: selectedFile.service_longitude ?? null,
+        jobType: selectedFile.job_type || selectedFile.category,
       });
 
       const newRow: PackingListRow = {
@@ -98,6 +104,8 @@ export default function NewPackingListScreen({ navigation }: Props) {
         moving_file_ref: movingFileRef,
         operator_name: operatorName.trim(),
         status: 'ACTIVE',
+        progress_status: 'NOT_STARTED',
+        pending_progress_status: null,
         signature_local_path: null,
         signature_blob_path: null,
         signature_declined: 0,
@@ -105,6 +113,10 @@ export default function NewPackingListScreen({ navigation }: Props) {
         review_language: null,
         completion_requested_at: null,
         completion_confirmed_at: null,
+        completion_idempotency_key: null,
+        completion_observations: null,
+        satisfaction_rating: null,
+        satisfaction_submitted_at: null,
         deleted_at: null,
         locked_by_device_id: devId,
         lock_expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),

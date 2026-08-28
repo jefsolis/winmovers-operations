@@ -6,6 +6,7 @@ import {
 import SignatureCanvas from 'react-native-signature-canvas';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Network from 'expo-network';
+import * as Crypto from 'expo-crypto';
 
 import { RootStackParamList } from '../navigation/types';
 import { getDeviceId } from '../auth/deviceId';
@@ -22,21 +23,67 @@ import {
   setPackingListComplete,
   setPackingListClosed,
   updatePackingListSyncState,
+  getMissingBarcodeCount,
+  setStageLocation,
 } from '../db/queries';
+import StarRating from '../components/StarRating';
+import { captureStageLocation } from '../services/location';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Signature'>;
 
+const COPY = {
+  ES: {
+    title: 'Revision y firma del cliente', language: 'Idioma de revision', review: 'Revision de contenido',
+    loading: 'Cargando contenido...', empty: 'No hay bultos registrados en esta lista.', box: 'Bulto', noItems: 'Sin articulos en este bulto.',
+    photos: 'Fotos', uploaded: 'Foto subida', signature: 'Firma del cliente', signHint: 'La firma es el ultimo paso y enviara el trabajo completado.',
+    captured: 'Firma capturada', pending: 'Firma pendiente', resign: 'Volver a firmar', openSign: 'Abrir panel de firma', declined: 'El cliente declino firmar',
+    declinePlaceholder: 'Motivo de rechazo...', observations: 'Observaciones de finalizacion', observationsPlaceholder: 'Observaciones sobre el servicio completado',
+    satisfaction: 'Satisfaccion general', ratingRequired: 'Selecciona una calificacion de 1 a 5 estrellas.', complete: 'Completar trabajo',
+    noteTitle: 'Nota requerida', noteMessage: 'Indica por que el cliente declino firmar.', closedTitle: 'Lista cerrada', closedMessage: 'La lista se completo y quedo cerrada.',
+    pendingTitle: 'Pendiente de cierre', pendingMessage: 'La lista se cerrara automaticamente al sincronizar.', error: 'Error', modalTitle: 'Panel de firma', close: 'Cerrar', clear: 'Limpiar firma', useSignature: 'Usar esta firma',
+    crewSignature: 'Firma del jefe de cuadrilla', crewSignHint: 'El jefe de cuadrilla debe firmar antes de completar el trabajo.',
+    crewLeaderName: 'Nombre del jefe de cuadrilla (opcional)', crewLeaderNamePlaceholder: 'Nombre del jefe de cuadrilla',
+    crewRequired: 'La firma del jefe de cuadrilla es obligatoria para completar el trabajo.',
+    clientRequired: 'La firma del cliente es obligatoria para completar el trabajo.',
+    barcodeBlockedTitle: 'Bultos sin codigo de barras',
+    barcodeBlockedMessage: (count: number) => `Hay ${count} bulto(s) sin codigo de barras. Asigna los codigos pendientes antes de completar el trabajo.`,
+  },
+  EN: {
+    title: 'Client review and signature', language: 'Review language', review: 'Content review',
+    loading: 'Loading content...', empty: 'There are no packages in this packing list.', box: 'Package', noItems: 'No items in this package.',
+    photos: 'Photos', uploaded: 'Uploaded photo', signature: 'Client signature', signHint: 'Signing is the final step and will submit the completed work.',
+    captured: 'Signature captured', pending: 'Signature pending', resign: 'Sign again', openSign: 'Open signature panel', declined: 'The client declined to sign',
+    declinePlaceholder: 'Reason for declining...', observations: 'Completion observations', observationsPlaceholder: 'Observations about the completed service',
+    satisfaction: 'Overall satisfaction', ratingRequired: 'Select a rating from 1 to 5 stars.', complete: 'Complete work',
+    noteTitle: 'Note required', noteMessage: 'Enter why the client declined to sign.', closedTitle: 'Packing list closed', closedMessage: 'The packing list was completed and closed.',
+    pendingTitle: 'Completion pending', pendingMessage: 'The packing list will close automatically after synchronization.', error: 'Error', modalTitle: 'Signature panel', close: 'Close', clear: 'Clear signature', useSignature: 'Use this signature',
+    crewSignature: 'Crew leader signature', crewSignHint: 'The crew leader must sign before the work can be completed.',
+    crewLeaderName: 'Crew leader name (optional)', crewLeaderNamePlaceholder: 'Crew leader name',
+    crewRequired: 'The crew leader signature is required to complete the work.',
+    clientRequired: 'The client signature is required to complete the work.',
+    barcodeBlockedTitle: 'Boxes without barcode',
+    barcodeBlockedMessage: (count: number) => `There are ${count} box(es) without a barcode. Assign the pending barcodes before completing the work.`,
+  },
+} as const;
+
 export default function SignatureScreen({ route, navigation }: Props) {
   const { packingListLocalId, serverId } = route.params;
-  const signatureRef = useRef<SignatureCanvas>(null);
+  const signatureRef = useRef<React.ElementRef<typeof SignatureCanvas>>(null);
 
   const [declined, setDeclined] = useState(false);
   const [declineNote, setDeclineNote] = useState('');
   const [hasSignature, setHasSignature] = useState(false);
+  const [clientSignature, setClientSignature] = useState<string | null>(null);
+  const [crewSignature, setCrewSignature] = useState<string | null>(null);
+  const [crewLeaderName, setCrewLeaderName] = useState('');
+  const [activeSigner, setActiveSigner] = useState<'CLIENT' | 'CREW'>('CLIENT');
   const [reviewLanguage, setReviewLanguage] = useState<'ES' | 'EN'>('ES');
   const [submitting, setSubmitting] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [completionObservations, setCompletionObservations] = useState('');
+  const [rating, setRating] = useState<number | null>(null);
   const [selectedPhotoUri, setSelectedPhotoUri] = useState<string | null>(null);
+  const [remotePhotoUrls, setRemotePhotoUrls] = useState<Record<string, string>>({});
   const [loadingReview, setLoadingReview] = useState(true);
   const [reviewPackages, setReviewPackages] = useState<Array<{
     pkg: PackageRow;
@@ -44,6 +91,7 @@ export default function SignatureScreen({ route, navigation }: Props) {
     photos: PackagePhotoRow[];
   }>>([]);
   const [itemTypes, setItemTypes] = useState<ItemTypeCacheRow[]>([]);
+  const copy = COPY[reviewLanguage];
 
   const loadReviewData = useCallback(async () => {
     setLoadingReview(true);
@@ -65,10 +113,23 @@ export default function SignatureScreen({ route, navigation }: Props) {
 
       setItemTypes(types);
       setReviewPackages(packageData);
+
+      try {
+        const detail = await api.getPackingList(serverId);
+        const urls: Record<string, string> = {};
+        for (const pkg of detail.packages) {
+          for (const photo of pkg.photos) {
+            if (photo.downloadUrl) urls[photo.id] = photo.downloadUrl;
+          }
+        }
+        setRemotePhotoUrls(urls);
+      } catch {
+        setRemotePhotoUrls({});
+      }
     } finally {
       setLoadingReview(false);
     }
-  }, [packingListLocalId]);
+  }, [packingListLocalId, serverId]);
 
   useEffect(() => {
     loadReviewData();
@@ -83,88 +144,93 @@ export default function SignatureScreen({ route, navigation }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!declined) {
-      if (!hasSignature) {
-        setShowSignatureModal(true);
-        return;
-      }
-      setSubmitting(true);
-      signatureRef.current?.readSignature();
+    if (!rating) {
+      Alert.alert(copy.satisfaction, copy.ratingRequired);
       return;
     }
-
+    const missingBarcodes = await getMissingBarcodeCount(packingListLocalId);
+    if (missingBarcodes > 0) {
+      Alert.alert(copy.barcodeBlockedTitle, copy.barcodeBlockedMessage(missingBarcodes));
+      return;
+    }
+    if (!crewSignature) {
+      Alert.alert(copy.crewSignature, copy.crewRequired);
+      return;
+    }
     if (declined && !declineNote.trim()) {
-      Alert.alert('Nota requerida', 'Indica por qué el cliente declinó firmar.');
+      Alert.alert(copy.noteTitle, copy.noteMessage);
+      return;
+    }
+    if (!declined && !clientSignature) {
+      Alert.alert(copy.signature, copy.clientRequired);
       return;
     }
 
     setSubmitting(true);
     try {
       const deviceId = await getDeviceId();
+      let clientBlobPath: string | null = null;
+      if (!declined && clientSignature) {
+        const net = await Network.getNetworkStateAsync();
+        if (net.isConnected) {
+          try {
+            const token = await api.getSasUploadToken(serverId, `signature-${Date.now()}.png`);
+            await uploadSourceToAzure(token.sasUrl, clientSignature, 'image/png');
+            clientBlobPath = token.blobPath;
+          } catch {
+            clientBlobPath = null;
+          }
+        }
+      }
+
       const result = await completeWithSignature(
         reviewLanguage,
-        null,
-        null,
-        true,
-        declineNote.trim(),
+        declined ? null : clientSignature,
+        clientBlobPath,
+        declined,
+        declined ? declineNote.trim() : null,
         deviceId,
         serverId,
         packingListLocalId
+        , completionObservations.trim() || null
+        , rating
+        , crewSignature
+        , crewLeaderName.trim() || null
       );
       if (result.closed) {
-        Alert.alert('Lista cerrada', 'La lista se completó y quedó cerrada.');
+        Alert.alert(copy.closedTitle, copy.closedMessage);
       } else {
-        Alert.alert('Pendiente de cierre', 'La lista quedó pendiente. Se cerrará automáticamente al sincronizar.');
+        Alert.alert(copy.pendingTitle, copy.pendingMessage);
       }
       navigation.goBack();
     } catch (err: unknown) {
       const msg = normalizeSyncError(err);
-      Alert.alert('Error', msg);
+      Alert.alert(copy.error, msg);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const onSignatureRead = async (signature: string) => {
-    const deviceId = await getDeviceId();
-    setSubmitting(true);
-    try {
-      let blobPath: string | null = null;
-      const net = await Network.getNetworkStateAsync();
-      if (net.isConnected) {
-        try {
-          const token = await api.getSasUploadToken(serverId, `signature-${Date.now()}.png`);
-          await uploadSourceToAzure(token.sasUrl, signature, 'image/png');
-          blobPath = token.blobPath;
-        } catch {
-          blobPath = null;
-        }
-      }
-
-      setShowSignatureModal(false);
-
-      const result = await completeWithSignature(
-        reviewLanguage,
-        signature,
-        blobPath,
-        false,
-        null,
-        deviceId,
-        serverId,
-        packingListLocalId
-      );
-      if (result.closed) {
-        Alert.alert('Lista cerrada', 'La lista se completó y quedó cerrada.');
-      } else {
-        Alert.alert('Pendiente de cierre', 'La lista quedó pendiente. Se cerrará automáticamente al sincronizar.');
-      }
-      navigation.goBack();
-    } catch (err: unknown) {
-      const msg = normalizeSyncError(err);
-      Alert.alert('Error', msg);
-    } finally {
-      setSubmitting(false);
+  const openSignaturePanel = () => {
+    if (!rating) {
+      Alert.alert(copy.satisfaction, copy.ratingRequired);
+      return;
     }
+    setActiveSigner('CLIENT');
+    setHasSignature(false);
+    setShowSignatureModal(true);
+  };
+
+  const openCrewSignaturePanel = () => {
+    setActiveSigner('CREW');
+    setHasSignature(false);
+    setShowSignatureModal(true);
+  };
+
+  const onSignatureRead = (signature: string) => {
+    if (activeSigner === 'CREW') setCrewSignature(signature);
+    else setClientSignature(signature);
+    setShowSignatureModal(false);
   };
 
   const handleClear = () => {
@@ -175,10 +241,10 @@ export default function SignatureScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.sectionTitle}>Firma del Cliente</Text>
+        <Text style={styles.sectionTitle}>{copy.title}</Text>
 
         <View style={styles.languageRow}>
-          <Text style={styles.declinedLabel}>Idioma de revision</Text>
+          <Text style={styles.declinedLabel}>{copy.language}</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity
               style={[styles.langBtn, reviewLanguage === 'ES' && styles.langBtnActive]}
@@ -198,19 +264,19 @@ export default function SignatureScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.reviewContainer}>
-          <Text style={styles.reviewTitle}>Revision de contenido</Text>
+          <Text style={styles.reviewTitle}>{copy.review}</Text>
           {loadingReview ? (
             <View style={styles.reviewLoading}>
               <ActivityIndicator size="small" color="#1a73e8" />
-              <Text style={styles.reviewLoadingText}>Cargando contenido…</Text>
+              <Text style={styles.reviewLoadingText}>{copy.loading}</Text>
             </View>
           ) : reviewPackages.length === 0 ? (
-            <Text style={styles.reviewEmpty}>No hay bultos registrados en esta lista.</Text>
+            <Text style={styles.reviewEmpty}>{copy.empty}</Text>
           ) : (
             reviewPackages.map(({ pkg, items, photos }, pkgIndex) => (
               <View key={pkg.id} style={styles.packageCard}>
                 <View style={styles.packageHeader}>
-                  <Text style={styles.packageTitle}>Bulto {pkgIndex + 1}</Text>
+                  <Text style={styles.packageTitle}>{copy.box} {pkgIndex + 1}</Text>
                   <Text style={styles.packageBarcode}>{pkg.barcode}</Text>
                 </View>
 
@@ -224,26 +290,29 @@ export default function SignatureScreen({ route, navigation }: Props) {
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.noItemsText}>Sin articulos en este bulto.</Text>
+                  <Text style={styles.noItemsText}>{copy.noItems}</Text>
                 )}
 
                 {photos.length > 0 && (
                   <View style={styles.photosSection}>
-                    <Text style={styles.photosTitle}>Fotos ({photos.length})</Text>
+                    <Text style={styles.photosTitle}>{copy.photos} ({photos.length})</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
-                      {photos.map((photo) => (
-                        <View key={photo.id} style={styles.photoBox}>
-                          {photo.local_path ? (
-                            <TouchableOpacity onPress={() => setSelectedPhotoUri(photo.local_path)} accessibilityRole="button">
-                              <Image source={{ uri: photo.local_path }} style={styles.photoThumb} />
-                            </TouchableOpacity>
-                          ) : (
-                            <View style={styles.uploadedPhotoPlaceholder}>
-                              <Text style={styles.uploadedPhotoText}>Foto subida</Text>
-                            </View>
-                          )}
-                        </View>
-                      ))}
+                      {photos.map((photo) => {
+                        const photoUri = photo.local_path || remotePhotoUrls[photo.id];
+                        return (
+                          <View key={photo.id} style={styles.photoBox}>
+                            {photoUri ? (
+                              <TouchableOpacity onPress={() => setSelectedPhotoUri(photoUri)} accessibilityRole="button">
+                                <Image source={{ uri: photoUri }} style={styles.photoThumb} />
+                              </TouchableOpacity>
+                            ) : (
+                              <View style={styles.uploadedPhotoPlaceholder}>
+                                <Text style={styles.uploadedPhotoText}>{copy.uploaded}</Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
                     </ScrollView>
                   </View>
                 )}
@@ -252,60 +321,102 @@ export default function SignatureScreen({ route, navigation }: Props) {
           )}
         </View>
 
-        {!declined && (
+        <Text style={styles.fieldLabel}>{copy.observations}</Text>
+        <TextInput
+          style={styles.noteInput}
+          value={completionObservations}
+          onChangeText={setCompletionObservations}
+          placeholder={copy.observationsPlaceholder}
+          multiline
+          maxLength={4000}
+        />
+
+        <StarRating value={rating} onChange={setRating} label={copy.satisfaction} requiredMessage={copy.ratingRequired} />
+
+        <View style={styles.signPanelCard}>
+          <Text style={styles.signPanelTitle}>{copy.crewSignature}</Text>
+          <Text style={styles.signPanelHint}>{copy.crewSignHint}</Text>
+          <Text style={styles.fieldLabel}>{copy.crewLeaderName}</Text>
+          <TextInput
+            style={styles.crewNameInput}
+            value={crewLeaderName}
+            onChangeText={setCrewLeaderName}
+            placeholder={copy.crewLeaderNamePlaceholder}
+          />
+          <View style={styles.signPanelRow}>
+            <Text style={[styles.signState, crewSignature ? styles.signStateOk : styles.signStateMissing]}>
+              {crewSignature ? copy.captured : copy.pending}
+            </Text>
+            <TouchableOpacity
+              style={styles.openSignPanelBtn}
+              onPress={openCrewSignaturePanel}
+              accessibilityRole="button"
+            >
+              <Text style={styles.openSignPanelBtnText}>{crewSignature ? copy.resign : copy.openSign}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.declinedRow}>
+          <Text style={styles.declinedLabel}>{copy.declined}</Text>
+          <Switch value={declined} onValueChange={setDeclined} trackColor={{ true: '#1a73e8' }} />
+        </View>
+
+        {declined ? (
+          <>
+            <TextInput
+              style={styles.noteInput}
+              value={declineNote}
+              onChangeText={setDeclineNote}
+              placeholder={copy.declinePlaceholder}
+              multiline
+            />
+            <TouchableOpacity
+              style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+              onPress={handleSubmit}
+              disabled={submitting}
+              accessibilityRole="button"
+            >
+              {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{copy.complete}</Text>}
+            </TouchableOpacity>
+          </>
+        ) : (
           <View style={styles.signPanelCard}>
-            <Text style={styles.signPanelTitle}>Firma del cliente</Text>
-            <Text style={styles.signPanelHint}>Usa el panel dedicado para firmar sin interferencia del scroll.</Text>
+            <Text style={styles.signPanelTitle}>{copy.signature}</Text>
+            <Text style={styles.signPanelHint}>{copy.signHint}</Text>
             <View style={styles.signPanelRow}>
-              <Text style={[styles.signState, hasSignature ? styles.signStateOk : styles.signStateMissing]}>
-                {hasSignature ? 'Firma capturada' : 'Firma pendiente'}
+              <Text style={[styles.signState, clientSignature ? styles.signStateOk : styles.signStateMissing]}>
+                {clientSignature ? copy.captured : copy.pending}
               </Text>
               <TouchableOpacity
                 style={styles.openSignPanelBtn}
-                onPress={() => setShowSignatureModal(true)}
+                onPress={openSignaturePanel}
                 accessibilityRole="button"
               >
-                <Text style={styles.openSignPanelBtnText}>{hasSignature ? 'Volver a firmar' : 'Abrir panel de firma'}</Text>
+                <Text style={styles.openSignPanelBtnText}>{clientSignature ? copy.resign : copy.openSign}</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        <View style={styles.declinedRow}>
-          <Text style={styles.declinedLabel}>El cliente declinó firmar</Text>
-          <Switch value={declined} onValueChange={setDeclined} trackColor={{ true: '#1a73e8' }} />
-        </View>
-
-        {declined && (
-          <TextInput
-            style={styles.noteInput}
-            value={declineNote}
-            onChangeText={setDeclineNote}
-            placeholder="Motivo de rechazo…"
-            multiline
-          />
+        {!declined && (
+          <TouchableOpacity
+            style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+            onPress={handleSubmit}
+            disabled={submitting}
+            accessibilityRole="button"
+          >
+            {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{copy.complete}</Text>}
+          </TouchableOpacity>
         )}
-
-        <TouchableOpacity
-          style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={submitting}
-          accessibilityRole="button"
-        >
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.submitBtnText}>Completar Lista</Text>
-          )}
-        </TouchableOpacity>
       </ScrollView>
 
       <Modal visible={showSignatureModal} animationType="slide" presentationStyle="fullScreen">
         <SafeAreaView style={styles.signatureModalContainer}>
           <View style={styles.signatureModalHeader}>
-            <Text style={styles.signatureModalTitle}>Panel de Firma</Text>
+            <Text style={styles.signatureModalTitle}>{copy.modalTitle}</Text>
             <TouchableOpacity onPress={() => setShowSignatureModal(false)} accessibilityRole="button">
-              <Text style={styles.signatureModalClose}>Cerrar</Text>
+              <Text style={styles.signatureModalClose}>{copy.close}</Text>
             </TouchableOpacity>
           </View>
 
@@ -314,6 +425,9 @@ export default function SignatureScreen({ route, navigation }: Props) {
               ref={signatureRef}
               onOK={onSignatureRead}
               onBegin={() => setHasSignature(true)}
+              onEmpty={() => {
+                Alert.alert(copy.signature, copy.pending);
+              }}
               descriptionText=""
               clearText="Limpiar"
               confirmText="Confirmar"
@@ -323,18 +437,21 @@ export default function SignatureScreen({ route, navigation }: Props) {
 
           <View style={styles.signatureModalFooter}>
             <TouchableOpacity style={styles.clearBtn} onPress={handleClear} accessibilityRole="button">
-              <Text style={styles.clearBtnText}>Limpiar Firma</Text>
+              <Text style={styles.clearBtnText}>{copy.clear}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.captureBtn, submitting && styles.submitBtnDisabled]}
               onPress={() => {
-                setSubmitting(true);
+                if (!hasSignature) {
+                  Alert.alert(copy.signature, copy.pending);
+                  return;
+                }
                 signatureRef.current?.readSignature();
               }}
               disabled={submitting}
               accessibilityRole="button"
             >
-              <Text style={styles.captureBtnText}>Usar esta firma</Text>
+              <Text style={styles.captureBtnText}>{copy.useSignature}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -347,7 +464,7 @@ export default function SignatureScreen({ route, navigation }: Props) {
             <View style={styles.photoModalCard}>
               <Image source={{ uri: selectedPhotoUri }} style={styles.photoModalImage} resizeMode="contain" />
               <TouchableOpacity style={styles.photoModalCloseBtn} onPress={() => setSelectedPhotoUri(null)} accessibilityRole="button">
-                <Text style={styles.photoModalCloseText}>Cerrar</Text>
+                <Text style={styles.photoModalCloseText}>{copy.close}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -365,12 +482,38 @@ async function completeWithSignature(
   signatureDeclineNote: string | null,
   deviceId: string,
   serverId: string,
-  localId: string
+  localId: string,
+  completionObservations: string | null,
+  satisfactionRating: number,
+  crewSignatureLocalPath: string,
+  crewLeaderName: string | null
 ): Promise<{ closed: boolean; pendingReason?: string }> {
+  const idempotencyKey = Crypto.randomUUID();
+  const occurredAt = new Date().toISOString();
   await updatePackingListSyncState(localId, 'COMPLETING');
-  await setPackingListComplete(localId, reviewLanguage, signatureLocalPath, signatureBlobPath, signatureDeclined, signatureDeclineNote);
+  const completionLocation = await captureStageLocation();
+  await setStageLocation('packing_lists', localId, completionLocation);
 
-  if (!signatureDeclined && !signatureBlobPath) {
+  let crewSignatureBlobPath: string | null = null;
+  const net = await Network.getNetworkStateAsync();
+  if (net.isConnected) {
+    try {
+      const crewToken = await api.getSasUploadToken(serverId, `crew-signature-${Date.now()}.png`);
+      await uploadSourceToAzure(crewToken.sasUrl, crewSignatureLocalPath, 'image/png');
+      crewSignatureBlobPath = crewToken.blobPath;
+    } catch {
+      crewSignatureBlobPath = null;
+    }
+  }
+
+  await setPackingListComplete(
+    localId, idempotencyKey, reviewLanguage, signatureLocalPath, signatureBlobPath,
+    signatureDeclined, signatureDeclineNote, completionObservations,
+    satisfactionRating, occurredAt,
+    crewSignatureLocalPath, crewSignatureBlobPath, crewLeaderName
+  );
+
+  if ((!signatureDeclined && !signatureBlobPath) || !crewSignatureBlobPath) {
     const pendingReason = 'Firma pendiente de sincronizacion. Se reintentara automaticamente.';
     await updatePackingListSyncState(localId, 'COMPLETE_PENDING_SYNC', {
       syncError: pendingReason,
@@ -380,11 +523,22 @@ async function completeWithSignature(
 
   try {
     await api.completePackingList(serverId, {
+      idempotencyKey,
       deviceId,
+      occurredAt,
       reviewLanguage,
       signatureUrl: signatureBlobPath,
       signatureDeclined,
       signatureDeclineNote,
+      crewLeaderSignatureUrl: crewSignatureBlobPath,
+      crewLeaderName,
+      location: completionLocation,
+      completionObservations,
+      satisfaction: {
+        surveyVersion: 1,
+        answers: { overallRating: satisfactionRating },
+        submittedAt: occurredAt,
+      },
     });
     await setPackingListClosed(localId);
     return { closed: true };
@@ -402,6 +556,9 @@ async function completeWithSignature(
 
 function normalizeSyncError(err: unknown): string {
   const raw = err instanceof Error ? err.message : 'Error de red';
+  if (/missing barcodes|MISSING_BOX_BARCODES/i.test(raw)) {
+    return 'No se puede completar: existen bultos sin codigo de barras. Asigna los codigos pendientes en cada bulto y vuelve a intentar.';
+  }
   if (/Network request failed/i.test(raw)) {
     return 'No se pudo confirmar el cierre por conectividad. Se reintentara automaticamente.';
   }
@@ -444,6 +601,7 @@ const styles = StyleSheet.create({
   uploadedPhotoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 4 },
   uploadedPhotoText: { fontSize: 10, color: '#5f6368', textAlign: 'center' },
   signPanelCard: { backgroundColor: '#fff', borderRadius: 8, padding: 14, marginBottom: 12 },
+  crewNameInput: { backgroundColor: '#fff', borderRadius: 8, padding: 12, fontSize: 15, marginBottom: 12, borderWidth: 1, borderColor: '#e0e0e0' },
   signPanelTitle: { fontSize: 15, fontWeight: '700', color: '#333', marginBottom: 4 },
   signPanelHint: { fontSize: 12, color: '#666', marginBottom: 10 },
   signPanelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
@@ -476,6 +634,7 @@ const styles = StyleSheet.create({
   declinedRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 8, marginBottom: 12 },
   declinedLabel: { fontSize: 15, color: '#333' },
   noteInput: { backgroundColor: '#fff', borderRadius: 8, padding: 12, fontSize: 15, height: 100, textAlignVertical: 'top', marginBottom: 16, borderWidth: 1, borderColor: '#e0e0e0' },
+  fieldLabel: { color: '#1f2937', fontSize: 15, fontWeight: '700', marginBottom: 7 },
   submitBtn: { backgroundColor: '#34a853', borderRadius: 8, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },

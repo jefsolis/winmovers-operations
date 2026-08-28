@@ -10,6 +10,7 @@ const PERMISSIONS = [
   { key: 'canBeCreatorInWorkOrder', bg: '#fef9c3', color: '#a16207', labelKey: 'nav.jobs'      },
   { key: 'canCoordinateFiles',      bg: '#dcfce7', color: '#15803d', labelKey: 'nav.files'     },
   { key: 'canAccessSchedule',       bg: '#fdf4ff', color: '#7e22ce', labelKey: 'nav.schedule'  },
+  { key: 'canManageSchedule',       bg: '#fef3c7', color: '#92400e', labelKey: 'staff.canManageSchedule' },
 ]
 
 const ROLE_META = {

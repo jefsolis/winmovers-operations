@@ -17,6 +17,9 @@ import ScanScreen from './src/screens/ScanScreen';
 import PackageDetailScreen from './src/screens/PackageDetailScreen';
 import PhotoScreen from './src/screens/PhotoScreen';
 import SignatureScreen from './src/screens/SignatureScreen';
+import ArrivalAcknowledgementScreen from './src/screens/ArrivalAcknowledgementScreen';
+import IngressEgressScreen from './src/screens/IngressEgressScreen';
+import IngressEgressSignatureScreen from './src/screens/IngressEgressSignatureScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -60,7 +63,16 @@ export default function App() {
           <Stack.Screen name="Scan" component={ScanScreen} options={{ title: 'Escanear Caja' }} />
           <Stack.Screen name="PackageDetail" component={PackageDetailScreen} options={{ title: 'Contenido de Caja' }} />
           <Stack.Screen name="Photo" component={PhotoScreen} options={{ title: 'Fotos' }} />
+          <Stack.Screen
+            name="ArrivalAcknowledgement"
+            component={ArrivalAcknowledgementScreen}
+            options={({ route }) => ({
+              title: route.params?.eventType === 'DAY_CLOSE' ? 'Cierre de Jornada' : 'Confirmacion de Llegada',
+            })}
+          />
           <Stack.Screen name="Signature" component={SignatureScreen} options={{ title: 'Firma del Cliente' }} />
+          <Stack.Screen name="IngressEgress" component={IngressEgressScreen} options={{ title: 'Ingreso / Egreso' }} />
+          <Stack.Screen name="IngressEgressSignature" component={IngressEgressSignatureScreen} options={{ title: 'Firma' }} />
         </Stack.Navigator>
       </AuthGuard>
     </NavigationContainer>

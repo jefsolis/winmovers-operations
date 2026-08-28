@@ -14,7 +14,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Required to photograph packages during packing.",
         "NSPhotoLibraryUsageDescription": "Required to attach photos to packages.",
-        "NSMicrophoneUsageDescription": "Required for video recording if needed."
+        "NSMicrophoneUsageDescription": "Required for video recording if needed.",
+        "NSLocationWhenInUseUsageDescription": "Required to record where each packing list stage takes place."
       }
     },
     "android": {
@@ -29,7 +30,9 @@
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -49,7 +52,14 @@
         {
           "cameraPermission": "Allow WinMovers Packing to access your camera to photograph packages."
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow WinMovers Packing to record the location of each packing list stage."
+        }
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {

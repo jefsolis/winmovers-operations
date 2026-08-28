@@ -4,17 +4,22 @@ import {
   SafeAreaView, TextInput, Alert, Modal, ScrollView,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Crypto from 'expo-crypto';
 
 import { RootStackParamList } from '../navigation/types';
+import { getDeviceId } from '../auth/deviceId';
+import { useLiveSync } from '../hooks/useLiveSync';
 import {
   getPackingList,
-  getItemsForPackage, getPhotosForPackage,
+  getItemsForPackage, getPhotosForPackage, getPackagesForList,
   getItemTypeCache, ItemTypeCacheRow,
   upsertPackageItem, deletePackageItem,
+  editPackageItem, updatePackageBarcodeState,
   updatePackingListSyncState,
   PackageItemRow, PackagePhotoRow,
 } from '../db/queries';
+import { api } from '../services/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackageDetail'>;
 
@@ -32,6 +37,15 @@ export default function PackageDetailScreen({ route, navigation }: Props) {
   const [quantity, setQuantity] = useState('1');
   const [note, setNote] = useState('');
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState('');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [barcodeState, setBarcodeState] = useState<'MISSING' | 'ASSIGNED'>('ASSIGNED');
+  const { triggerSync } = useLiveSync(packingListLocalId, deviceId);
+
+  useEffect(() => {
+    getDeviceId().then(setDeviceId);
+  }, []);
 
   const loadData = useCallback(async () => {
     const [its, phs, types, pl] = await Promise.all([
@@ -40,9 +54,13 @@ export default function PackageDetailScreen({ route, navigation }: Props) {
       getItemTypeCache(),
       getPackingList(packingListLocalId),
     ]);
+    const pkgs = await getPackagesForList(packingListLocalId);
+    const pkg = pkgs.find((row) => row.id === packageId);
     setItems(its);
     setPhotos(phs);
     setItemTypes(types);
+    setBarcodeInput(pkg?.barcode || '');
+    setBarcodeState(pkg?.barcode_state || 'ASSIGNED');
     const closedLike =
       pl?.status === 'CLOSED' ||
       pl?.status === 'COMPLETE' ||
@@ -53,9 +71,9 @@ export default function PackageDetailScreen({ route, navigation }: Props) {
     setIsReadOnly(!!closedLike);
   }, [packageId, packingListLocalId]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  const handleAddItem = async () => {
+  const handleSaveItem = async () => {
     if (isReadOnly) {
       Alert.alert('Lista no editable', 'Esta lista ya fue completada o esta en proceso de cierre.');
       return;
@@ -70,24 +88,65 @@ export default function PackageDetailScreen({ route, navigation }: Props) {
       return;
     }
 
-    const id = await generateUUID();
-    const newItem: PackageItemRow = {
-      id,
-      server_id: null,
-      package_id: packageId,
-      packing_item_type_id: selectedTypeId,
-      custom_name: selectedTypeId ? null : customName.trim(),
-      quantity: qty,
-      note: note.trim() || null,
-    };
-    await upsertPackageItem(newItem);
+    if (editingItemId) {
+      await editPackageItem(editingItemId, {
+        packing_item_type_id: selectedTypeId,
+        custom_name: selectedTypeId ? null : customName.trim(),
+        quantity: qty,
+        note: note.trim() || null,
+      });
+    } else {
+      const id = await generateUUID();
+      const newItem: PackageItemRow = {
+        id,
+        server_id: null,
+        package_id: packageId,
+        packing_item_type_id: selectedTypeId,
+        custom_name: selectedTypeId ? null : customName.trim(),
+        quantity: qty,
+        note: note.trim() || null,
+      };
+      await upsertPackageItem(newItem);
+    }
     await updatePackingListSyncState(packingListLocalId, 'LOCAL', { syncError: null });
     setCustomName('');
     setQuantity('1');
     setNote('');
     setSelectedTypeId(null);
+    setEditingItemId(null);
     setShowAddModal(false);
     await loadData();
+    if (deviceId) triggerSync();
+  };
+
+  const openEditItem = (item: PackageItemRow) => {
+    setEditingItemId(item.id);
+    setSelectedTypeId(item.packing_item_type_id);
+    setCustomName(item.custom_name || '');
+    setQuantity(String(item.quantity));
+    setNote(item.note || '');
+    setShowAddModal(true);
+  };
+
+  const assignBarcode = async () => {
+    const value = barcodeInput.trim();
+    if (!value) {
+      Alert.alert('Codigo requerido', 'Ingresa un codigo de barras valido.');
+      return;
+    }
+    const list = await getPackingList(packingListLocalId);
+    await updatePackageBarcodeState(packageId, value, 'ASSIGNED');
+    await updatePackingListSyncState(packingListLocalId, 'LOCAL', { syncError: null });
+    if (list?.server_id) {
+      try {
+        await api.assignPackageBarcode(list.server_id, packageId, { barcode: value });
+      } catch {
+        // Keep local assignment and let sync resolve on next save.
+      }
+    }
+    setBarcodeState('ASSIGNED');
+    await loadData();
+    if (deviceId) triggerSync();
   };
 
   const handleDeleteItem = (id: string) => {
@@ -103,6 +162,7 @@ export default function PackageDetailScreen({ route, navigation }: Props) {
           await deletePackageItem(id);
           await updatePackingListSyncState(packingListLocalId, 'LOCAL', { syncError: null });
           await loadData();
+          if (deviceId) triggerSync();
         },
       },
     ]);
@@ -124,13 +184,39 @@ export default function PackageDetailScreen({ route, navigation }: Props) {
           <Text style={styles.addBtnText}>+ Agregar Artículo</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.photoBtn, isReadOnly && styles.disabledBtn]}
+          style={styles.photoBtn}
           onPress={() => navigation.navigate('Photo', { packageId, packingListLocalId })}
-          disabled={isReadOnly}
           accessibilityRole="button"
         >
           <Text style={styles.photoBtnText}>📷 Fotos ({photos.length})</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.barcodePanel}>
+        <Text style={styles.barcodeTitle}>Codigo de barras</Text>
+        <Text style={[styles.barcodeState, barcodeState === 'MISSING' ? styles.barcodeMissing : styles.barcodeAssigned]}>
+          {barcodeState === 'MISSING' ? 'Pendiente por asignar' : 'Asignado'}
+        </Text>
+        <View style={styles.barcodeRow}>
+          <TextInput
+            style={styles.barcodeInput}
+            value={barcodeInput}
+            onChangeText={setBarcodeInput}
+            placeholder="Escanea o escribe codigo"
+            autoCapitalize="characters"
+          />
+          <TouchableOpacity
+            style={styles.scanBtn}
+            onPress={() => navigation.navigate('Scan', { packingListLocalId, assignToPackageId: packageId })}
+            accessibilityRole="button"
+            accessibilityLabel="Escanear codigo de barras con la camara"
+          >
+            <Text style={styles.scanBtnText}>Escanear</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.assignBtn} onPress={() => void assignBarcode()} accessibilityRole="button">
+            <Text style={styles.assignBtnText}>Asignar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -151,6 +237,9 @@ export default function PackageDetailScreen({ route, navigation }: Props) {
               <TouchableOpacity onPress={() => handleDeleteItem(item.id)} accessibilityRole="button">
                 <Text style={styles.deleteBtn}>✕</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => openEditItem(item)} accessibilityRole="button">
+                <Text style={styles.editBtn}>Editar</Text>
+              </TouchableOpacity>
             </View>
           );
         }}
@@ -160,7 +249,7 @@ export default function PackageDetailScreen({ route, navigation }: Props) {
       <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Agregar Artículo</Text>
+            <Text style={styles.modalTitle}>{editingItemId ? 'Editar Articulo' : 'Agregar Articulo'}</Text>
             <TouchableOpacity onPress={() => setShowAddModal(false)} accessibilityRole="button">
               <Text style={styles.modalClose}>Cancelar</Text>
             </TouchableOpacity>
@@ -209,8 +298,8 @@ export default function PackageDetailScreen({ route, navigation }: Props) {
               multiline
             />
 
-            <TouchableOpacity style={styles.submitBtn} onPress={handleAddItem} accessibilityRole="button">
-              <Text style={styles.submitBtnText}>Agregar</Text>
+            <TouchableOpacity style={styles.submitBtn} onPress={handleSaveItem} accessibilityRole="button">
+              <Text style={styles.submitBtnText}>{editingItemId ? 'Guardar cambios' : 'Agregar'}</Text>
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -275,6 +364,17 @@ async function generateUUID(): Promise<string> {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   toolbar: { flexDirection: 'row', padding: 12, gap: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  barcodePanel: { backgroundColor: '#fff', margin: 12, marginTop: 10, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' },
+  barcodeTitle: { fontSize: 13, fontWeight: '700', color: '#374151' },
+  barcodeState: { marginTop: 4, fontSize: 12, fontWeight: '700' },
+  barcodeMissing: { color: '#b45309' },
+  barcodeAssigned: { color: '#166534' },
+  barcodeRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  barcodeInput: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, fontSize: 14, borderWidth: 1, borderColor: '#e0e0e0' },
+  scanBtn: { backgroundColor: '#e8f0fe', borderRadius: 8, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#b8cbe0' },
+  scanBtnText: { color: '#1769aa', fontSize: 13, fontWeight: '700' },
+  assignBtn: { backgroundColor: '#1769aa', borderRadius: 8, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  assignBtnText: { color: '#fff', fontWeight: '700' },
   addBtn: { flex: 1, backgroundColor: '#1a73e8', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   photoBtn: { flex: 1, backgroundColor: '#fff', borderRadius: 8, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: '#1a73e8' },
@@ -286,6 +386,7 @@ const styles = StyleSheet.create({
   itemQty: { fontSize: 13, color: '#888', marginTop: 2 },
   itemNote: { fontSize: 12, color: '#aaa', marginTop: 2, fontStyle: 'italic' },
   deleteBtn: { fontSize: 18, color: '#d32f2f', paddingHorizontal: 8 },
+  editBtn: { fontSize: 13, color: '#1769aa', fontWeight: '700', paddingHorizontal: 8 },
   empty: { textAlign: 'center', color: '#aaa', marginTop: 48, fontSize: 15 },
   // Modal
   modal: { flex: 1, backgroundColor: '#fff' },

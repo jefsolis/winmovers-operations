@@ -1,0 +1,295 @@
+openapi: 3.0.3
+info:
+  title: Packing List Progress API
+  version: 1.0.0
+  description: Sequential packing-job progress, client service context, arrival acknowledgement, and completion satisfaction extensions.
+servers:
+  - url: /api
+security:
+  - bearerAuth: []
+
+paths:
+  /packing-lists:
+    get:
+      summary: List packing lists with progress and service context
+      parameters:
+        - in: query
+          name: movingFileId
+          schema: { type: string }
+      responses:
+        '200':
+          description: Active packing-list summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PackingListSummary' }
+
+  /packing-lists/{id}:
+    get:
+      summary: Get packing-list detail, progress history, and sign-off details
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      responses:
+        '200':
+          description: Packing-list detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PackingListDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /packing-lists/{id}/progress-transitions:
+    post:
+      summary: Advance to the next non-completion progress stage
+      description: Accepts NOT_STARTED to TRAVELING and TRAVELING to WORKING. Completion remains atomic through the established complete endpoint.
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProgressTransitionRequest' }
+      responses:
+        '200':
+          description: Existing transition returned for an idempotent retry
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgressTransitionResult' }
+        '201':
+          description: Transition confirmed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgressTransitionResult' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /packing-lists/{id}/complete:
+    patch:
+      summary: Complete the packing list and operational progress atomically
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CompletePackingListRequest' }
+      responses:
+        '200':
+          description: Completion confirmed or original idempotent completion returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CompletePackingListResult' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PackingListId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string }
+
+  responses:
+    NotFound:
+      description: Packing list was not found or is soft-deleted
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationError:
+      description: Required acknowledgement or payload validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Invalid sequence, closed list, stale status, or device-lock conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    ProgressStatus:
+      type: string
+      enum: [NOT_STARTED, TRAVELING, WORKING, COMPLETED]
+
+    ServiceContext:
+      type: object
+      required: [fileNumber, category, jobType]
+      properties:
+        clientId: { type: string, nullable: true }
+        clientName: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        address: { type: string, nullable: true }
+        jobType: { type: string }
+        fileNumber: { type: string }
+        category: { type: string }
+
+    ProgressTransition:
+      type: object
+      required: [id, idempotencyKey, fromStatus, toStatus, actorName, occurredAt, confirmedAt]
+      properties:
+        id: { type: string }
+        idempotencyKey: { type: string, format: uuid }
+        fromStatus: { $ref: '#/components/schemas/ProgressStatus' }
+        toStatus: { $ref: '#/components/schemas/ProgressStatus' }
+        actorName: { type: string }
+        observations: { type: string, nullable: true }
+        signatureUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Expiring signed read URL; persisted value remains an Azure blob path.
+        occurredAt: { type: string, format: date-time }
+        confirmedAt: { type: string, format: date-time }
+
+    SatisfactionResponse:
+      type: object
+      required: [surveyVersion, answers, submittedAt]
+      properties:
+        surveyVersion:
+          type: integer
+          enum: [1]
+        answers:
+          type: object
+          required: [overallRating]
+          properties:
+            overallRating:
+              type: integer
+              minimum: 1
+              maximum: 5
+        submittedAt: { type: string, format: date-time }
+
+    PackingListSummary:
+      type: object
+      required: [id, listNumber, movingFileId, operatorName, status, progressStatus, serviceContext, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        listNumber: { type: string }
+        movingFileId: { type: string }
+        operatorName: { type: string }
+        status: { type: string, enum: [ACTIVE, COMPLETE_PENDING_SYNC, CLOSED, ERROR] }
+        progressStatus: { $ref: '#/components/schemas/ProgressStatus' }
+        pendingProgressStatus:
+          allOf:
+            - $ref: '#/components/schemas/ProgressStatus'
+          nullable: true
+          description: Mobile-local concept; server-confirmed summaries normally return null.
+        serviceContext: { $ref: '#/components/schemas/ServiceContext' }
+        latestTransition:
+          allOf:
+            - $ref: '#/components/schemas/ProgressTransition'
+          nullable: true
+        packageCount: { type: integer, minimum: 0 }
+        itemCount: { type: integer, minimum: 0 }
+        photoCount: { type: integer, minimum: 0 }
+        syncVisibilityState: { type: string, enum: [IN_SYNC, SYNC_IN_PROGRESS] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PackingListDetail:
+      allOf:
+        - $ref: '#/components/schemas/PackingListSummary'
+        - type: object
+          required: [progressTransitions, packages]
+          properties:
+            progressTransitions:
+              type: array
+              items: { $ref: '#/components/schemas/ProgressTransition' }
+            satisfactionResponse:
+              allOf:
+                - $ref: '#/components/schemas/SatisfactionResponse'
+              nullable: true
+            signatureUrl: { type: string, format: uri, nullable: true }
+            signatureDeclined: { type: boolean }
+            signatureDeclineNote: { type: string, nullable: true }
+            packages:
+              type: array
+              items: { type: object }
+
+    CreateProgressTransitionRequest:
+      type: object
+      required: [idempotencyKey, deviceId, toStatus, occurredAt]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        deviceId: { type: string, minLength: 1 }
+        toStatus:
+          type: string
+          enum: [TRAVELING, WORKING]
+        occurredAt: { type: string, format: date-time }
+        observations: { type: string, nullable: true, maxLength: 4000 }
+        signatureUrl:
+          type: string
+          nullable: true
+          description: Azure blob path; required when toStatus is WORKING.
+
+    ProgressTransitionResult:
+      type: object
+      required: [packingListId, progressStatus, transition]
+      properties:
+        packingListId: { type: string }
+        progressStatus: { $ref: '#/components/schemas/ProgressStatus' }
+        transition: { $ref: '#/components/schemas/ProgressTransition' }
+
+    CompletePackingListRequest:
+      type: object
+      required: [idempotencyKey, deviceId, occurredAt, reviewLanguage, signatureDeclined, completionObservations, satisfaction]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        deviceId: { type: string, minLength: 1 }
+        occurredAt: { type: string, format: date-time }
+        reviewLanguage: { type: string, enum: [ES, EN] }
+        signatureUrl:
+          type: string
+          nullable: true
+          description: Azure blob path for final signature.
+        signatureDeclined: { type: boolean }
+        signatureDeclineNote: { type: string, nullable: true }
+        completionObservations: { type: string, nullable: true, maxLength: 4000 }
+        satisfaction: { $ref: '#/components/schemas/SatisfactionResponseInput' }
+
+    SatisfactionResponseInput:
+      type: object
+      required: [surveyVersion, answers, submittedAt]
+      properties:
+        surveyVersion:
+          type: integer
+          enum: [1]
+        answers:
+          type: object
+          required: [overallRating]
+          properties:
+            overallRating:
+              type: integer
+              minimum: 1
+              maximum: 5
+        submittedAt: { type: string, format: date-time }
+
+    CompletePackingListResult:
+      type: object
+      required: [id, status, progressStatus, listNumber, transition, satisfactionResponse]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [CLOSED] }
+        progressStatus: { type: string, enum: [COMPLETED] }
+        listNumber: { type: string }
+        transition: { $ref: '#/components/schemas/ProgressTransition' }
+        satisfactionResponse: { $ref: '#/components/schemas/SatisfactionResponse' }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        currentProgressStatus:
+          allOf:
+            - $ref: '#/components/schemas/ProgressStatus'
+          nullable: true
+        lockedByDeviceId: { type: string, nullable: true }

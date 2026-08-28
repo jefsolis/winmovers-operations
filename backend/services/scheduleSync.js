@@ -1,5 +1,6 @@
 const { getPrisma } = require('../db')
 const { logAudit }  = require('../audit')
+const { checkCapacityForSpan, findClosestAvailableSpan } = require('./scheduleCapacity')
 
 const SERVICE_TYPE_LABELS = {
   DOOR_TO_PORT: 'Puerta a Puerto',
@@ -11,9 +12,13 @@ const SERVICE_TYPE_LABELS = {
 
 /**
  * Upsert/delete EMPAQUE and MUDANZA schedule entries for a Job.
- * Called after job create or update (fire-and-forget).
+ * Called after job create or update. Returns { warning } when the job could
+ * not be auto-scheduled (missing personalCount or insufficient capacity) —
+ * callers should surface this to the user rather than silently skip it.
+ * Pass { forceOverride: true, overrideReason } to schedule anyway despite
+ * insufficient capacity, flagging the entry as needing attention.
  */
-async function syncJobScheduleEntries(job, req = null) {
+async function syncJobScheduleEntries(job, req = null, { forceOverride = false, overrideReason = null } = {}) {
   const db = getPrisma()
 
   // Resolve a stable client label from linked records (never from agent/quoteTo text).
@@ -81,24 +86,75 @@ async function syncJobScheduleEntries(job, req = null) {
     if (mf?.coordinatorId) resolvedCoordinatorId = mf.coordinatorId
   }
 
+  const startDateRaw = job.serviceDate || job.moveDate
+  const daysToComplete = job.daysToComplete || 1
+  const matchWhere = { jobId: job.id, taskType: { in: ['EMPAQUE', 'MUDANZA', 'DESEMPAQUE'] } }
+
+  let warning = null
+  let needsAttention = false
+  let resolvedOverrideReason = null
+  if (startDateRaw) {
+    const existing = await db.scheduleEntry.findFirst({ where: matchWhere })
+    if (!job.personalCount) {
+      warning = {
+        code: 'MISSING_WORKERS_REQUIRED',
+        message: 'Este trabajo necesita el número de trabajadores requeridos antes de poder agendarse automáticamente.',
+      }
+    } else {
+      const { fits } = await checkCapacityForSpan(startDateRaw, daysToComplete, job.personalCount, existing?.id || null)
+      if (fits) {
+        needsAttention = false
+        resolvedOverrideReason = null
+      } else if (forceOverride) {
+        if (!overrideReason?.trim()) {
+          warning = {
+            code: 'OVERRIDE_REASON_REQUIRED',
+            message: 'Debes indicar un motivo para agendar este trabajo fuera de la capacidad disponible.',
+          }
+        } else {
+          needsAttention = true
+          resolvedOverrideReason = overrideReason.trim()
+        }
+      } else if (existing?.needsAttention) {
+        // Already flagged from a prior override — keep it flagged with its stored reason rather than re-blocking.
+        needsAttention = true
+        resolvedOverrideReason = existing.overrideReason
+      } else {
+        const suggestions = await findClosestAvailableSpan(startDateRaw, daysToComplete, job.personalCount, existing?.id || null)
+        warning = {
+          code: 'NO_CAPACITY',
+          message: 'No hay espacio en la Bitácora para este trabajo esa fecha (o fechas).',
+          suggestions,
+        }
+      }
+    }
+  }
+
   // Match any existing service entry for this job regardless of old taskType
-  await _syncEntry(db, {
-    matchWhere:   { jobId: job.id, taskType: { in: ['EMPAQUE', 'MUDANZA', 'DESEMPAQUE'] } },
-    date:         job.serviceDate || job.moveDate,
-    time:         job.serviceTime || null,
-    taskType,
-    description,
-    notes,
-    jobId:        job.id,
-    assignedToId: resolvedCoordinatorId,
-    req,
-  })
+  if (!warning) {
+    await _syncEntry(db, {
+      matchWhere,
+      date:         startDateRaw,
+      days:         daysToComplete,
+      time:         job.serviceTime || null,
+      taskType,
+      description,
+      notes,
+      jobId:        job.id,
+      assignedToId: resolvedCoordinatorId,
+      needsAttention,
+      overrideReason: resolvedOverrideReason,
+      req,
+    })
+  }
+
+  return { warning }
 }
 
 /**
  * Internal helper — upsert if date is set, delete if date is null/undefined.
  */
-async function _syncEntry(db, { matchWhere, date, time, taskType, description, notes, jobId, assignedToId, req = null }) {
+async function _syncEntry(db, { matchWhere, date, days = 1, time, taskType, description, notes, jobId, assignedToId, needsAttention = false, overrideReason = null, req = null }) {
   try {
     const existing = await db.scheduleEntry.findFirst({ where: matchWhere })
 
@@ -111,17 +167,21 @@ async function _syncEntry(db, { matchWhere, date, time, taskType, description, n
       return
     }
 
-    const sourceDate = new Date(date)
+    const sourceStart = new Date(new Date(date).toISOString().slice(0, 10) + 'T00:00:00.000Z')
+    const sourceEnd = new Date(sourceStart)
+    sourceEnd.setUTCDate(sourceEnd.getUTCDate() + Math.max(1, days) - 1)
     const data = {
-      date:         sourceDate,
-      startDate:    sourceDate,
-      endDate:      sourceDate,
+      date:         sourceStart,
+      startDate:    sourceStart,
+      endDate:      sourceEnd,
       time:         time         || null,
       taskType,
       description,
       notes:        notes        || null,
       assignedToId: assignedToId || null,
       jobId:        jobId        || null,
+      needsAttention,
+      overrideReason,
     }
 
     if (existing) {
@@ -136,6 +196,8 @@ async function _syncEntry(db, { matchWhere, date, time, taskType, description, n
           time: data.time,
           taskType: data.taskType,
           description: data.description,
+          needsAttention: data.needsAttention,
+          overrideReason: data.overrideReason,
         },
       })
       if (req) logAudit(req, 'ScheduleEntry', existing.id, 'UPDATE', existing, updated)

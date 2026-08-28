@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  SafeAreaView, ActivityIndicator, AppState, AppStateStatus,
+  SafeAreaView, ActivityIndicator, AppState, AppStateStatus, Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Network from 'expo-network';
@@ -13,8 +14,11 @@ import { getDeviceId } from '../auth/deviceId';
 import { refreshAllPackingListsFromServer, refreshItemTypeCache, refreshMovingFileCache, retryPendingPackingListCompletions } from '../services/cacheService';
 import {
   getCurrentPackingLists,
+  markPackingListDeletedLocally,
   PackingListRow,
 } from '../db/queries';
+import { api } from '../services/api';
+import { getPackingProgressStage } from '../components/PackingProgressIndicator';
 
 type MovingFileRefMeta = {
   id?: string;
@@ -24,6 +28,7 @@ type MovingFileRefMeta = {
 };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
+type ListFilter = 'ACTIVE' | 'COMPLETED';
 
 export default function HomeScreen({ navigation }: Props) {
   const { userName, logout } = useAuth();
@@ -31,6 +36,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [listFilter, setListFilter] = useState<ListFilter>('ACTIVE');
 
   const loadHomeData = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -115,8 +121,31 @@ export default function HomeScreen({ navigation }: Props) {
     });
   };
 
-  const parseMovingFileRef = (raw: string): MovingFileRefMeta => {
-    try {
+  const confirmDeletePackingList = (item: PackingListRow) => {
+    Alert.alert(
+      'Eliminar lista',
+      `Se eliminara la lista ${item.list_number ?? 'sin numero'}. Esta accion tambien la elimina en la web.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (item.server_id) await api.softDeletePackingList(item.server_id);
+              await markPackingListDeletedLocally(item.id);
+              await loadHomeData(true);
+            } catch (error: unknown) {
+              const message = error instanceof Error ? error.message : 'Error desconocido';
+              Alert.alert('No se pudo eliminar', message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const parseMovingFileRef = (raw: string): MovingFileRefMeta => {    try {
       const parsed = JSON.parse(raw) as MovingFileRefMeta;
       return parsed && typeof parsed === 'object' ? parsed : {};
     } catch {
@@ -131,17 +160,17 @@ export default function HomeScreen({ navigation }: Props) {
     return category || 'Expediente';
   };
 
-  const syncBadge = (state: string) => {
-    const map: Record<string, { label: string; bg: string; color: string }> = {
-      LOCAL: { label: 'Local', bg: '#fff3cd', color: '#8a6d1f' },
-      SAVING: { label: 'Guardando', bg: '#e8f0fe', color: '#1a73e8' },
-      SAVED: { label: 'Guardado', bg: '#e6f4ea', color: '#1e8e3e' },
-      COMPLETING: { label: 'Finalizando', bg: '#e8f0fe', color: '#1a73e8' },
-      COMPLETE_PENDING_SYNC: { label: 'Finalizando', bg: '#e8f0fe', color: '#1a73e8' },
-      CLOSED: { label: 'Cerrada', bg: '#e6f4ea', color: '#1e8e3e' },
-      ERROR: { label: 'Error', bg: '#fce8e6', color: '#c5221f' },
+  const syncMeta = (state: string) => {
+    const map: Record<string, { label: string; color: string; icon: React.ComponentProps<typeof Ionicons>['name']; compact: boolean }> = {
+      LOCAL: { label: 'Sin sincronizar', color: '#8a6d1f', icon: 'cloud-offline-outline', compact: false },
+      SAVING: { label: 'Guardando', color: '#1a73e8', icon: 'sync-outline', compact: false },
+      SAVED: { label: 'Sincronizado', color: '#1e8e3e', icon: 'checkmark-circle', compact: true },
+      COMPLETING: { label: 'Finalizando', color: '#1a73e8', icon: 'sync-outline', compact: false },
+      COMPLETE_PENDING_SYNC: { label: 'Finalizando', color: '#1a73e8', icon: 'cloud-upload-outline', compact: false },
+      CLOSED: { label: 'Sincronizado', color: '#1e8e3e', icon: 'checkmark-circle', compact: true },
+      ERROR: { label: 'Error de sincronizacion', color: '#c5221f', icon: 'alert-circle', compact: false },
     };
-    return map[state] ?? { label: state, bg: '#f1f3f4', color: '#5f6368' };
+    return map[state] ?? { label: state, color: '#5f6368', icon: 'help-circle-outline', compact: false };
   };
 
   const formatStatusEs = (status: string | null | undefined) => {
@@ -168,6 +197,18 @@ export default function HomeScreen({ navigation }: Props) {
     : Math.round(
       packingLists.reduce((sum, pl) => sum + syncPercentForState(pl.sync_state), 0) / packingLists.length
     );
+
+  const isCompleted = (item: PackingListRow) => (
+    item.progress_status === 'COMPLETED' ||
+    item.status === 'CLOSED' ||
+    item.status === 'COMPLETE' ||
+    item.sync_state === 'CLOSED'
+  );
+  const activeCount = packingLists.filter(item => !isCompleted(item)).length;
+  const completedCount = packingLists.length - activeCount;
+  const visiblePackingLists = packingLists.filter(item => (
+    listFilter === 'COMPLETED' ? isCompleted(item) : !isCompleted(item)
+  ));
 
   if (loading) {
     return (
@@ -211,16 +252,37 @@ export default function HomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Listas de Empaque Actuales</Text>
+      <View style={styles.listHeading}>
+        <Text style={styles.sectionTitle}>Listas de Empaque</Text>
+        <View style={styles.filterTabs} accessibilityRole="tablist">
+          <TouchableOpacity
+            style={[styles.filterTab, listFilter === 'ACTIVE' && styles.filterTabActive]}
+            onPress={() => setListFilter('ACTIVE')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: listFilter === 'ACTIVE' }}
+          >
+            <Ionicons name="cube-outline" size={15} color={listFilter === 'ACTIVE' ? '#fff' : '#1769aa'} />
+            <Text style={[styles.filterTabText, listFilter === 'ACTIVE' && styles.filterTabTextActive]}>Activas {activeCount}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterTab, listFilter === 'COMPLETED' && styles.filterTabActive]}
+            onPress={() => setListFilter('COMPLETED')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: listFilter === 'COMPLETED' }}
+          >
+            <Ionicons name="checkmark-circle-outline" size={15} color={listFilter === 'COMPLETED' ? '#fff' : '#1769aa'} />
+            <Text style={[styles.filterTabText, listFilter === 'COMPLETED' && styles.filterTabTextActive]}>Completadas {completedCount}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
       <FlatList
-        data={packingLists}
+        data={visiblePackingLists}
         keyExtractor={item => item.id}
         refreshing={refreshing}
         onRefresh={() => loadHomeData(true)}
         contentContainerStyle={{ padding: 16 }}
         renderItem={({ item }) => {
-          const badge = syncBadge(item.sync_state);
-          const itemSyncPercent = syncPercentForState(item.sync_state);
+          const sync = syncMeta(item.sync_state);
           const ref = parseMovingFileRef(item.moving_file_ref);
           const fileOrJob = ref.fileNumber?.trim() || item.moving_file_id;
           const fileCategory = formatCategoryEs(ref.category?.trim());
@@ -229,25 +291,47 @@ export default function HomeScreen({ navigation }: Props) {
           const showDebugLine = item.sync_state === 'COMPLETE_PENDING_SYNC' || item.sync_state === 'COMPLETING' || item.sync_state === 'ERROR';
           const debugMessage = item.sync_error?.trim() || 'Sin detalle de error en cache local';
           const serverTag = item.server_id ? 'serverId=OK' : 'serverId=FALTA';
+          const effectiveProgress = item.pending_progress_status ?? item.progress_status;
+          const progress = getPackingProgressStage(effectiveProgress);
           return (
             <TouchableOpacity style={styles.card} onPress={() => openPackingList(item)} accessibilityRole="button">
               <View style={styles.rowBetween}>
                 <Text style={styles.fileNumber}>{fileOrJob}</Text>
-                <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-                  <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
+                <View
+                  style={styles.syncIndicator}
+                  accessible
+                  accessibilityLabel={sync.label}
+                >
+                  <Ionicons name={sync.icon} size={16} color={sync.color} />
+                  {!sync.compact && <Text style={[styles.syncIndicatorText, { color: sync.color }]}>{sync.label}</Text>}
                 </View>
               </View>
               <Text style={styles.fileCategory}>{statusLabel ? `${fileCategory} | ${statusLabel}` : fileCategory}</Text>
               <Text style={styles.clientName}>{clientName || 'Cliente sin nombre'}</Text>
+              <View style={styles.progressStatus}>
+                <Ionicons name={progress.icon} size={18} color="#1769aa" />
+                <Text style={styles.progressStatusText}>{progress.label}</Text>
+                {item.pending_progress_status && <Text style={styles.progressPending}>Pendiente</Text>}
+              </View>
               <Text style={styles.operatorName}>Operador: {item.operator_name}</Text>
               <Text style={styles.listNumber}>Lista: {item.list_number ?? 'Sin numero'}</Text>
-              <Text style={styles.itemSyncText}>Sincronizacion: {itemSyncPercent}%</Text>
               {showDebugLine ? <Text style={styles.debugSyncText}>Debug sync: {item.sync_state} | {serverTag} | {debugMessage}</Text> : null}
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => confirmDeletePackingList(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`Eliminar lista ${item.list_number ?? ''}`}
+              >
+                <Ionicons name="trash-outline" size={16} color="#c5221f" />
+                <Text style={styles.deleteBtnText}>Eliminar</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           );
         }}
         ListEmptyComponent={
-          <Text style={styles.empty}>No hay listas de empaque actuales.</Text>
+          <Text style={styles.empty}>
+            {listFilter === 'ACTIVE' ? 'No hay listas de empaque activas.' : 'No hay listas de empaque completadas.'}
+          </Text>
         }
       />
     </SafeAreaView>
@@ -273,17 +357,27 @@ const styles = StyleSheet.create({
   syncProgressValue: { fontSize: 12, color: '#1a73e8', fontWeight: '700' },
   progressTrack: { marginTop: 8, height: 8, borderRadius: 8, backgroundColor: '#edf1f5', overflow: 'hidden' },
   progressFill: { height: 8, backgroundColor: '#1a73e8' },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#888', paddingHorizontal: 16, paddingTop: 16, textTransform: 'uppercase', letterSpacing: 0.5 },
+  listHeading: { paddingHorizontal: 16, paddingTop: 16, gap: 10 },
+  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 },
+  filterTabs: { flexDirection: 'row', borderWidth: 1, borderColor: '#b8cbe0', borderRadius: 8, overflow: 'hidden', backgroundColor: '#fff' },
+  filterTab: { flex: 1, minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8 },
+  filterTabActive: { backgroundColor: '#1769aa' },
+  filterTabText: { color: '#1769aa', fontSize: 12, fontWeight: '700' },
+  filterTabTextActive: { color: '#fff' },
   card: { backgroundColor: '#fff', borderRadius: 10, padding: 16, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  badge: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  syncIndicator: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  syncIndicatorText: { fontSize: 10, fontWeight: '700' },
   fileNumber: { fontSize: 18, fontWeight: '700', color: '#1a73e8' },
   fileCategory: { fontSize: 13, color: '#888', marginTop: 2 },
   clientName: { fontSize: 14, color: '#333', marginTop: 4 },
+  progressStatus: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 3 },
+  progressStatusText: { color: '#1769aa', fontSize: 13, fontWeight: '700' },
+  progressPending: { color: '#8a5a00', backgroundColor: '#fff3cd', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, fontSize: 10, fontWeight: '700' },
   operatorName: { fontSize: 12, color: '#5f6368', marginTop: 2 },
   listNumber: { fontSize: 12, color: '#5f6368', marginTop: 2 },
-  itemSyncText: { fontSize: 12, color: '#666', marginTop: 6 },
   debugSyncText: { fontSize: 11, color: '#b3261e', marginTop: 4 },
+  deleteBtn: { alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#f0c2c0', backgroundColor: '#fdf1f0' },
+  deleteBtnText: { color: '#c5221f', fontSize: 12, fontWeight: '700' },
   empty: { textAlign: 'center', color: '#aaa', marginTop: 48, fontSize: 15 },
 });

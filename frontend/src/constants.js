@@ -1,3 +1,5 @@
+import { CheckCircle2, Clock3, PackageOpen, Truck } from 'lucide-react'
+
 // Colour/style metadata — labels come from i18n via t()
 const STATUS_META = [
   { value: 'SURVEY',     bg: '#e2e8f0', color: '#475569' },
@@ -126,6 +128,75 @@ export function formatFileSize(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
+
+const PACKING_PROGRESS_META = {
+  NOT_STARTED: { bg: '#f1f3f4', color: '#5f6368', Icon: Clock3 },
+  TRAVELING:   { bg: '#e8f0fe', color: '#1a73e8', Icon: Truck },
+  WORKING:     { bg: '#fff3cd', color: '#8a6d1f', Icon: PackageOpen },
+  COMPLETED:   { bg: '#e6f4ea', color: '#1e8e3e', Icon: CheckCircle2 },
+}
+
+export function packingProgressMeta(value, t) {
+  const meta = PACKING_PROGRESS_META[value] || PACKING_PROGRESS_META.NOT_STARTED
+  return { value, ...meta, label: t ? t(`packingLists.progress.${value}`) : value }
+}
+
+export const PACKING_WORKDAY_EVENT_TYPES = ['DAY_START', 'DAY_CLOSE', 'FINAL_COMPLETE']
+export const LOCATION_UNAVAILABLE_REASONS = ['PERMISSION_DENIED', 'SERVICES_DISABLED', 'TIMEOUT', 'UNSUPPORTED', 'ERROR']
+
+export function isValidCoordinatePair(latitude, longitude) {
+  return Number.isFinite(latitude) && Number.isFinite(longitude)
+    && latitude >= -90 && latitude <= 90
+    && longitude >= -180 && longitude <= 180
+}
+
+/**
+ * Accepts Google Maps share links (`?q=lat,lng`, `@lat,lng`) and plain `lat, lng` pairs.
+ */
+export function parseCoordinateInput(raw) {
+  if (raw == null) return null
+  const text = String(raw).trim()
+  if (!text) return null
+
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(text)
+    } catch {
+      return text
+    }
+  })()
+
+  const patterns = [
+    /[?&]q=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i,
+    /[?&]query=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i,
+    /@(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/,
+    /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/,
+    /^\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*$/,
+  ]
+
+  for (const pattern of patterns) {
+    const match = decoded.match(pattern)
+    if (!match) continue
+    const latitude = Number(match[1])
+    const longitude = Number(match[2])
+    if (!isValidCoordinatePair(latitude, longitude)) return { error: 'OUT_OF_RANGE' }
+    return { latitude, longitude }
+  }
+
+  return { error: 'UNPARSEABLE' }
+}
+
+export function googleMapsUrl(latitude, longitude) {
+  return `https://www.google.com/maps?q=${latitude},${longitude}`
+}
+
+export const PACKING_BARCODE_STATES = ['MISSING', 'ASSIGNED']
+export const PACKING_FUTURE_ACTIONS = [
+  { id: 'INGRESS_TRUCK', labelKey: 'packingLists.futureActions.INGRESS_TRUCK' },
+  { id: 'TRAVELING_WAREHOUSE', labelKey: 'packingLists.futureActions.TRAVELING_WAREHOUSE' },
+  { id: 'INGRESS_WAREHOUSE', labelKey: 'packingLists.futureActions.INGRESS_WAREHOUSE' },
+  { id: 'EXTRACT_WAREHOUSE', labelKey: 'packingLists.futureActions.EXTRACT_WAREHOUSE' },
+]
 
 // ── Moving File (Expediente) ─────────────────────────────────────────────────
 export const FILE_CATEGORIES = ['EXPORT', 'IMPORT', 'LOCAL']

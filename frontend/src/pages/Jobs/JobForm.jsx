@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, useLocation, Link } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import JobDocument from './JobDocument'
@@ -7,6 +7,7 @@ import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 import QuickCreateClientModal from '../../components/QuickCreateClientModal'
 import QuickCreateCorporateClientModal from '../../components/QuickCreateCorporateClientModal'
 import AgentLookup from '../../components/AgentLookup'
+import LocationPicker from '../../components/LocationPicker'
 
 const EMPTY = {
   type: 'IMPORT', status: 'SURVEY',
@@ -14,6 +15,7 @@ const EMPTY = {
   corporateClientId: '',
   originAddress: '', originWarehouse: '', originCity: '', originCountry: '',
   destAddress: '', destCity: '', destCountry: '',
+  serviceLatitude: null, serviceLongitude: null,
   notes: '',
   serviceDate: '', serviceTime: '',
   clientPhone: '', clientHomePhone: '',
@@ -22,6 +24,7 @@ const EMPTY = {
   volumeCbm: '', weightKg: '',
   quoteTo: '', creatorName: '',
   contacto: '', bultos: '', personalCount: '', transbordo: null, coordinatorId: '',
+  daysToComplete: '',
 }
 
 function toInputDate(v) {
@@ -33,6 +36,7 @@ export default function JobForm() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const isEdit = Boolean(id)
   const fromQuoteId  = !isEdit ? searchParams.get('fromQuote') : null
   const fromFileId   = !isEdit ? searchParams.get('fromFile')  : null
@@ -54,10 +58,14 @@ export default function JobForm() {
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [scheduleWarning, setScheduleWarning] = useState(location.state?.scheduleWarning || null)
+  const [showOverride, setShowOverride] = useState(false)
+  const [overrideReason, setOverrideReason] = useState('')
   const errorRef = useRef(null)
   const [clientModalOpen, setClientModalOpen] = useState(false)
   const [corpModalOpen, setCorpModalOpen]     = useState(false)
   const currentStaff = useCurrentStaff()
+  const isScheduleManager = Boolean(currentStaff?.canManageSchedule || currentStaff?.role === 'ADMIN')
 
   // Auto-fill creatorName for new records once staff list + current user are known
   useEffect(() => {
@@ -85,6 +93,8 @@ export default function JobForm() {
             corporateClientId: job.corporateClientId  || '',
             originAddress: job.originAddress || '', originWarehouse: job.originWarehouse || '', originCity: job.originCity || '', originCountry: job.originCountry || '',
             destAddress: job.destAddress || '', destCity: job.destCity || '', destCountry: job.destCountry || '',
+            serviceLatitude: job.serviceLatitude ?? null,
+            serviceLongitude: job.serviceLongitude ?? null,
             notes: job.notes || '',
             jobNumber: job.jobNumber || '',
             serviceDate: toInputDate(job.serviceDate),
@@ -104,6 +114,7 @@ export default function JobForm() {
             personalCount: job.personalCount ?? '',
             transbordo:    job.transbordo    ?? null,
             coordinatorId: job.coordinatorId  || '',
+            daysToComplete:  job.daysToComplete  ?? '',
           })
           // load existing destAgent — do NOT update autoFilledQuoteTo (preserve saved quoteTo)
           setDestAgent({ agentId: job.destAgentId || '', name: job.destAgent?.name || '' })
@@ -301,9 +312,10 @@ export default function JobForm() {
     } catch { /* ignore */ }
   }
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e, override) => {
     e.preventDefault()
     setSaving(true); setError(null)
+    if (!override) setScheduleWarning(null)
     try {
       const quoteToLink = fromQuoteId || linkedQuoteId
       const payload = {
@@ -315,13 +327,25 @@ export default function JobForm() {
         visitId: (!isEdit && (fromVisitId || linkedVisitId)) ? (fromVisitId || linkedVisitId) : undefined,
         movingFileId: (!isEdit && fromFileId) ? fromFileId : undefined,
         language,
+        ...(override ? { forceScheduleOverride: true, scheduleOverrideReason: overrideReason.trim() } : {}),
       }
       if (isEdit) {
-        await api.put(`/jobs/${id}`, payload)
-        navigate(`/jobs/${id}`)
+        const saved = await api.put(`/jobs/${id}`, payload)
+        if (saved?.scheduleWarning) {
+          setScheduleWarning(saved.scheduleWarning)
+        } else {
+          setShowOverride(false)
+          navigate(`/jobs/${id}`)
+        }
       } else {
         const created = await api.post('/jobs', payload)
-        navigate(`/jobs/${created.id}`)
+        if (created?.scheduleWarning) {
+          // Route to the edit form (not the 'new' form) so a resubmit does not create a duplicate job,
+          // and carry the warning through navigation so the user actually sees it.
+          navigate(`/jobs/${created.id}/edit`, { replace: true, state: { scheduleWarning: created.scheduleWarning } })
+        } else {
+          navigate(`/jobs/${created.id}`)
+        }
       }
     } catch (e) { setError(e.message) }
     finally { setSaving(false) }
@@ -384,6 +408,18 @@ export default function JobForm() {
             />
           </div>
 
+          <div className="form-section">
+            <div className="form-section-title">{t('jobs.serviceCoordinates')}</div>
+            <LocationPicker
+              latitude={form.serviceLatitude}
+              longitude={form.serviceLongitude}
+              onChange={(latitude, longitude) => {
+                set('serviceLatitude', latitude)
+                set('serviceLongitude', longitude)
+              }}
+            />
+          </div>
+
           {form.type !== 'IMPORT' && (
             <div className="form-section">
               <div className="form-section-title">{t('jobs.parties')}</div>
@@ -396,6 +432,73 @@ export default function JobForm() {
               </div>
             </div>
           )}
+
+          <div className="form-section">
+            <div className="form-section-title">{t('jobs.schedulingSection')}</div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{t('jobs.personalCount')}</label>
+                {isScheduleManager ? (
+                  <input type="number" min="1" className="form-control" value={form.personalCount}
+                    onChange={e => set('personalCount', e.target.value)} placeholder={t('jobs.personalCountPlaceholder')} />
+                ) : (
+                  <div className="form-control" style={{ background:'#f8fafc', color:'#475569' }}>
+                    {form.personalCount || '—'} <span style={{ fontSize:11, color:'#94a3b8' }}>({t('schedule.managerOnly')})</span>
+                  </div>
+                )}
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('jobs.daysToComplete')}</label>
+                <input type="number" min="1" className="form-control" value={form.daysToComplete}
+                  onChange={e => set('daysToComplete', e.target.value)} placeholder="1" />
+              </div>
+            </div>
+            {scheduleWarning && (
+              <div className="alert alert-error" style={{ marginTop: 8, fontSize: 13 }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  {scheduleWarning.code === 'MISSING_WORKERS_REQUIRED' ? t('schedule.workersRequiredMissing')
+                    : scheduleWarning.code === 'OVERRIDE_REASON_REQUIRED' ? t('schedule.overrideReasonRequired')
+                    : t('schedule.noCapacityMessage')}
+                </div>
+                {scheduleWarning.suggestions?.length > 0 && (
+                  <>
+                    <div>{t('schedule.suggestedDates')}:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                      {scheduleWarning.suggestions.map(s => (
+                        <button key={s.startDate} type="button" className="btn btn-ghost" style={{ fontSize: 12 }}
+                          onClick={() => { set('serviceDate', s.startDate); setScheduleWarning(null); setShowOverride(false) }}>
+                          {t('schedule.useSuggestedDate')}: {s.startDate === s.endDate ? s.startDate : `${s.startDate} → ${s.endDate}`}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {scheduleWarning.code !== 'MISSING_WORKERS_REQUIRED' && !showOverride && (
+                  <button type="button" className="btn" style={{ marginTop: 10, background: '#fef3c7', color: '#92400e', border: 'none', fontSize: 12 }}
+                    onClick={() => setShowOverride(true)}>
+                    {t('schedule.overrideAction')}
+                  </button>
+                )}
+                {showOverride && (
+                  <div style={{ marginTop: 10 }}>
+                    <label className="form-label">{t('schedule.overrideReasonLabel')} *</label>
+                    <textarea className="form-control" rows={2} value={overrideReason}
+                      onChange={e => setOverrideReason(e.target.value)} placeholder={t('schedule.overrideReasonPlaceholder')} />
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <button type="button" className="btn btn-ghost" onClick={() => setShowOverride(false)}>{t('common.cancel')}</button>
+                      <button type="button" className="btn btn-primary" disabled={saving}
+                        onClick={e => {
+                          if (!overrideReason.trim()) { setError(t('schedule.overrideReasonRequired')); return }
+                          handleSubmit(e, true)
+                        }}>
+                        {saving ? t('common.saving') : t('schedule.overrideAction')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="form-section">
             <div className="form-section-title">{t('common.notes')}</div>

@@ -8,10 +8,12 @@ import * as FileSystem from 'expo-file-system';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Crypto from 'expo-crypto';
 import * as Network from 'expo-network';
+import { Ionicons } from '@expo/vector-icons';
 
 import { RootStackParamList } from '../navigation/types';
 import {
-  getPhotosForPackage, getPackingList, upsertPackagePhoto, updatePackingListSyncState, PackagePhotoRow,
+  getPhotosForPackage, getPackingList, upsertPackagePhoto, updatePackingListSyncState,
+  reconcilePackagePhotos, markPackagePhotoDeleted, PackagePhotoRow,
 } from '../db/queries';
 import { api, uploadPhotoToAzure } from '../services/api';
 
@@ -24,9 +26,6 @@ export default function PhotoScreen({ route }: Props) {
   const [isReadOnly, setIsReadOnly] = useState(false);
 
   const loadPhotos = useCallback(async () => {
-    const ph = await getPhotosForPackage(packageId);
-    setPhotos(ph);
-
     try {
       const pl = await getPackingList(packingListLocalId);
       const closedLike =
@@ -39,19 +38,26 @@ export default function PhotoScreen({ route }: Props) {
       setIsReadOnly(!!closedLike);
       if (!pl?.server_id) {
         setRemoteUrlsById({});
+        setPhotos(await getPhotosForPackage(packageId));
         return;
       }
 
       const detail = await api.getPackingList(pl.server_id);
       const map: Record<string, string> = {};
       for (const pkg of detail.packages) {
-        for (const photo of pkg.photos as Array<{ id: string; downloadUrl?: string | null }>) {
-          if (photo.downloadUrl) map[photo.id] = photo.downloadUrl;
+        if (pkg.id === packageId) await reconcilePackagePhotos(pkg.id, pkg.photos);
+        for (const photo of pkg.photos) {
+          if (photo.downloadUrl) {
+            map[photo.id] = photo.downloadUrl;
+            map[photo.blobPath] = photo.downloadUrl;
+          }
         }
       }
       setRemoteUrlsById(map);
+      setPhotos(await getPhotosForPackage(packageId));
     } catch {
       setRemoteUrlsById({});
+      setPhotos(await getPhotosForPackage(packageId));
     }
   }, [packageId, packingListLocalId]);
 
@@ -136,6 +142,26 @@ export default function PhotoScreen({ route }: Props) {
     }
   };
 
+  const handleDeletePhoto = (photo: PackagePhotoRow) => {
+    if (isReadOnly) return;
+    Alert.alert(
+      'Eliminar foto',
+      'La foto se eliminara de este bulto y del servidor en la proxima sincronizacion.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            await markPackagePhotoDeleted(photo.id);
+            await updatePackingListSyncState(packingListLocalId, 'LOCAL', { syncError: null });
+            await loadPhotos();
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.toolbar}>
@@ -162,23 +188,40 @@ export default function PhotoScreen({ route }: Props) {
         numColumns={2}
         keyExtractor={item => item.id}
         contentContainerStyle={{ padding: 8 }}
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          const photoUri = (item.server_id ? remoteUrlsById[item.server_id] : null)
+            || (item.blob_path ? remoteUrlsById[item.blob_path] : null)
+            || remoteUrlsById[item.id]
+            || item.local_path;
+          return (
           <View style={styles.photoCard}>
-            {item.local_path ? (
-              <Image source={{ uri: item.local_path }} style={styles.photo} />
-            ) : remoteUrlsById[item.id] ? (
-              <Image source={{ uri: remoteUrlsById[item.id] }} style={styles.photo} />
-            ) : item.blob_path ? (
-              <Text style={styles.blobRef} numberOfLines={2}>{item.blob_path}</Text>
-            ) : null}
+            {photoUri ? (
+              <Image source={{ uri: photoUri }} style={styles.photo} />
+            ) : (
+              <View style={styles.photoUnavailable}>
+                <Ionicons name="image-outline" size={30} color="#8b949e" />
+                <Text style={styles.photoUnavailableText}>Imagen no disponible</Text>
+              </View>
+            )}
             <View style={[styles.badge, item.upload_state === 'UPLOADED' ? styles.uploaded : item.upload_state === 'ERROR' ? styles.errored : styles.pending]}>
               <Text style={styles.badgeText}>
                 {item.upload_state === 'UPLOADED' ? '✓' : item.upload_state === 'ERROR' ? '✗' : '⏳'}
               </Text>
             </View>
+            {!isReadOnly && (
+              <TouchableOpacity
+                style={styles.deletePhotoBtn}
+                onPress={() => handleDeletePhoto(item)}
+                accessibilityRole="button"
+                accessibilityLabel="Eliminar foto"
+              >
+                <Ionicons name="trash-outline" size={18} color="#fff" />
+              </TouchableOpacity>
+            )}
           </View>
-        )}
-        ListEmptyComponent={<Text style={styles.empty}>Sin fotos aún. Usa la cámara o la galería.</Text>}
+          );
+        }}
+        ListEmptyComponent={<Text style={styles.empty}>{isReadOnly ? 'Este bulto no tiene fotos.' : 'Sin fotos aún. Usa la cámara o la galería.'}</Text>}
       />
     </SafeAreaView>
   );
@@ -200,7 +243,9 @@ const styles = StyleSheet.create({
   disabledBtn: { opacity: 0.45 },
   photoCard: { flex: 1, margin: 4, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', aspectRatio: 1 },
   photo: { width: '100%', height: '100%' },
-  blobRef: { fontSize: 10, color: '#888', padding: 8 },
+  photoUnavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12 },
+  photoUnavailableText: { color: '#8b949e', fontSize: 11, textAlign: 'center' },
+  deletePhotoBtn: { position: 'absolute', left: 6, bottom: 6, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(176, 34, 34, 0.92)', alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 4, right: 4, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 },
   uploaded: { backgroundColor: '#34a853' },
   errored: { backgroundColor: '#d32f2f' },

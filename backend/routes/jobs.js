@@ -4,6 +4,7 @@ const { logAudit } = require("../audit")
 const { generateFileNumber } = require("./movingFiles")
 const { notifyFileCoordinator } = require('../services/notifications')
 const { syncJobScheduleEntries } = require('../services/scheduleSync')
+const { requireScheduleManager, isScheduleManager } = require('../middleware/schedulePermissions')
 
 async function forbidBodegaWrite(req, res, next) {
   try {
@@ -24,6 +25,26 @@ function toDate(val) {
   if (!val) return null
   const d = new Date(val)
   return isNaN(d.getTime()) ? null : d
+}
+
+// Returns { latitude, longitude } or { error } — both values must be supplied together.
+function resolveServiceCoordinates(rawLatitude, rawLongitude) {
+  const hasLatitude = rawLatitude !== undefined && rawLatitude !== null && rawLatitude !== ''
+  const hasLongitude = rawLongitude !== undefined && rawLongitude !== null && rawLongitude !== ''
+  if (!hasLatitude && !hasLongitude) return { latitude: null, longitude: null }
+  if (hasLatitude !== hasLongitude) {
+    return { error: 'serviceLatitude and serviceLongitude must be provided together' }
+  }
+
+  const latitude = Number(rawLatitude)
+  const longitude = Number(rawLongitude)
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+    return { error: 'serviceLatitude must be a number between -90 and 90' }
+  }
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    return { error: 'serviceLongitude must be a number between -180 and 180' }
+  }
+  return { latitude, longitude }
 }
 
 async function generateImportJobNumber() {
@@ -110,19 +131,28 @@ router.post("/", forbidBodegaWrite, async (req, res, next) => {
       originAgentId, destAgentId, customsAgentId,
       originAddress, originWarehouse, originCity, originCountry,
       destAddress, destCity, destCountry,
+      serviceLatitude, serviceLongitude,
       callDate, surveyDate, packDate, moveDate, deliveryDate,
       volumeCbm, weightKg, shipmentMode, notes, quoteId,
       serviceDate, serviceTime, clientPhone, clientHomePhone,
       companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language,
       contacto, bultos, personalCount, transbordo,
+      daysToComplete,
+      forceScheduleOverride, scheduleOverrideReason,
       movingFileId: manualMovingFileId,
       coordinatorId,
       visitId,
       corporateClientId,
     } = req.body
 
+    if (personalCount != null && personalCount !== '' && !(await isScheduleManager(req))) {
+      return res.status(403).json({ error: 'Solo un Gerente de Bit\u00e1cora puede establecer el tama\u00f1o de cuadrilla de un trabajo.' })
+    }
+
     // Detect Export: visit serviceType DOOR_TO_PORT or DOOR_TO_DOOR
     const EXPORT_SERVICE_TYPES = ["DOOR_TO_PORT", "DOOR_TO_DOOR"]
+    const coordinates = resolveServiceCoordinates(serviceLatitude, serviceLongitude)
+    if (coordinates.error) return res.status(400).json({ error: coordinates.error })
     let isExport = type === "EXPORT"
     let visitBookerRole = null
 
@@ -192,6 +222,8 @@ router.post("/", forbidBodegaWrite, async (req, res, next) => {
       customsAgentId:customsAgentId|| null,
       originAddress, originWarehouse, originCity, originCountry,
       destAddress,   destCity,   destCountry,
+      serviceLatitude:  coordinates.latitude,
+      serviceLongitude: coordinates.longitude,
       callDate:    toDate(callDate),
       surveyDate:  toDate(surveyDate),
       packDate:    toDate(packDate),
@@ -216,6 +248,7 @@ router.post("/", forbidBodegaWrite, async (req, res, next) => {
       bultos:         bultos         != null ? parseInt(bultos)        : null,
       personalCount:  personalCount  != null ? parseInt(personalCount) : null,
       transbordo:     transbordo     !== undefined ? transbordo        : null,
+      daysToComplete:  daysToComplete  != null && daysToComplete  !== '' ? parseInt(daysToComplete)  : null,
       quoteId:        quoteId        || null,
       movingFileId,
       visitId:        visitId        || null,
@@ -225,8 +258,11 @@ router.post("/", forbidBodegaWrite, async (req, res, next) => {
     const job = await getPrisma().job.create({ data })
     logAudit(req, 'Job', job.id, 'CREATE', null, job)
 
-    // Sync schedule entries (fire-and-forget)
-    syncJobScheduleEntries(job, req).catch(() => {})
+    // Sync schedule entries — awaited so scheduling problems can be surfaced to the caller
+    const { warning: scheduleWarning } = await syncJobScheduleEntries(job, req, {
+      forceOverride: Boolean(forceScheduleOverride),
+      overrideReason: scheduleOverrideReason,
+    }).catch(() => ({ warning: null }))
 
     // Notify coordinator on creation (fire-and-forget)
     if (movingFileId && coordinatorId) {
@@ -247,7 +283,7 @@ router.post("/", forbidBodegaWrite, async (req, res, next) => {
       }
     }
 
-    res.status(201).json(job)
+    res.status(201).json({ ...job, scheduleWarning: scheduleWarning || null })
   } catch (err) { next(err) }
 })
 
@@ -259,11 +295,14 @@ router.put("/:id", forbidBodegaWrite, async (req, res, next) => {
       originAgentId, destAgentId, customsAgentId,
       originAddress, originWarehouse, originCity, originCountry,
       destAddress, destCity, destCountry,
+      serviceLatitude, serviceLongitude,
       callDate, surveyDate, packDate, moveDate, deliveryDate,
       volumeCbm, weightKg, shipmentMode, notes, quoteId,
       serviceDate, serviceTime, clientPhone, clientHomePhone,
       companyName, companyPhone, serviceDetails, materials, quoteTo, creatorName, language,
       contacto, bultos, personalCount, transbordo,
+      daysToComplete,
+      forceScheduleOverride, scheduleOverrideReason,
       movingFileId,
       coordinatorId,
       visitId,
@@ -271,6 +310,16 @@ router.put("/:id", forbidBodegaWrite, async (req, res, next) => {
     } = req.body
 
     const before = await getPrisma().job.findUnique({ where: { id: req.params.id } })
+
+    if (personalCount !== undefined) {
+      const normalizedNewPersonalCount = personalCount != null && personalCount !== '' ? parseInt(personalCount, 10) : null
+      if (normalizedNewPersonalCount !== (before?.personalCount ?? null) && !(await isScheduleManager(req))) {
+        return res.status(403).json({ error: 'Solo un Gerente de Bit\u00e1cora puede modificar el tama\u00f1o de cuadrilla de un trabajo.' })
+      }
+    }
+
+    const coordinates = resolveServiceCoordinates(serviceLatitude, serviceLongitude)
+    if (coordinates.error) return res.status(400).json({ error: coordinates.error })
 
     const job = await getPrisma().job.update({
       where: { id: req.params.id },
@@ -282,6 +331,8 @@ router.put("/:id", forbidBodegaWrite, async (req, res, next) => {
         customsAgentId:customsAgentId|| null,
         originAddress, originWarehouse, originCity, originCountry,
         destAddress,   destCity,   destCountry,
+        serviceLatitude:  coordinates.latitude,
+        serviceLongitude: coordinates.longitude,
         callDate:    toDate(callDate),
         surveyDate:  toDate(surveyDate),
         packDate:    toDate(packDate),
@@ -306,6 +357,7 @@ router.put("/:id", forbidBodegaWrite, async (req, res, next) => {
         bultos:         bultos          !== undefined ? (bultos != null ? parseInt(bultos) : null)                        : undefined,
         personalCount:  personalCount   !== undefined ? (personalCount != null ? parseInt(personalCount) : null)          : undefined,
         transbordo:     transbordo      !== undefined ? transbordo                                                        : undefined,
+        daysToComplete:  daysToComplete  !== undefined ? (daysToComplete  != null && daysToComplete  !== '' ? parseInt(daysToComplete)  : null) : undefined,
         quoteId:        quoteId         !== undefined ? (quoteId         || null)                                        : undefined,
         movingFileId:         movingFileId         !== undefined ? (movingFileId         || null) : undefined,
         coordinatorId:        coordinatorId        !== undefined ? (coordinatorId        || null) : undefined,
@@ -342,9 +394,12 @@ router.put("/:id", forbidBodegaWrite, async (req, res, next) => {
     }
 
     logAudit(req, 'Job', req.params.id, 'UPDATE', before, job)
-    // Sync schedule entries (fire-and-forget)
-    syncJobScheduleEntries(job, req).catch(() => {})
-    res.json(job)
+    // Sync schedule entries — awaited so scheduling problems can be surfaced to the caller
+    const { warning: scheduleWarning } = await syncJobScheduleEntries(job, req, {
+      forceOverride: Boolean(forceScheduleOverride),
+      overrideReason: scheduleOverrideReason,
+    }).catch(() => ({ warning: null }))
+    res.json({ ...job, scheduleWarning: scheduleWarning || null })
   } catch (err) { next(err) }
 })
 
@@ -368,6 +423,25 @@ router.patch("/:id/status", forbidBodegaWrite, async (req, res, next) => {
     if (!status) return res.status(400).json({ error: "status is required" })
     const job = await getPrisma().job.update({ where: { id: req.params.id }, data: { status } })
     res.json(job)
+  } catch (err) { next(err) }
+})
+
+// PATCH crew size (personalCount) only — used by the Scheduling Manager from the Schedule screen.
+// Restricted to the Scheduling Manager permission (not general job-write access), audited, and
+// re-runs the schedule capacity check since it can resolve or create a needs-attention state.
+router.patch("/:id/personal-count", requireScheduleManager, async (req, res, next) => {
+  try {
+    const { personalCount } = req.body
+    const value = personalCount != null && personalCount !== '' ? parseInt(personalCount, 10) : null
+    if (value != null && (!Number.isInteger(value) || value < 0)) {
+      return res.status(400).json({ error: 'El número de trabajadores debe ser un entero válido.' })
+    }
+    const before = await getPrisma().job.findUnique({ where: { id: req.params.id } })
+    if (!before) return res.status(404).json({ error: 'Not found' })
+    const job = await getPrisma().job.update({ where: { id: req.params.id }, data: { personalCount: value } })
+    logAudit(req, 'Job', job.id, 'UPDATE', before, job)
+    const { warning: scheduleWarning } = await syncJobScheduleEntries(job, req).catch(() => ({ warning: null }))
+    res.json({ ...job, scheduleWarning: scheduleWarning || null })
   } catch (err) { next(err) }
 })
 

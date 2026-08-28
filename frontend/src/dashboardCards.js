@@ -91,4 +91,10 @@ export const DASHBOARD_CARDS = [
     descKey:  'dashboard.store.cards.myAppointments.desc',
     defaultVisible: false,
   },
+  {
+    id: 'schedule_attention',
+    titleKey: 'dashboard.store.cards.scheduleAttention.title',
+    descKey:  'dashboard.store.cards.scheduleAttention.desc',
+    defaultVisible: true,
+  },
 ]

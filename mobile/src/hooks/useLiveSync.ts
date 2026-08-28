@@ -1,17 +1,24 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import * as Network from 'expo-network';
+import * as Crypto from 'expo-crypto';
+import * as FileSystem from 'expo-file-system';
 import { api, SavePackingListPayload, uploadPhotoToAzure, uploadSourceToAzure } from '../services/api';
 import {
   updatePackingListSyncState,
   updatePackingListSignaturePaths,
+  updatePackingListCrewSignatureBlob,
   updatePhotoUploadState,
   getPackingList,
   setPackingListClosed,
   getPackagesForList,
   getItemsForPackage,
   getPhotosForPackage,
+  ensureCompletionIdempotencyKey,
+  deletePackagePhoto, purgeDeletedPackagePhotos, purgePackageItemDeletions,
 } from '../db/queries';
+import { retryPendingProgressTransitions, retryPendingWorkdayEvents } from '../services/cacheService';
+import { stageLocationFromRow } from '../services/location';
 
 const DEBOUNCE_MS = 2500;
 
@@ -30,6 +37,7 @@ async function buildSavePayload(localId: string, deviceId: string): Promise<Save
       return {
         id: pkg.server_id ?? pkg.id,
         barcode: pkg.barcode,
+        barcodeState: pkg.barcode_state,
         items: items.map(it => ({
           id: it.server_id ?? it.id,
           packingItemTypeId: it.packing_item_type_id,
@@ -58,6 +66,11 @@ async function uploadPendingPhotosForList(localId: string, serverId: string): Pr
     const photos = await getPhotosForPackage(pkg.id);
     for (const photo of photos) {
       if (photo.blob_path || !photo.local_path) continue;
+      const localFile = await FileSystem.getInfoAsync(photo.local_path);
+      if (!localFile.exists) {
+        await deletePackagePhoto(photo.id);
+        continue;
+      }
       try {
         await updatePhotoUploadState(photo.id, 'UPLOADING');
         const filename = photo.local_path.split('/').pop() ?? `${photo.id}.jpg`;
@@ -117,6 +130,8 @@ export function useLiveSync(localId: string | null, deviceId: string) {
     pendingRef.current = false;
 
     try {
+      await retryPendingWorkdayEvents(deviceId, localId);
+      await retryPendingProgressTransitions(deviceId, localId);
       if (pl.status === 'COMPLETE_PENDING_SYNC') {
         let signatureBlobPath = pl.signature_blob_path;
 
@@ -142,12 +157,50 @@ export function useLiveSync(localId: string | null, deviceId: string) {
         }
 
         await updatePackingListSyncState(localId, 'COMPLETING');
+        if (!pl.satisfaction_rating || !pl.satisfaction_submitted_at) {
+          await updatePackingListSyncState(localId, 'COMPLETE_PENDING_SYNC', {
+            syncError: 'La calificacion del cliente esta pendiente.',
+          });
+          return;
+        }
+        const idempotencyKey = await ensureCompletionIdempotencyKey(localId, Crypto.randomUUID());
+        let crewSignatureBlobPath = pl.crew_signature_blob_path ?? null;
+        if (!crewSignatureBlobPath) {
+          if (!pl.crew_signature_local_path) {
+            await updatePackingListSyncState(localId, 'COMPLETE_PENDING_SYNC', {
+              syncError: 'La firma del jefe de cuadrilla esta pendiente.',
+            });
+            return;
+          }
+          try {
+            const crewToken = await api.getSasUploadToken(effectiveServerId, `crew-signature-${Date.now()}.png`);
+            await uploadSourceToAzure(crewToken.sasUrl, pl.crew_signature_local_path, 'image/png');
+            crewSignatureBlobPath = crewToken.blobPath;
+            await updatePackingListCrewSignatureBlob(localId, crewSignatureBlobPath);
+          } catch (err: unknown) {
+            await updatePackingListSyncState(localId, 'COMPLETE_PENDING_SYNC', {
+              syncError: `Firma jefe de cuadrilla: ${normalizeSyncError(err)}`,
+            });
+            return;
+          }
+        }
         await api.completePackingList(effectiveServerId, {
+          idempotencyKey,
           deviceId,
+          occurredAt: pl.completion_requested_at || pl.satisfaction_submitted_at,
           reviewLanguage: (pl.review_language === 'EN' ? 'EN' : 'ES'),
           signatureUrl: signatureBlobPath,
           signatureDeclined: pl.signature_declined === 1,
           signatureDeclineNote: pl.signature_decline_note,
+          crewLeaderSignatureUrl: crewSignatureBlobPath,
+          crewLeaderName: pl.crew_leader_name ?? null,
+          location: stageLocationFromRow(pl),
+          completionObservations: pl.completion_observations,
+          satisfaction: {
+            surveyVersion: 1,
+            answers: { overallRating: pl.satisfaction_rating },
+            submittedAt: pl.satisfaction_submitted_at,
+          },
         });
         await setPackingListClosed(localId);
         await updatePackingListSyncState(localId, 'CLOSED', { syncError: null });
@@ -165,6 +218,8 @@ export function useLiveSync(localId: string | null, deviceId: string) {
         if (!payload) return;
 
         const result = await api.savePackingList(effectiveServerId, payload);
+        await purgeDeletedPackagePhotos(localId);
+        await purgePackageItemDeletions(localId);
         await updatePackingListSyncState(localId, 'SAVED', {
           lockExpiresAt: result.lockExpiresAt,
           lastSyncedAt: result.updatedAt,

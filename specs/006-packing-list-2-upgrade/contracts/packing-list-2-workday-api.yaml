@@ -1,0 +1,339 @@
+openapi: 3.0.3
+info:
+  title: Packing List 2.0 Workday API
+  version: 1.0.0
+  description: Multi-day packing lifecycle, dual day-boundary signatures, editable box contents, deferred barcode assignment, and completion gating.
+servers:
+  - url: /api
+security:
+  - bearerAuth: []
+
+paths:
+  /packing-lists/{id}:
+    get:
+      summary: Get packing-list detail with workday history and box barcode readiness
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      responses:
+        '200':
+          description: Packing-list detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingListDetail'
+
+  /packing-lists/{id}/workday-events:
+    post:
+      summary: Submit day-start or day-close event with required signatures
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkdayEventRequest'
+      responses:
+        '201':
+          description: Event confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkdayEventResult'
+        '200':
+          description: Existing idempotent event returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkdayEventResult'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /packing-lists/{id}/complete:
+    patch:
+      summary: Final completion for last day (survey required, day-close signatures not required)
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalCompletionRequest'
+      responses:
+        '200':
+          description: Completion confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinalCompletionResult'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /packing-lists/{id}/packages:
+    post:
+      summary: Create package with optional initial barcode
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePackageRequest'
+      responses:
+        '201':
+          description: Package created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+
+  /packing-lists/{id}/packages/{packageId}/barcode:
+    patch:
+      summary: Assign or replace package barcode later
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+        - $ref: '#/components/parameters/PackageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignBarcodeRequest'
+      responses:
+        '200':
+          description: Barcode assignment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /packing-lists/{id}/packages/{packageId}/items/{itemId}:
+    put:
+      summary: Edit box item content
+      parameters:
+        - $ref: '#/components/parameters/PackingListId'
+        - $ref: '#/components/parameters/PackageId'
+        - $ref: '#/components/parameters/ItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePackageItemRequest'
+      responses:
+        '200':
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageItem'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PackingListId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string }
+    PackageId:
+      in: path
+      name: packageId
+      required: true
+      schema: { type: string }
+    ItemId:
+      in: path
+      name: itemId
+      required: true
+      schema: { type: string }
+
+  responses:
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Sequence, lock, or completion gate conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+
+    WorkdayEventType:
+      type: string
+      enum: [DAY_START, DAY_CLOSE]
+
+    SignaturePair:
+      type: object
+      required: [clientSignatureUrl, crewLeaderSignatureUrl]
+      properties:
+        clientSignatureUrl:
+          type: string
+          description: Azure blob path for client signature
+        crewLeaderSignatureUrl:
+          type: string
+          description: Azure blob path for crew leader signature
+        clientSignerName:
+          type: string
+          nullable: true
+        crewLeaderName:
+          type: string
+          nullable: true
+        language:
+          type: string
+          enum: [ES, EN]
+
+    WorkdayEventRequest:
+      type: object
+      required: [idempotencyKey, deviceId, eventType, occurredAt, signatures]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        deviceId: { type: string }
+        eventType: { $ref: '#/components/schemas/WorkdayEventType' }
+        occurredAt: { type: string, format: date-time }
+        isFinalDay:
+          type: boolean
+          description: Must be false for DAY_CLOSE; final completion is handled by /complete.
+        observations: { type: string, nullable: true, maxLength: 4000 }
+        signatures: { $ref: '#/components/schemas/SignaturePair' }
+
+    WorkdayEventResult:
+      type: object
+      required: [packingListId, workdayIndex, event]
+      properties:
+        packingListId: { type: string }
+        workdayIndex: { type: integer, minimum: 1 }
+        event:
+          type: object
+          required: [id, eventType, occurredAt, confirmedAt]
+          properties:
+            id: { type: string }
+            eventType: { $ref: '#/components/schemas/WorkdayEventType' }
+            occurredAt: { type: string, format: date-time }
+            confirmedAt: { type: string, format: date-time }
+
+    FinalCompletionRequest:
+      type: object
+      required: [idempotencyKey, deviceId, occurredAt, reviewLanguage, signatureDeclined, satisfaction]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        deviceId: { type: string }
+        occurredAt: { type: string, format: date-time }
+        reviewLanguage: { type: string, enum: [ES, EN] }
+        signatureUrl:
+          type: string
+          nullable: true
+          description: Existing final completion client signature blob path.
+        signatureDeclined: { type: boolean }
+        signatureDeclineNote: { type: string, nullable: true }
+        completionObservations: { type: string, nullable: true, maxLength: 4000 }
+        satisfaction:
+          type: object
+          required: [surveyVersion, answers, submittedAt]
+          properties:
+            surveyVersion: { type: integer, enum: [1] }
+            answers:
+              type: object
+              required: [overallRating]
+              properties:
+                overallRating: { type: integer, minimum: 1, maximum: 5 }
+            submittedAt: { type: string, format: date-time }
+
+    FinalCompletionResult:
+      type: object
+      required: [id, status, progressStatus]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [CLOSED] }
+        progressStatus: { type: string, enum: [COMPLETED] }
+
+    Package:
+      type: object
+      required: [id, barcodeState]
+      properties:
+        id: { type: string }
+        barcode: { type: string, nullable: true }
+        barcodeState: { type: string, enum: [MISSING, ASSIGNED] }
+        barcodeAssignedAt: { type: string, format: date-time, nullable: true }
+
+    CreatePackageRequest:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        barcode:
+          type: string
+          nullable: true
+          description: Optional at create-time.
+
+    AssignBarcodeRequest:
+      type: object
+      required: [barcode]
+      properties:
+        barcode: { type: string }
+
+    PackageItem:
+      type: object
+      required: [id, quantity]
+      properties:
+        id: { type: string }
+        packingItemTypeId: { type: string, nullable: true }
+        customName: { type: string, nullable: true }
+        quantity: { type: integer, minimum: 1 }
+        note: { type: string, nullable: true }
+
+    UpdatePackageItemRequest:
+      type: object
+      required: [quantity]
+      properties:
+        packingItemTypeId: { type: string, nullable: true }
+        customName: { type: string, nullable: true }
+        quantity: { type: integer, minimum: 1 }
+        note: { type: string, nullable: true }
+
+    PackingListDetail:
+      type: object
+      required: [id, status, progressStatus, workdayHistory, packages]
+      properties:
+        id: { type: string }
+        status: { type: string }
+        progressStatus: { type: string }
+        completionBlockedReason:
+          type: string
+          nullable: true
+          enum: [MISSING_BOX_BARCODES, null]
+        workdayHistory:
+          type: array
+          items:
+            type: object
+            required: [workdayIndex, events]
+            properties:
+              workdayIndex: { type: integer }
+              events:
+                type: array
+                items:
+                  type: object
+                  required: [eventType, occurredAt]
+                  properties:
+                    eventType: { type: string, enum: [DAY_START, DAY_CLOSE, FINAL_COMPLETE] }
+                    occurredAt: { type: string, format: date-time }
+        packages:
+          type: array
+          items: { $ref: '#/components/schemas/Package' }

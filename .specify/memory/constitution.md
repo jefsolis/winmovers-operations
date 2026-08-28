@@ -1,38 +1,28 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: TEMPLATE (unversioned) → 1.0.0
-Rationale: Initial ratification of the WinMovers Operations constitution from
-the project template. All placeholder tokens replaced with concrete governance.
+Version change: 1.0.0 → 2.0.0
+Rationale: Principle I is materially redefined from universal bilingual UI to
+a surface-specific language policy. This is a backward-incompatible governance
+change and therefore requires a MAJOR version bump.
 
-Principles defined:
-  1. Bilingual by Default (EN/ES) — NEW
-  2. Auditability of Material Changes — NEW
-  3. Role-Based Access Control — NEW
-  4. Azure-Native Auth & Storage — NEW
-  5. Prisma Singleton Data Access — NEW
-  6. Preserve Domain & Contract Invariants — NEW
-  7. Incremental, Low-Risk Change — NEW
+Modified principles:
+  1. Bilingual by Default (EN/ES) → Surface-Specific Language Policy
 
-Added sections:
-  - Technology & Architecture Constraints
-  - Development Workflow & Quality Gates
-  - Governance
+Added sections: none
+Removed sections: none
 
-Removed sections: none (template placeholders replaced in place)
+Templates and guidance requiring propagation:
+  ✅ .specify/templates/spec-template.md — language-surface requirements added
+  ✅ .specify/templates/tasks-template.md — surface-language validation task added
+  ✅ .specify/templates/plan-template.md — generic Constitution Check remains aligned
+  ✅ .github/copilot-instructions.md — web/mobile language rules distinguished
+  ✅ specs/005-packing-list-status/spec.md — temporary exception replaced
+  ✅ specs/005-packing-list-status/plan.md — constitutional exception removed
+  ✅ specs/005-packing-list-status/research.md — client-facing screens aligned
+  ✅ specs/005-packing-list-status/quickstart.md — bilingual client validation added
 
-Templates reviewed for alignment:
-  ✅ .specify/templates/plan-template.md — "Constitution Check" gate is generic
-     and reads from this file; no changes required.
-  ✅ .specify/templates/spec-template.md — no principle-specific references;
-     no changes required.
-  ✅ .specify/templates/tasks-template.md — task categories compatible with the
-     principles below (i18n, audit, access-control tasks fit existing phases);
-     no changes required.
-  ✅ .specify/templates/checklist-template.md — generic; no changes required.
-
-Follow-up TODOs: none. RATIFICATION_DATE set to the date of first adoption
-recorded below; update if an earlier formal adoption date is identified.
+Follow-up TODOs: none.
 -->
 
 # WinMovers Operations Constitution
@@ -46,19 +36,30 @@ codebase and MUST continue to hold.
 
 ## Core Principles
 
-### I. Bilingual by Default (EN/ES)
+### I. Surface-Specific Language Policy
 
-Every user-facing string MUST flow through the central i18n system and MUST be
-defined in both English and Spanish. Components MUST NOT hardcode display
-labels; status and type labels MUST come from i18n keys or `constants.js`
-metadata helpers.
+Language behavior MUST match the audience and surface:
 
-- Adding UI text without both `en` and `es` entries is a defect.
-- Generated documents and reports MUST honor the record's language where the
-  business rule specifies one, and MUST be internally consistent otherwise.
+- The web application MUST support English and Spanish. Every new web string
+  MUST flow through the central i18n system and be defined in both language
+  maps. Web components MUST NOT hardcode display labels.
+- Generated documents and reports MUST support English and Spanish, MUST honor
+  the record's selected language where applicable, and MUST remain internally
+  consistent.
+- Operator-facing mobile UI MUST be Spanish unless a governing feature
+  specification explicitly adds another language.
+- Client-facing mobile interactions, including review, signature,
+  acknowledgement, observations, or satisfaction screens, MUST allow English
+  and Spanish selection and MUST render the entire client interaction in the
+  selected language.
+- Shared backend statuses, types, and other domain values MUST remain
+  language-neutral enums. Translation belongs at the presentation boundary;
+  localized display text MUST NOT be persisted as a domain value.
 
-Rationale: The business operates bilingually with clients, agents, and staff;
-partial translations produce broken screens and non-compliant documents.
+Rationale: Operations staff use the mobile application in Spanish, while web
+users and clients require bilingual communication. Surface-specific rules avoid
+unused operator UI translation work without weakening client-facing language
+support or corrupting shared domain contracts with localized values.
 
 ### II. Auditability of Material Changes
 
@@ -179,7 +180,9 @@ Additional constraints:
 Every change MUST satisfy the following gates before it is considered complete:
 
 - [ ] Schema changes ran `prisma db push` and `prisma generate`.
-- [ ] New UI text added to both `en` and `es` translation maps.
+- [ ] New UI text follows the surface language policy: web and client-facing
+  mobile interactions support EN/ES; operator-facing mobile UI is Spanish;
+  backend domain values remain language-neutral.
 - [ ] New routes registered in the correct order in `backend/index.js`.
 - [ ] Role-gated features updated on both frontend guards and backend
       middleware, and verified against the BODEGA role for correct restriction.
@@ -211,4 +214,4 @@ codebase. When guidance conflicts, the constitution wins.
 - Complexity or deviation from an invariant MUST be explicitly justified; if it
   cannot be justified, the simpler compliant approach MUST be used.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-20 | **Last Amended**: 2026-07-20
+**Version**: 2.0.0 | **Ratified**: 2026-07-20 | **Last Amended**: 2026-08-23

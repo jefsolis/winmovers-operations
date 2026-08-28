@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import * as FileSystem from 'expo-file-system';
 import { getAccessToken } from '../auth/useAuth';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
@@ -19,12 +20,80 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
 
 // ─── API shapes ────────────────────────────────────────────────────────────────
 
+export type ProgressStatus = 'NOT_STARTED' | 'TRAVELING' | 'WORKING' | 'COMPLETED';
+export type WorkdayEventType = 'DAY_START' | 'DAY_CLOSE' | 'FINAL_COMPLETE';
+
+export interface StageLocationPayload {
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  capturedAt: string | null;
+  unavailableReason: string | null;
+}
+
+export interface ServiceContext {
+  clientId: string | null;
+  clientName: string | null;
+  phone: string | null;
+  address: string | null;
+  serviceLatitude?: number | null;
+  serviceLongitude?: number | null;
+  jobType: string;
+  fileNumber: string;
+  category: string;
+}
+
+export interface ProgressTransition {
+  id: string;
+  idempotencyKey: string;
+  fromStatus: ProgressStatus;
+  toStatus: ProgressStatus;
+  actorName: string;
+  observations: string | null;
+  signatureUrl: string | null;
+  occurredAt: string;
+  confirmedAt: string;
+  location?: StageLocationPayload | null;
+}
+
+export interface SatisfactionResponse {
+  surveyVersion: 1;
+  answers: { overallRating: number };
+  submittedAt: string;
+}
+
+export interface WorkdaySignaturePair {
+  clientSignatureUrl: string;
+  crewLeaderSignatureUrl: string;
+  language: 'ES' | 'EN';
+  clientSignerName?: string | null;
+  crewLeaderName?: string | null;
+}
+
+export interface WorkdayEvent {
+  id: string;
+  workdayIndex: number;
+  eventType: WorkdayEventType;
+  fromProgressStatus: ProgressStatus | null;
+  toProgressStatus: ProgressStatus | null;
+  occurredAt: string;
+  confirmedAt: string;
+  actorName: string;
+  observations: string | null;
+  signatures: WorkdaySignaturePair | null;
+  location?: StageLocationPayload | null;
+}
+
 export interface PackingListSummary {
   id: string;
   listNumber: string;
   movingFileId: string;
   operatorName: string;
   status: string;
+  progressStatus: ProgressStatus;
+  pendingProgressStatus?: ProgressStatus | null;
+  serviceContext: ServiceContext;
+  latestTransition?: ProgressTransition | null;
   reviewLanguage?: 'ES' | 'EN' | null;
   lockedByDeviceId: string | null;
   lockExpiresAt: string | null;
@@ -42,6 +111,12 @@ export interface PackingListDetail {
   movingFileId: string;
   operatorName: string;
   status: string;
+  progressStatus: ProgressStatus;
+  serviceContext: ServiceContext;
+  progressTransitions: ProgressTransition[];
+  workdayHistory: WorkdayEvent[];
+  completionBlockedReason: 'MISSING_BOX_BARCODES' | null;
+  satisfactionResponse: SatisfactionResponse | null;
   reviewLanguage?: 'ES' | 'EN' | null;
   syncVisibilityState?: 'IN_SYNC' | 'SYNC_IN_PROGRESS';
   signatureUrl: string | null;
@@ -57,7 +132,9 @@ export interface PackingListDetail {
 
 export interface RemotePackage {
   id: string;
-  barcode: string;
+  barcode: string | null;
+  barcodeState: 'MISSING' | 'ASSIGNED';
+  barcodeAssignedAt?: string | null;
   items: RemoteItem[];
   photos: RemotePhoto[];
 }
@@ -73,12 +150,14 @@ export interface RemoteItem {
 export interface RemotePhoto {
   id: string;
   blobPath: string;
+  downloadUrl?: string | null;
 }
 
 export interface CreatePackingListPayload {
   movingFileId: string;
   operatorName: string;
   deviceId: string;
+  location?: StageLocationPayload | null;
 }
 
 export interface CreatePackingListResponse {
@@ -93,10 +172,27 @@ export interface SavePackingListPayload {
   operatorName: string;
   packages: {
     id: string;
-    barcode: string;
+    barcode: string | null;
+    barcodeState?: 'MISSING' | 'ASSIGNED';
     items: { id: string; packingItemTypeId: string | null; customName: string | null; quantity: number; note: string | null }[];
     photos: { id: string; blobPath: string }[];
   }[];
+}
+
+export interface CreatePackagePayload {
+  id: string;
+  barcode: string | null;
+}
+
+export interface AssignBarcodePayload {
+  barcode: string;
+}
+
+export interface UpdatePackageItemPayload {
+  packingItemTypeId: string | null;
+  customName: string | null;
+  quantity: number;
+  note: string | null;
 }
 
 export interface SavePackingListResponse {
@@ -112,11 +208,52 @@ export interface ClaimLockResponse {
 }
 
 export interface CompletePackingListPayload {
+  idempotencyKey?: string;
   deviceId: string;
+  occurredAt?: string;
   reviewLanguage: 'ES' | 'EN';
   signatureUrl: string | null;
   signatureDeclined: boolean;
   signatureDeclineNote: string | null;
+  crewLeaderSignatureUrl: string;
+  crewLeaderName?: string | null;
+  clientSignerName?: string | null;
+  completionObservations?: string | null;
+  satisfaction?: SatisfactionResponse;
+  location?: StageLocationPayload | null;
+}
+
+export interface CreateProgressTransitionPayload {
+  idempotencyKey: string;
+  deviceId: string;
+  toStatus: 'TRAVELING' | 'WORKING';
+  occurredAt: string;
+  observations?: string | null;
+  signatureUrl?: string | null;
+  location?: StageLocationPayload | null;
+}
+
+export interface CreateWorkdayEventPayload {
+  idempotencyKey: string;
+  deviceId: string;
+  eventType: 'DAY_START' | 'DAY_CLOSE';
+  occurredAt: string;
+  isFinalDay?: boolean;
+  observations?: string | null;
+  signatures: WorkdaySignaturePair;
+  location?: StageLocationPayload | null;
+}
+
+export interface WorkdayEventResult {
+  packingListId: string;
+  workdayIndex: number;
+  event: WorkdayEvent;
+}
+
+export interface ProgressTransitionResult {
+  packingListId: string;
+  progressStatus: ProgressStatus;
+  transition: ProgressTransition;
 }
 
 export interface SasTokenResponse {
@@ -136,8 +273,77 @@ export interface MovingFileSummary {
   fileNumber: string;
   category: string;
   status: string;
-  client?: { name: string } | null;
-  corporateClient?: { companyName: string } | null;
+  originAddress?: string | null;
+  originCity?: string | null;
+  originCountry?: string | null;
+  client?: { id?: string; name: string; phone?: string | null; address?: string | null } | null;
+  corporateClient?: { id?: string; name?: string; companyName?: string; phone?: string | null; address?: string | null } | null;
+  job?: {
+    type?: string | null; clientPhone?: string | null; clientHomePhone?: string | null;
+    companyPhone?: string | null; originAddress?: string | null; originCity?: string | null;
+    originCountry?: string | null;
+    serviceLatitude?: number | null; serviceLongitude?: number | null;
+  } | null;
+}
+
+// ─── Ingress / Egress ───────────────────────────────────────────────────────
+
+export type IngressEgressType = 'INGRESS_TRUCK' | 'INGRESS_WAREHOUSE' | 'EGRESS_WAREHOUSE';
+export type IngressEgressStatus = 'IN_PROGRESS' | 'AWAITING_MANAGER_SIGNATURE' | 'COMPLETE';
+export type IngressEgressScanMethod = 'CAMERA' | 'MANUAL';
+
+export interface IngressEgressBox {
+  packageId: string;
+  boxNumber: number;
+  checked: boolean;
+  scanMethod: IngressEgressScanMethod | null;
+  scannedAt: string | null;
+}
+
+export interface IngressEgressSignatureInfo {
+  name: string | null;
+  signatureUrl: string | null;
+  signedAt: string | null;
+}
+
+export interface IngressEgressOperation {
+  id: string;
+  packingListId: string;
+  type: IngressEgressType;
+  status: IngressEgressStatus;
+  warehouseLocation: string | null;
+  observations: string | null;
+  boxes: IngressEgressBox[];
+  missingBoxNumbers: number[];
+  signatures: { crewLeader: IngressEgressSignatureInfo | null; warehouseManager: IngressEgressSignatureInfo | null };
+  location: StageLocationPayload | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StartIngressEgressPayload {
+  type: IngressEgressType;
+  deviceId: string;
+  idempotencyKey: string;
+  occurredAt: string;
+}
+
+export interface ScanIngressEgressBoxPayload {
+  code: string;
+  scanMethod: IngressEgressScanMethod;
+  scannedAt: string;
+  idempotencyKey: string;
+}
+
+export interface SignIngressEgressPayload {
+  crewLeaderSignatureBlobPath: string;
+  crewLeaderName: string;
+  warehouseManagerSignatureBlobPath?: string;
+  warehouseManagerName?: string;
+  warehouseLocation?: string | null;
+  observations?: string | null;
+  location?: StageLocationPayload | null;
 }
 
 // ─── API calls ─────────────────────────────────────────────────────────────────
@@ -164,8 +370,32 @@ export const api = {
     return apiClient.patch(`/packing-lists/${id}/claim-lock`, { deviceId }).then(r => r.data);
   },
 
-  completePackingList(id: string, payload: CompletePackingListPayload): Promise<{ id: string; status: string; listNumber: string }> {
+  createProgressTransition(id: string, payload: CreateProgressTransitionPayload): Promise<ProgressTransitionResult> {
+    return apiClient.post(`/packing-lists/${id}/progress-transitions`, payload).then(r => r.data);
+  },
+
+  createWorkdayEvent(id: string, payload: CreateWorkdayEventPayload): Promise<WorkdayEventResult> {
+    return apiClient.post(`/packing-lists/${id}/workday-events`, payload).then(r => r.data);
+  },
+
+  completePackingList(id: string, payload: CompletePackingListPayload): Promise<{ id: string; status: string; progressStatus: 'COMPLETED'; listNumber: string; transition: ProgressTransition; satisfactionResponse: SatisfactionResponse }> {
     return apiClient.patch(`/packing-lists/${id}/complete`, payload).then(r => r.data);
+  },
+
+  softDeletePackingList(id: string): Promise<{ id: string; deletedAt: string }> {
+    return apiClient.patch(`/packing-lists/${id}/soft-delete`).then(r => r.data);
+  },
+
+  createPackage(id: string, payload: CreatePackagePayload): Promise<RemotePackage> {
+    return apiClient.post(`/packing-lists/${id}/packages`, payload).then(r => r.data);
+  },
+
+  assignPackageBarcode(id: string, packageId: string, payload: AssignBarcodePayload): Promise<RemotePackage> {
+    return apiClient.patch(`/packing-lists/${id}/packages/${packageId}/barcode`, payload).then(r => r.data);
+  },
+
+  updatePackageItem(id: string, packageId: string, itemId: string, payload: UpdatePackageItemPayload): Promise<RemoteItem> {
+    return apiClient.put(`/packing-lists/${id}/packages/${packageId}/items/${itemId}`, payload).then(r => r.data);
   },
 
   getSasUploadToken(packingListId: string, filename: string): Promise<SasTokenResponse> {
@@ -179,83 +409,69 @@ export const api = {
   getMovingFiles(): Promise<MovingFileSummary[]> {
     return apiClient.get('/files', { params: { status: 'OPEN' } }).then(r => r.data);
   },
+
+  startIngressEgressOperation(id: string, payload: StartIngressEgressPayload): Promise<{ operation: IngressEgressOperation }> {
+    return apiClient.post(`/packing-lists/${id}/ingress-egress`, payload).then(r => r.data);
+  },
+
+  getIngressEgressOperations(id: string): Promise<{ operations: IngressEgressOperation[] }> {
+    return apiClient.get(`/packing-lists/${id}/ingress-egress`).then(r => r.data);
+  },
+
+  updateIngressEgressDetails(id: string, operationId: string, payload: { warehouseLocation?: string | null; observations?: string | null }): Promise<{ operation: IngressEgressOperation }> {
+    return apiClient.patch(`/packing-lists/${id}/ingress-egress/${operationId}/details`, payload).then(r => r.data);
+  },
+
+  scanIngressEgressBox(id: string, operationId: string, payload: ScanIngressEgressBoxPayload): Promise<{ box: { packageId: string; scanMethod: IngressEgressScanMethod; scannedAt: string }; alreadyChecked: boolean }> {
+    return apiClient.post(`/packing-lists/${id}/ingress-egress/${operationId}/scans`, payload).then(r => r.data);
+  },
+
+  resetIngressEgressOperation(id: string, operationId: string): Promise<{ operation: IngressEgressOperation }> {
+    return apiClient.post(`/packing-lists/${id}/ingress-egress/${operationId}/reset`).then(r => r.data);
+  },
+
+  signIngressEgressOperation(id: string, operationId: string, payload: SignIngressEgressPayload): Promise<{ operation: IngressEgressOperation }> {
+    return apiClient.post(`/packing-lists/${id}/ingress-egress/${operationId}/sign`, payload).then(r => r.data);
+  },
 };
 
 // ─── Direct-to-Azure upload ────────────────────────────────────────────────────
 
-function decodeBase64ToUint8Array(base64: string): Uint8Array {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  const clean = base64.replace(/\s/g, '');
-  const bytes: number[] = [];
+export async function uploadSourceToAzure(sasUrl: string, source: string, fallbackContentType = 'application/octet-stream'): Promise<void> {
+  let fileUri = source;
+  let contentType = fallbackContentType;
+  let temporaryFileUri: string | null = null;
 
-  let index = 0;
-  while (index < clean.length) {
-    const enc1 = chars.indexOf(clean.charAt(index++));
-    const enc2 = chars.indexOf(clean.charAt(index++));
-    const enc3 = chars.indexOf(clean.charAt(index++));
-    const enc4 = chars.indexOf(clean.charAt(index++));
-
-    if (enc1 < 0 || enc2 < 0) break;
-
-    const chr1 = (enc1 << 2) | (enc2 >> 4);
-    bytes.push(chr1);
-
-    if (enc3 !== 64 && enc3 >= 0) {
-      const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-      bytes.push(chr2);
-    }
-
-    if (enc4 !== 64 && enc4 >= 0 && enc3 !== 64 && enc3 >= 0) {
-      const chr3 = ((enc3 & 3) << 6) | enc4;
-      bytes.push(chr3);
-    }
-  }
-
-  return Uint8Array.from(bytes);
-}
-
-async function readUploadSource(source: string, fallbackContentType: string): Promise<{ body: Blob; contentType: string }> {
   if (source.startsWith('data:')) {
     const match = source.match(/^data:([^;,]+)?;base64,(.*)$/);
-    if (!match) {
+    if (!match || !FileSystem.cacheDirectory) {
       throw new Error('No se pudo interpretar la firma almacenada en el dispositivo.');
     }
-
-    const contentType = match[1] || fallbackContentType;
-    const bytes = decodeBase64ToUint8Array(match[2]);
-
-    return {
-      body: new Blob([bytes], { type: contentType }),
-      contentType,
-    };
+    contentType = match[1] || fallbackContentType;
+    const extension = contentType === 'image/jpeg' ? 'jpg' : 'png';
+    temporaryFileUri = `${FileSystem.cacheDirectory}signature-upload-${Date.now()}.${extension}`;
+    await FileSystem.writeAsStringAsync(temporaryFileUri, match[2], {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    fileUri = temporaryFileUri;
   }
 
-  const response = await fetch(source);
-  if (!response.ok) {
-    throw new Error('No se pudo leer el archivo local para subirlo.');
-  }
-
-  const blob = await response.blob();
-  return {
-    body: blob,
-    contentType: blob.type || fallbackContentType,
-  };
-}
-
-export async function uploadSourceToAzure(sasUrl: string, source: string, fallbackContentType = 'application/octet-stream'): Promise<void> {
-  const { body, contentType } = await readUploadSource(source, fallbackContentType);
-
-  const uploadResponse = await fetch(sasUrl, {
-    method: 'PUT',
-    headers: {
-      'x-ms-blob-type': 'BlockBlob',
-      'Content-Type': contentType,
-    },
-    body,
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error(`Azure upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+  try {
+    const uploadResult = await FileSystem.uploadAsync(sasUrl, fileUri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        'x-ms-blob-type': 'BlockBlob',
+        'Content-Type': contentType,
+      },
+    });
+    if (uploadResult.status < 200 || uploadResult.status >= 300) {
+      throw new Error(`Azure upload failed: ${uploadResult.status} ${uploadResult.body}`);
+    }
+  } finally {
+    if (temporaryFileUri) {
+      await FileSystem.deleteAsync(temporaryFileUri, { idempotent: true });
+    }
   }
 }
 
