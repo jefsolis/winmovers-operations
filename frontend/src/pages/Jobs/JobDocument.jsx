@@ -305,11 +305,7 @@ const JobDocument = forwardRef(function JobDocument(
               <span className="jd-cell-label">{L.address}</span>
               {editMode ? (
                 <div style={{ flex: 1, display: 'flex', gap: 0, minWidth: 0 }}>
-                  {addrInput('Dirección', fv('originAddress'), ch('originAddress'), 3)}
-                  <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                  {addrInput('Ciudad', fv('originCity'), ch('originCity'), 2)}
-                  <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                  {addrInput('País', fv('originCountry'), ch('originCountry'), 1)}
+                  {addrInput('Dirección, ciudad y país', fv('originAddress'), ch('originAddress'))}
                 </div>
               ) : (
                 <span className="jd-cell-value">{viewOriginAddr}</span>
@@ -330,11 +326,7 @@ const JobDocument = forwardRef(function JobDocument(
               <span className="jd-cell-label">{L.destAddress}</span>
               {editMode ? (
                 <div style={{ flex: 1, display: 'flex', gap: 0, minWidth: 0 }}>
-                  {addrInput('Dirección', fv('destAddress'), ch('destAddress'), 3)}
-                  <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                  {addrInput('Ciudad', fv('destCity'), ch('destCity'), 2)}
-                  <span style={{ alignSelf: 'center', color: '#bbb' }}>|</span>
-                  {addrInput('País', fv('destCountry'), ch('destCountry'), 1)}
+                  {addrInput('Dirección, ciudad y país', fv('destAddress'), ch('destAddress'))}
                 </div>
               ) : (
                 <span className="jd-cell-value">{viewDestAddr}</span>

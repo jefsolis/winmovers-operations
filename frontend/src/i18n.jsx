@@ -23,6 +23,11 @@ const translations = {
       versionBannerReload: 'Reload now',
       versionBannerDismiss: 'Dismiss',
     },
+    devImpersonation: {
+      label: 'Development test identity',
+      asSignedIn: 'Dev: signed-in user',
+      noRole: 'no role',
+    },
     audit: {
       historyTab: 'History',
       noHistory: 'No changes have been recorded for this record.',
@@ -840,6 +845,11 @@ const translations = {
       versionBannerMessage: 'Hay una nueva versión disponible.',
       versionBannerReload: 'Actualizar ahora',
       versionBannerDismiss: 'Descartar',
+    },
+    devImpersonation: {
+      label: 'Identidad de prueba local',
+      asSignedIn: 'Desarrollo: usuario actual',
+      noRole: 'sin rol',
     },
     audit: {
       historyTab: 'Historial',

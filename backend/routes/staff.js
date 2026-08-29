@@ -4,6 +4,7 @@ const { getPrisma } = require('../db')
 const { searchAzureUsers } = require('../services/graph')
 const multer  = require('multer')
 const storage = require('../storage/azure')
+const { isDevImpersonationEnabled } = require('../middleware/devImpersonation')
 
 const signatureUpload = multer({
   storage: multer.memoryStorage(),
@@ -12,6 +13,20 @@ const signatureUpload = multer({
     if (file.mimetype === 'image/png' || file.mimetype === 'image/jpeg') cb(null, true)
     else cb(new Error('Only PNG and JPEG images are allowed'))
   },
+})
+
+// Development-only identity selection. The app must still have a valid Azure session;
+// production always returns 404 even if an environment variable were configured.
+router.get('/dev-impersonation', async (_req, res, next) => {
+  if (!isDevImpersonationEnabled()) return res.status(404).end()
+  try {
+    const staff = await getPrisma().staffMember.findMany({
+      where: { isActive: true, azureOid: { not: null } },
+      select: { id: true, name: true, email: true, role: true, canAccessSchedule: true, canManageSchedule: true },
+      orderBy: { name: 'asc' },
+    })
+    res.json({ enabled: true, staff })
+  } catch (err) { next(err) }
 })
 
 // GET /me — returns the StaffMember linked to the current logged-in user (by azureOid)

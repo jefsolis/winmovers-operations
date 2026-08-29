@@ -1,6 +1,7 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
 const { logAudit } = require('../audit')
+const { notifyScheduleAttention } = require('../services/notifications')
 const { requireScheduleAccess, requireScheduleManager } = require('../middleware/schedulePermissions')
 const {
   getScheduleSetting,
@@ -185,6 +186,15 @@ router.post('/', async (req, res, next) => {
       include: ENTRY_INCLUDE,
     })
     logAudit(req, 'ScheduleEntry', entry.id, 'CREATE', null, entry)
+    if (entry.needsAttention && entry.jobId) {
+      notifyScheduleAttention({
+        entryId: entry.id,
+        jobId: entry.jobId,
+        startDate: entry.startDate,
+        endDate: entry.endDate,
+        overrideReason: entry.overrideReason,
+      }).catch(() => {})
+    }
     res.status(201).json(entry)
   } catch (err) { next(err) }
 })
@@ -284,6 +294,15 @@ router.put('/:id', async (req, res, next) => {
       include: ENTRY_INCLUDE,
     })
     logAudit(req, 'ScheduleEntry', req.params.id, 'UPDATE', before, entry)
+    if (entry.needsAttention && !before.needsAttention && entry.jobId) {
+      notifyScheduleAttention({
+        entryId: entry.id,
+        jobId: entry.jobId,
+        startDate: entry.startDate,
+        endDate: entry.endDate,
+        overrideReason: entry.overrideReason,
+      }).catch(() => {})
+    }
     res.json(entry)
   } catch (err) { next(err) }
 })

@@ -32,6 +32,13 @@ function toInputDate(v) {
   return new Date(v).toISOString().slice(0, 10)
 }
 
+function fullAddress(address, city, country) {
+  return [address, city, country]
+    .map(value => value?.trim())
+    .filter(Boolean)
+    .reduce((result, value) => result.toLowerCase().includes(value.toLowerCase()) ? result : (result ? `${result}, ${value}` : value), '')
+}
+
 export default function JobForm() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
@@ -65,7 +72,6 @@ export default function JobForm() {
   const [clientModalOpen, setClientModalOpen] = useState(false)
   const [corpModalOpen, setCorpModalOpen]     = useState(false)
   const currentStaff = useCurrentStaff()
-  const isScheduleManager = Boolean(currentStaff?.canManageSchedule || currentStaff?.role === 'ADMIN')
 
   // Auto-fill creatorName for new records once staff list + current user are known
   useEffect(() => {
@@ -91,8 +97,8 @@ export default function JobForm() {
             type: job.type, status: job.status,
             clientId:          job.clientId          || '',
             corporateClientId: job.corporateClientId  || '',
-            originAddress: job.originAddress || '', originWarehouse: job.originWarehouse || '', originCity: job.originCity || '', originCountry: job.originCountry || '',
-            destAddress: job.destAddress || '', destCity: job.destCity || '', destCountry: job.destCountry || '',
+            originAddress: fullAddress(job.originAddress, job.originCity, job.originCountry), originWarehouse: job.originWarehouse || '', originCity: '', originCountry: '',
+            destAddress: fullAddress(job.destAddress, job.destCity, job.destCountry), destCity: '', destCountry: '',
             serviceLatitude: job.serviceLatitude ?? null,
             serviceLongitude: job.serviceLongitude ?? null,
             notes: job.notes || '',
@@ -146,12 +152,10 @@ export default function JobForm() {
             weightKg:    f.weightKg  ?? '',
             notes:       f.notes     || '',
             coordinatorId: (fromType === 'IMPORT' || (!fromType && f.category === 'IMPORT')) ? (f.coordinatorId || '') : prev.coordinatorId,
-            originAddress: f.originAddress || '',
-            originCity:    f.originCity    || '',
-            originCountry: f.originCountry || '',
-            destAddress:   f.destAddress   || '',
-            destCity:      f.destCity      || '',
-            destCountry:   f.destCountry   || '',
+            originAddress: fullAddress(f.originAddress, f.originCity, f.originCountry),
+            originCity: '', originCountry: '',
+            destAddress: fullAddress(f.destAddress, f.destCity, f.destCountry),
+            destCity: '', destCountry: '',
           }))
         }).catch(() => {})
       )
@@ -180,12 +184,10 @@ export default function JobForm() {
             corporateClientId: v?.corporateClientId || '',
             companyName:       v?.corporateClient?.name || prev.companyName,
             companyPhone:      v?.corporateClient?.phone || prev.companyPhone,
-            originAddress: v?.originAddress || '',
-            originCity:    v?.originCity    || '',
-            originCountry: v?.originCountry || '',
-            destAddress:   v?.destAddress   || '',
-            destCity:      v?.destCity      || '',
-            destCountry:   v?.destCountry   || '',
+            originAddress: fullAddress(v?.originAddress, v?.originCity, v?.originCountry),
+            originCity: '', originCountry: '',
+            destAddress: fullAddress(v?.destAddress, v?.destCity, v?.destCountry),
+            destCity: '', destCountry: '',
             notes:         v?.observations  || '',
             clientPhone:   autoPhone   || prev.clientPhone,
             quoteTo:       autoQuoteTo || prev.quoteTo,
@@ -214,12 +216,10 @@ export default function JobForm() {
               corporateClientId: v.corporateClientId || '',
               companyName:       v.corporateClient?.name || '',
               companyPhone:      v.corporateClient?.phone || '',
-              originAddress: v.originAddress || '',
-              originCity:    v.originCity    || '',
-              originCountry: v.originCountry || '',
-              destAddress:   v.destAddress   || '',
-              destCity:      v.destCity      || '',
-              destCountry:   v.destCountry   || '',
+              originAddress: fullAddress(v.originAddress, v.originCity, v.originCountry),
+              originCity: '', originCountry: '',
+              destAddress: fullAddress(v.destAddress, v.destCity, v.destCountry),
+              destCity: '', destCountry: '',
               notes:         v.observations  || '',
               clientPhone:   v.client?.phone || '',
               quoteTo:       autoQuoteTo,
@@ -303,8 +303,8 @@ export default function JobForm() {
         clientId:          v?.clientId          || '',
         corporateClientId: v?.corporateClientId || '',
         companyName:       v?.corporateClient?.name || prev.companyName,
-        originAddress: v?.originAddress || '', originCity: v?.originCity || '', originCountry: v?.originCountry || '',
-        destAddress: v?.destAddress || '', destCity: v?.destCity || '', destCountry: v?.destCountry || '',
+        originAddress: fullAddress(v?.originAddress, v?.originCity, v?.originCountry), originCity: '', originCountry: '',
+        destAddress: fullAddress(v?.destAddress, v?.destCity, v?.destCountry), destCity: '', destCountry: '',
         notes: v?.observations || '',
         clientPhone: autoPhone   || prev.clientPhone,
         quoteTo:     autoQuoteTo || prev.quoteTo,
@@ -438,14 +438,8 @@ export default function JobForm() {
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">{t('jobs.personalCount')}</label>
-                {isScheduleManager ? (
-                  <input type="number" min="1" className="form-control" value={form.personalCount}
-                    onChange={e => set('personalCount', e.target.value)} placeholder={t('jobs.personalCountPlaceholder')} />
-                ) : (
-                  <div className="form-control" style={{ background:'#f8fafc', color:'#475569' }}>
-                    {form.personalCount || '—'} <span style={{ fontSize:11, color:'#94a3b8' }}>({t('schedule.managerOnly')})</span>
-                  </div>
-                )}
+                <input type="number" min="1" className="form-control" value={form.personalCount}
+                  onChange={e => set('personalCount', e.target.value)} placeholder={t('jobs.personalCountPlaceholder')} />
               </div>
               <div className="form-group">
                 <label className="form-label">{t('jobs.daysToComplete')}</label>

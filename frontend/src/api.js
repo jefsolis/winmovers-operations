@@ -4,7 +4,11 @@ const BASE = '/api'
 
 async function authHeaders() {
   const token = await getAccessToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  const impersonatedStaffId = localStorage.getItem('wm-dev-impersonate-staff-id')
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(impersonatedStaffId ? { 'X-Dev-Impersonate-Staff-Id': impersonatedStaffId } : {}),
+  }
 }
 
 export async function apiFetch(path, { method = 'GET', body } = {}) {

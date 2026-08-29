@@ -4,7 +4,7 @@ const { logAudit } = require("../audit")
 const { generateFileNumber } = require("./movingFiles")
 const { notifyFileCoordinator } = require('../services/notifications')
 const { syncJobScheduleEntries } = require('../services/scheduleSync')
-const { requireScheduleManager, isScheduleManager } = require('../middleware/schedulePermissions')
+const { requireScheduleManager } = require('../middleware/schedulePermissions')
 
 async function forbidBodegaWrite(req, res, next) {
   try {
@@ -144,10 +144,6 @@ router.post("/", forbidBodegaWrite, async (req, res, next) => {
       visitId,
       corporateClientId,
     } = req.body
-
-    if (personalCount != null && personalCount !== '' && !(await isScheduleManager(req))) {
-      return res.status(403).json({ error: 'Solo un Gerente de Bit\u00e1cora puede establecer el tama\u00f1o de cuadrilla de un trabajo.' })
-    }
 
     // Detect Export: visit serviceType DOOR_TO_PORT or DOOR_TO_DOOR
     const EXPORT_SERVICE_TYPES = ["DOOR_TO_PORT", "DOOR_TO_DOOR"]
@@ -310,13 +306,6 @@ router.put("/:id", forbidBodegaWrite, async (req, res, next) => {
     } = req.body
 
     const before = await getPrisma().job.findUnique({ where: { id: req.params.id } })
-
-    if (personalCount !== undefined) {
-      const normalizedNewPersonalCount = personalCount != null && personalCount !== '' ? parseInt(personalCount, 10) : null
-      if (normalizedNewPersonalCount !== (before?.personalCount ?? null) && !(await isScheduleManager(req))) {
-        return res.status(403).json({ error: 'Solo un Gerente de Bit\u00e1cora puede modificar el tama\u00f1o de cuadrilla de un trabajo.' })
-      }
-    }
 
     const coordinates = resolveServiceCoordinates(serviceLatitude, serviceLongitude)
     if (coordinates.error) return res.status(400).json({ error: coordinates.error })

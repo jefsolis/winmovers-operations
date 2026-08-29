@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useLanguage } from '../i18n'
 import { useMsal } from '@azure/msal-react'
 import { useCurrentStaff } from '../hooks/useCurrentStaff'
+import { api } from '../api'
 
 export default function Layout() {
   const { t, toggleLang } = useLanguage()
@@ -13,6 +14,11 @@ export default function Layout() {
   const currentStaff = useCurrentStaff()
   const isAdmin = currentStaff?.role === 'ADMIN'
   const isBodega = currentStaff?.role === 'BODEGA'
+  const [impersonation, setImpersonation] = useState(null)
+
+  useEffect(() => {
+    api.get('/staff/dev-impersonation').then(setImpersonation).catch(() => setImpersonation(null))
+  }, [])
 
   const handleLogout = () => instance.logoutRedirect({ postLogoutRedirectUri: window.location.origin })
   const canSchedule = currentStaff?.canAccessSchedule || isAdmin || isBodega
@@ -69,6 +75,25 @@ export default function Layout() {
           ))}
         </nav>
         <div className="sidebar-footer">
+          {impersonation?.enabled && (
+            <select
+              aria-label={t('devImpersonation.label')}
+              value={localStorage.getItem('wm-dev-impersonate-staff-id') || ''}
+              onChange={e => {
+                if (e.target.value) localStorage.setItem('wm-dev-impersonate-staff-id', e.target.value)
+                else localStorage.removeItem('wm-dev-impersonate-staff-id')
+                window.location.reload()
+              }}
+              style={{ width: '100%', height: 32, marginBottom: 10, fontSize: 12, border: '1px solid #f59e0b', borderRadius: 4, color: '#92400e', background: '#fffbeb' }}
+            >
+              <option value="">{t('devImpersonation.asSignedIn')}</option>
+              {impersonation.staff.map(member => (
+                <option key={member.id} value={member.id}>
+                  {member.name} ({member.role || t('devImpersonation.noRole')})
+                </option>
+              ))}
+            </select>
+          )}
           <button className="btn-lang" onClick={toggleLang}>🌐 {t('nav.language')}</button>
           {displayName && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, padding: '6px 4px', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
@@ -116,6 +141,25 @@ export default function Layout() {
           <button className="hamburger" onClick={() => setOpen(true)}>☰</button>
           <span className="topbar-brand">🚚 WinMovers</span>
           <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+            {impersonation?.enabled && (
+              <select
+                aria-label={t('devImpersonation.label')}
+                value={localStorage.getItem('wm-dev-impersonate-staff-id') || ''}
+                onChange={e => {
+                  if (e.target.value) localStorage.setItem('wm-dev-impersonate-staff-id', e.target.value)
+                  else localStorage.removeItem('wm-dev-impersonate-staff-id')
+                  window.location.reload()
+                }}
+                style={{ maxWidth: 210, height: 30, fontSize: 12, border: '1px solid #f59e0b', borderRadius: 4, color: '#92400e', background: '#fffbeb' }}
+              >
+                <option value="">{t('devImpersonation.asSignedIn')}</option>
+                {impersonation.staff.map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.name} ({member.role || t('devImpersonation.noRole')})
+                  </option>
+                ))}
+              </select>
+            )}
             {displayName && (
               <span style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 👤 {displayName}

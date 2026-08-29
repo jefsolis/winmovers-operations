@@ -19,6 +19,12 @@ async function logEmail(entityType, entityId, recipient, subject, status, error)
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+  })[char])
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(d) {
@@ -32,6 +38,75 @@ function formatDate(d) {
 function formatDateShort(d) {
   if (!d) return '—'
   return new Date(d).toISOString().slice(0, 10)
+}
+
+/**
+ * Alert directly assigned Scheduling Managers and the job coordinator when a
+ * capacity override puts a job on the schedule with needsAttention=true.
+ */
+async function notifyScheduleAttention({ entryId, jobId, startDate, endDate, overrideReason }) {
+  try {
+    const db = getPrisma()
+    const [job, managers] = await Promise.all([
+      db.job.findUnique({
+        where: { id: jobId },
+        select: {
+          id: true, jobNumber: true, quoteTo: true, companyName: true,
+          client: { select: { name: true, firstName: true, lastName: true, clientType: true } },
+          corporateClient: { select: { name: true } },
+          coordinator: { select: { name: true, email: true } },
+        },
+      }),
+      db.staffMember.findMany({
+        where: {
+          isActive: true,
+          canManageSchedule: true,
+          OR: [{ role: null }, { role: { not: 'ADMIN' } }],
+        },
+        select: { name: true, email: true },
+      }),
+    ])
+    if (!job) return
+
+    const individualName = job.client?.clientType === 'INDIVIDUAL'
+      ? `${job.client.firstName || ''} ${job.client.lastName || ''}`.trim() || job.client.name
+      : job.client?.name
+    const clientLabel = job.corporateClient?.name || individualName || job.companyName || job.quoteTo || 'Sin cliente asignado'
+    const dateLabel = formatDateShort(startDate) === formatDateShort(endDate)
+      ? formatDateShort(startDate)
+      : `${formatDateShort(startDate)} al ${formatDateShort(endDate)}`
+    const recipients = [...managers, job.coordinator]
+      .filter(person => person?.email)
+      .filter((person, index, list) => list.findIndex(candidate => candidate.email.toLowerCase() === person.email.toLowerCase()) === index)
+    if (!recipients.length) return
+
+    const subject = `[Bitácora] Atención requerida: ${job.jobNumber}`
+    const html = `
+      <p>Hola,</p>
+      <p>La orden de trabajo <strong>${escapeHtml(job.jobNumber)}</strong> fue agendada excediendo la capacidad diaria y requiere atención.</p>
+      <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
+        <tr><td style="padding:4px 12px 4px 0;color:#64748b">Orden</td><td><strong>${escapeHtml(job.jobNumber)}</strong></td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#64748b">Cliente</td><td>${escapeHtml(clientLabel)}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#64748b">Fecha asignada</td><td>${escapeHtml(dateLabel)}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#64748b">Motivo de excepción</td><td>${escapeHtml(overrideReason)}</td></tr>
+      </table>
+      <p>Por favor revise la Bitácora y ajuste la cuadrilla o reubique otras órdenes para resolver la sobrecarga.</p>
+      <p style="color:#64748b;font-size:12px">WinMovers Operations</p>
+    `
+
+    await Promise.all(recipients.map(async recipient => {
+      let mailErr = null
+      try {
+        await sendMail({ to: recipient.email, subject, html })
+      } catch (err) {
+        mailErr = err
+        console.error('[notify] scheduleAttention error:', err.message)
+      }
+      await logEmail('ScheduleEntry', entryId, recipient.email, subject, mailErr ? 'FAILED' : 'SENT', mailErr?.message)
+    }))
+  } catch (err) {
+    console.error('[notify] scheduleAttention error:', err.message)
+  }
 }
 
 /** Pad a number to two digits */
@@ -398,4 +473,4 @@ async function notifyFileCoordinator(file, action = 'created', changes = []) {
   }
 }
 
-module.exports = { notifyVisitAssigned, notifyFileCoordinator, diffFileFields }
+module.exports = { notifyVisitAssigned, notifyFileCoordinator, notifyScheduleAttention, diffFileFields }
