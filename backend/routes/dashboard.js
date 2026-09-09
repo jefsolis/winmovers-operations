@@ -1,5 +1,6 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
+const { scheduleStatus } = require('../services/scheduleStatus')
 
 function toMonthKey(date) {
   const d = new Date(date)
@@ -293,6 +294,7 @@ router.get('/', async (req, res, next) => {
           client:          { select: { name: true, firstName: true, lastName: true, clientType: true } },
           corporateClient: { select: { name: true, firstName: true, lastName: true, clientType: true } },
           attachments: { select: { category: true } },
+          job: { select: { scheduleEntries: { select: { id: true, date: true, startDate: true, endDate: true } } } },
         },
       }),
       // Open EXPORT files (for no-invoice card)
@@ -304,6 +306,7 @@ router.get('/', async (req, res, next) => {
           client:          { select: { name: true, firstName: true, lastName: true, clientType: true } },
           corporateClient: { select: { name: true, firstName: true, lastName: true, clientType: true } },
           attachments: { select: { category: true } },
+          job: { select: { scheduleEntries: { select: { id: true, date: true, startDate: true, endDate: true } } } },
         },
       }),
       // Open IMPORT files (for no-invoice card)
@@ -315,6 +318,7 @@ router.get('/', async (req, res, next) => {
           client:          { select: { name: true, firstName: true, lastName: true, clientType: true } },
           corporateClient: { select: { name: true, firstName: true, lastName: true, clientType: true } },
           attachments: { select: { category: true } },
+          job: { select: { scheduleEntries: { select: { id: true, date: true, startDate: true, endDate: true } } } },
         },
       }),
       // IMPORT files where fechaEntrega has passed (delivery doc alerts)
@@ -331,6 +335,7 @@ router.get('/', async (req, res, next) => {
           client:          { select: { name: true, firstName: true, lastName: true, clientType: true } },
           corporateClient: { select: { name: true } },
           attachments: { select: { category: true } },
+          job: { select: { scheduleEntries: { select: { id: true, date: true, startDate: true, endDate: true } } } },
         },
       }),
       myAppointmentsQuery,
@@ -418,6 +423,7 @@ router.get('/', async (req, res, next) => {
       fileNumber: f.fileNumber,
       createdAt: f.createdAt,
       client: f.corporateClient || f.client || null,
+      ...scheduleStatus(f.job?.scheduleEntries),
     }))
     const localNoInvoiceRecent = localNoInvoice.filter(f => new Date(f.createdAt) >= thirtyDaysAgo).reverse()
     const localNoInvoiceOld    = localNoInvoice.filter(f => new Date(f.createdAt) <  thirtyDaysAgo)
@@ -425,14 +431,14 @@ router.get('/', async (req, res, next) => {
     // Export files without invoice
     const exportNoInvoice = openExportFiles
       .filter(f => !f.attachments.some(a => a.category === 'INVOICE'))
-      .map(f => ({ id: f.id, fileNumber: f.fileNumber, createdAt: f.createdAt, client: f.corporateClient || f.client || null }))
+      .map(f => ({ id: f.id, fileNumber: f.fileNumber, createdAt: f.createdAt, client: f.corporateClient || f.client || null, ...scheduleStatus(f.job?.scheduleEntries) }))
     const exportNoInvoiceRecent = exportNoInvoice.filter(f => new Date(f.createdAt) >= thirtyDaysAgo).reverse()
     const exportNoInvoiceOld    = exportNoInvoice.filter(f => new Date(f.createdAt) <  thirtyDaysAgo)
 
     // Import files without invoice
     const importNoInvoice = openImportFiles
       .filter(f => !f.attachments.some(a => a.category === 'INVOICE'))
-      .map(f => ({ id: f.id, fileNumber: f.fileNumber, createdAt: f.createdAt, client: f.corporateClient || f.client || null }))
+      .map(f => ({ id: f.id, fileNumber: f.fileNumber, createdAt: f.createdAt, client: f.corporateClient || f.client || null, ...scheduleStatus(f.job?.scheduleEntries) }))
     const importNoInvoiceRecent = importNoInvoice.filter(f => new Date(f.createdAt) >= thirtyDaysAgo).reverse()
     const importNoInvoiceOld    = importNoInvoice.filter(f => new Date(f.createdAt) <  thirtyDaysAgo)
 
@@ -455,6 +461,7 @@ router.get('/', async (req, res, next) => {
           fechaEntrega: f.fechaEntrega,
           client: f.corporateClient || f.client || null,
           missingDocs,
+          ...scheduleStatus(f.job?.scheduleEntries),
         }
       })
       .filter(Boolean)

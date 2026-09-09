@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock3, PackageOpen, Truck } from 'lucide-react'
+import { CalendarCheck2, CalendarX2, CheckCircle2, Clock3, PackageOpen, Truck } from 'lucide-react'
 
 // Colour/style metadata — labels come from i18n via t()
 const STATUS_META = [
@@ -254,6 +254,13 @@ export function getFileProgressionStatuses(category, t) {
 
 export function getFileCategoryLabel(category, t) {
   return t ? t(`fileCategories.${category}`) : category
+}
+
+// ── Scheduled status calendar icon (Jobs list, Files lists, Files summary) ───
+export function scheduleMeta(scheduled, t) {
+  return scheduled
+    ? { scheduled: true, Icon: CalendarCheck2, bg: '#dcfce7', color: '#166534', label: t ? t('jobs.scheduledTooltip') : 'Scheduled' }
+    : { scheduled: false, Icon: CalendarX2, bg: '#fee2e2', color: '#b91c1c', label: t ? t('jobs.notScheduledTooltip') : 'Not scheduled' }
 }
 
 // ── Visit ────────────────────────────────────────────────────────────────────

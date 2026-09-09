@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
 import { useCurrentStaff } from '../../hooks/useCurrentStaff'
@@ -674,13 +674,15 @@ export default function SchedulePage() {
   const staff = useCurrentStaff()
   const isManager = Boolean(staff?.canManageSchedule || staff?.role === 'ADMIN')
   const today = new Date()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const linkedDate = searchParams.get('date')
 
-  const [year,  setYear]  = useState(today.getFullYear())
-  const [month, setMonth] = useState(today.getMonth())  // 0-indexed
+  const [year,  setYear]  = useState(() => (linkedDate ? fromDateStr(linkedDate).getFullYear() : today.getFullYear()))
+  const [month, setMonth] = useState(() => (linkedDate ? fromDateStr(linkedDate).getMonth() : today.getMonth()))  // 0-indexed
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [view,    setView]    = useState(() => localStorage.getItem('schedule.view') || 'calendar') // 'calendar' | 'list'
-  const [dayPanel,  setDayPanel]  = useState(null)  // dateStr
+  const [dayPanel,  setDayPanel]  = useState(() => linkedDate || null)  // dateStr
   const [editEntry, setEditEntry] = useState(undefined) // undefined = closed, null = new, object = edit
   const [newDefaultDate, setNewDefaultDate] = useState('')
   const [hoveredDay, setHoveredDay] = useState(null)   // dateStr
@@ -721,6 +723,12 @@ export default function SchedulePage() {
   }, [monthEndStr, monthStartStr])
 
   useEffect(() => { fetchEntries(true) }, [fetchEntries])
+
+  // Clear the deep-link date param once consumed so subsequent in-page navigation isn't trapped on it
+  useEffect(() => {
+    if (linkedDate) setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     api.get('/schedule/settings').then(s => setCapacity(s.dailyWorkerCapacity)).catch(() => {})

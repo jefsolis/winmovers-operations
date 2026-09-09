@@ -5,6 +5,7 @@ const { generateFileNumber } = require("./movingFiles")
 const { notifyFileCoordinator } = require('../services/notifications')
 const { syncJobScheduleEntries } = require('../services/scheduleSync')
 const { requireScheduleManager } = require('../middleware/schedulePermissions')
+const { scheduleStatus } = require('../services/scheduleStatus')
 
 async function forbidBodegaWrite(req, res, next) {
   try {
@@ -90,9 +91,10 @@ router.get("/", async (req, res, next) => {
         customsAgent:{ select: { id: true, name: true } },
         coordinator: { select: { id: true, name: true } },
         movingFile:  { select: { id: true, fileNumber: true, status: true, category: true } },
+        scheduleEntries: { select: { id: true, date: true, startDate: true, endDate: true } },
       },
     })
-    res.json(jobs)
+    res.json(jobs.map(j => ({ ...j, ...scheduleStatus(j.scheduleEntries) })))
   } catch (err) { next(err) }
 })
 

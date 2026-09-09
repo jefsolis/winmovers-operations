@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { fileStatusMeta, getFileStatuses, getFileProgressionStatuses, stripFilePrefix } from '../../constants'
+import { fileStatusMeta, getFileStatuses, getFileProgressionStatuses, stripFilePrefix, scheduleMeta } from '../../constants'
 
 /**
  * FilesList — shared list component for all three file categories.
@@ -10,6 +10,7 @@ import { fileStatusMeta, getFileStatuses, getFileProgressionStatuses, stripFileP
  */
 export default function FilesList({ category }) {
   const { t } = useLanguage()
+  const navigate = useNavigate()
   const [files, setFiles]     = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
@@ -209,12 +210,14 @@ export default function FilesList({ category }) {
                     {category !== 'LOCAL' && <th>{t('movingFiles.linkedJob')}</th>}
                     {category !== 'LOCAL' && <th>{t('movingFiles.coordinator')}</th>}
                     <th>{t('movingFiles.attachments')}</th>
+                    <th></th>
                     <th>{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {displayed.map(f => {
                     const sm = fileStatusMeta(f.status, t)
+                    const scm = scheduleMeta(f.scheduled, t)
                     const progressionStatuses = getFileProgressionStatuses(category, t)
                     const isDeleted = Boolean(f.deletedAt)
                     const canChangeStatus = category !== 'LOCAL' && f.status !== 'CLOSED' && f.status !== 'VOID' && !isDeleted
@@ -257,6 +260,15 @@ export default function FilesList({ category }) {
                           </td>
                         )}
                         <td>{f._count?.attachments ?? 0}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <scm.Icon
+                            size={18}
+                            color={scm.color}
+                            title={scm.label}
+                            style={{ cursor: f.scheduled ? 'pointer' : 'default' }}
+                            onClick={() => { if (f.scheduled) navigate(`/schedule?date=${f.nextScheduleDate}`) }}
+                          />
+                        </td>
                         <td className="td-actions">
                           <Link to={`${prefix[category]}/${f.id}${isDeleted ? '?includeDeleted=true' : ''}`} className="btn btn-ghost btn-sm">{t('common.view')}</Link>
                           {isDeleted ? (

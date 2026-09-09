@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell, Legend, LabelList
 } from 'recharts'
 import { api } from '../api'
-import { formatDate, stripFilePrefix } from '../constants'
+import { formatDate, stripFilePrefix, scheduleMeta } from '../constants'
 import { useLanguage } from '../i18n'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
 import DashboardCardStore from '../components/DashboardCardStore'
@@ -402,11 +402,21 @@ export default function Dashboard() {
                   ? `${f.client.firstName || ''} ${f.client.lastName || ''}`.trim() || f.client.name
                   : f.client.name)
               : '—'
+            const scm = scheduleMeta(f.scheduled, t)
             return (
               <tr key={f.id}>
                 <td><Link to={`${tabRoute}/${f.id}`} style={{ color, fontWeight: 600 }}>{stripFilePrefix(f.fileNumber)}</Link></td>
                 <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{cname}</td>
                 <td style={{ textAlign: 'right', fontSize: 13, color, ...(color === '#dc2626' ? { fontWeight: 600 } : {}) }}>{days}</td>
+                <td style={{ textAlign: 'center' }}>
+                  <scm.Icon
+                    size={16}
+                    color={scm.color}
+                    title={scm.label}
+                    style={{ cursor: f.scheduled ? 'pointer' : 'default' }}
+                    onClick={() => { if (f.scheduled) navigate(`/schedule?date=${f.nextScheduleDate}`) }}
+                  />
+                </td>
               </tr>
             )
           })
@@ -425,6 +435,7 @@ export default function Dashboard() {
                       <th>{t('dashboard.fileNumber')}</th>
                       <th>{t('dashboard.client')}</th>
                       <th style={{ textAlign: 'right' }}>{t('dashboard.daysOld')}</th>
+                      <th></th>
                     </tr></thead><tbody>{renderRows(recent, 'var(--primary)')}</tbody></table></div>
                 }
               </div>
@@ -441,6 +452,7 @@ export default function Dashboard() {
                       <th>{t('dashboard.fileNumber')}</th>
                       <th>{t('dashboard.client')}</th>
                       <th style={{ textAlign: 'right' }}>{t('dashboard.daysOld')}</th>
+                      <th></th>
                     </tr></thead><tbody>{renderRows(old, '#dc2626')}</tbody></table></div>
                 }
               </div>
@@ -482,6 +494,7 @@ export default function Dashboard() {
                     <th>{t('dashboard.fechaEntrega')}</th>
                     <th>{t('dashboard.missingDoc')}</th>
                     <th>{t('dashboard.dueIn')}</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -495,6 +508,7 @@ export default function Dashboard() {
                       ? new Date(f.fechaEntrega).toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })
                       : '—'
                     const route = f.category === 'EXPORT' ? '/files/export' : '/files/import'
+                    const scm = scheduleMeta(f.scheduled, t)
                     return f.missingDocs.map((doc, di) => {
                       const dueDate   = new Date(doc.dueDate)
                       const daysLeft  = Math.ceil((dueDate - Date.now()) / 86400000)
@@ -519,6 +533,17 @@ export default function Dashboard() {
                               : `${daysLeft} ${t('dashboard.days')}`
                             }
                           </td>
+                          {di === 0 && (
+                            <td rowSpan={f.missingDocs.length} style={{ textAlign: 'center' }}>
+                              <scm.Icon
+                                size={16}
+                                color={scm.color}
+                                title={scm.label}
+                                style={{ cursor: f.scheduled ? 'pointer' : 'default' }}
+                                onClick={() => { if (f.scheduled) navigate(`/schedule?date=${f.nextScheduleDate}`) }}
+                              />
+                            </td>
+                          )}
                         </tr>
                       )
                     })

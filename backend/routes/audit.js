@@ -35,6 +35,32 @@ router.get('/', async (req, res, next) => {
       }
     }
 
+    // Job history is combined with the history of any ScheduleEntry linked to that job
+    // (jobId lives inside the before/after JSON snapshot, not as its own AuditLog column).
+    if (entityType === 'Job' && entityId) {
+      const scheduleWhere = {
+        entityType: 'ScheduleEntry',
+        ...(action   ? { action } : {}),
+        ...(userId   ? { userId } : {}),
+        ...(userName ? { userName: { contains: userName, mode: 'insensitive' } } : {}),
+        ...(where.createdAt ? { createdAt: where.createdAt } : {}),
+        OR: [
+          { before: { path: ['jobId'], equals: entityId } },
+          { after:  { path: ['jobId'], equals: entityId } },
+        ],
+      }
+      const [jobEntries, scheduleEntries] = await Promise.all([
+        getPrisma().auditLog.findMany({ where, orderBy: { createdAt: 'desc' } }),
+        getPrisma().auditLog.findMany({ where: scheduleWhere, orderBy: { createdAt: 'desc' } }),
+      ])
+      const combined = [...jobEntries, ...scheduleEntries]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(e => ({ ...e, source: e.entityType === 'ScheduleEntry' ? 'Schedule' : 'Job' }))
+      const total = combined.length
+      const entries = combined.slice(skip, skip + take)
+      return res.json({ total, entries })
+    }
+
     const [total, entries] = await Promise.all([
       getPrisma().auditLog.count({ where }),
       getPrisma().auditLog.findMany({
@@ -45,7 +71,7 @@ router.get('/', async (req, res, next) => {
       }),
     ])
 
-    res.json({ total, entries })
+    res.json({ total, entries: entries.map(e => ({ ...e, source: e.entityType === 'ScheduleEntry' ? 'Schedule' : e.entityType })) })
   } catch (err) { next(err) }
 })
 

@@ -3,6 +3,7 @@ const { logAudit } = require('../audit')
 const { getPrisma } = require("../db")
 const { notifyFileCoordinator, diffFileFields } = require('../services/notifications')
 const { syncJobScheduleEntries } = require('../services/scheduleSync')
+const { scheduleStatus } = require('../services/scheduleStatus')
 
 const CATEGORY_PREFIX = { EXPORT: "E", IMPORT: "DF", LOCAL: "M", WAREHOUSE: "B" }
 const WINMOVERS_SENTINEL = 'WINMOVERS'
@@ -86,14 +87,14 @@ router.get("/", async (req, res, next) => {
       include: {
         client:          { select: { id: true, name: true, firstName: true, lastName: true, clientType: true, phone: true, address: true } },
         corporateClient: { select: { id: true, name: true, phone: true, address: true } },
-        job:    { select: { id: true, jobNumber: true, status: true, type: true, clientPhone: true, clientHomePhone: true, companyPhone: true, originAddress: true, originCity: true, originCountry: true, serviceLatitude: true, serviceLongitude: true, coordinator: { select: { id: true, name: true } } } },
+        job:    { select: { id: true, jobNumber: true, status: true, type: true, clientPhone: true, clientHomePhone: true, companyPhone: true, originAddress: true, originCity: true, originCountry: true, serviceLatitude: true, serviceLongitude: true, coordinator: { select: { id: true, name: true } }, scheduleEntries: { select: { id: true, date: true, startDate: true, endDate: true } } } },
         originAgent: { select: { id: true, name: true } },
         destAgent:   { select: { id: true, name: true } },
         coordinator: { select: { id: true, name: true } },
         _count: { select: { attachments: true } },
       },
     })
-    res.json(files)
+    res.json(files.map(f => ({ ...f, ...scheduleStatus(f.job?.scheduleEntries) })))
   } catch (e) { next(e) }
 })
 

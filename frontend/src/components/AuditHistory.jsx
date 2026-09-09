@@ -8,6 +8,11 @@ const ACTION_COLORS = {
   DELETE: { bg: '#fee2e2', color: '#dc2626' },
 }
 
+const SOURCE_COLORS = {
+  Job:      { bg: '#ede9fe', color: '#5b21b6' },
+  Schedule: { bg: '#fef3c7', color: '#92400e' },
+}
+
 function formatValue(v) {
   if (v === null || v === undefined) return <em style={{ color: 'var(--text-muted)' }}>—</em>
   if (typeof v === 'boolean') return v ? 'true' : 'false'
@@ -98,6 +103,14 @@ export default function AuditHistory({ entityType, entityId }) {
     return action
   }
 
+  // Job history mixes Job + Schedule entries; only show the origin badge in that combined view.
+  const showSourceBadge = entityType === 'Job'
+  const sourceLabel = (source) => {
+    if (source === 'Job') return t('audit.sourceJob')
+    if (source === 'Schedule') return t('audit.sourceSchedule')
+    return source
+  }
+
   return (
     <div style={{ maxWidth: 900 }}>
       {total > entries.length && (
@@ -113,14 +126,17 @@ export default function AuditHistory({ entityType, entityId }) {
           return (
             <div key={entry.id} className="card" style={{ padding: '12px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: entry.action === 'UPDATE' && entry.changedKeys?.length > 0 ? 6 : 0 }}>
+                {showSourceBadge && (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: (SOURCE_COLORS[entry.source] || SOURCE_COLORS.Job).bg, color: (SOURCE_COLORS[entry.source] || SOURCE_COLORS.Job).color, textTransform: 'uppercase' }}>
+                    {sourceLabel(entry.source)}
+                  </span>
+                )}
                 <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: ac.bg, color: ac.color }}>
                   {actionLabel(entry.action)}
                 </span>
-                {entry.userName && (
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                    {t('audit.by')} <strong style={{ color: 'var(--text)' }}>{entry.userName}</strong>
-                  </span>
-                )}
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  {t('audit.by')} <strong style={{ color: 'var(--text)' }}>{entry.userName || t('audit.systemUser')}</strong>
+                </span>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>
                   {t('audit.at')} {when}
                 </span>

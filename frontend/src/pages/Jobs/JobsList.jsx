@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
-import { typeMeta, formatDate, getJobTypes } from '../../constants'
+import { typeMeta, formatDate, getJobTypes, scheduleMeta } from '../../constants'
 import { useLanguage } from '../../i18n'
 import { useCurrentStaff } from '../../hooks/useCurrentStaff'
 
 export default function JobsList() {
   const { t } = useLanguage()
+  const navigate = useNavigate()
   const currentStaff = useCurrentStaff()
   const canWriteJobs = currentStaff?.role !== 'BODEGA'
   const [searchParams] = useSearchParams()
@@ -173,11 +174,13 @@ export default function JobsList() {
                       <th>{t('jobs.serviceDate')}</th>
                       <th>{t('movingFiles.coordinator')}</th>
                       <th></th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     {displayed.map(job => {
                       const tm = typeMeta(job.type, t)
+                      const sm = scheduleMeta(job.scheduled, t)
                       return (
                         <tr key={job.id}>
                           <td><Link to={`/jobs/${job.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.jobNumber}</Link></td>
@@ -186,6 +189,15 @@ export default function JobsList() {
                           <td style={{ color: 'var(--text-muted)' }}>{[job.originCity, job.destCity].filter(Boolean).join(' → ') || '—'}</td>
                           <td style={{ color: 'var(--text-muted)' }}>{formatDate(job.serviceDate)}</td>
                           <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{job.coordinator?.name || '—'}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <sm.Icon
+                              size={18}
+                              color={sm.color}
+                              title={sm.label}
+                              style={{ cursor: job.scheduled ? 'pointer' : 'default' }}
+                              onClick={() => { if (job.scheduled) navigate(`/schedule?date=${job.nextScheduleDate}`) }}
+                            />
+                          </td>
                           <td className="td-actions">
                             {canWriteJobs && (
                               <>
