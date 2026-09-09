@@ -217,6 +217,7 @@ router.post("/", async (req, res, next) => {
     // Fire-and-forget coordinator notification
     if (coordinatorId) notifyFileCoordinator(file, 'created')
     logAudit(req, 'MovingFile', file.id, 'CREATE', null, file)
+    let warehouseScheduleWarning = null
     if (category === 'WAREHOUSE') {
       try {
         const warehouseJob = await getPrisma().job.create({
@@ -233,12 +234,14 @@ router.post("/", async (req, res, next) => {
           },
         })
         logAudit(req, 'Job', warehouseJob.id, 'CREATE', null, warehouseJob)
-        syncJobScheduleEntries(warehouseJob, req)
+        // Awaited so a missing-crew-size/capacity warning isn't silently lost like an unhandled rejection.
+        const { warning } = await syncJobScheduleEntries(warehouseJob, req).catch(() => ({ warning: null }))
+        warehouseScheduleWarning = warning || null
       } catch (jobErr) {
         console.error('Failed to auto-create WAREHOUSE job for file', file.id, jobErr)
       }
     }
-    res.status(201).json(file)
+    res.status(201).json({ ...file, scheduleWarning: warehouseScheduleWarning })
   } catch (e) { next(e) }
 })
 

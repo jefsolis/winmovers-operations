@@ -236,6 +236,11 @@ export default function FileForm() {
         navigate(`${CATEGORY_ROUTES[category]}/${id}`)
       } else {
         const created = await api.post('/files', payload)
+        // WAREHOUSE auto-creates a Job that may fail to auto-schedule (e.g. missing crew size) —
+        // surface that instead of silently navigating away as if everything succeeded.
+        if (created?.scheduleWarning?.code === 'MISSING_WORKERS_REQUIRED') {
+          alert(t('schedule.workersRequiredMissing'))
+        }
         navigate(`${CATEGORY_ROUTES[category]}/${created.id}`)
       }
     } catch (e) { setError(e.message) }

@@ -40,6 +40,7 @@ function fullAddress(address, city, country) {
 }
 
 export default function JobForm() {
+  const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }} title="Required">*</span>
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -69,6 +70,7 @@ export default function JobForm() {
   const [showOverride, setShowOverride] = useState(false)
   const [overrideReason, setOverrideReason] = useState('')
   const errorRef = useRef(null)
+  const scheduleWarningRef = useRef(null)
   const [clientModalOpen, setClientModalOpen] = useState(false)
   const [corpModalOpen, setCorpModalOpen]     = useState(false)
   const currentStaff = useCurrentStaff()
@@ -83,6 +85,11 @@ export default function JobForm() {
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [error])
+
+  // Ensure the crew-size/capacity warning is seen after a create redirects here, not just on manual edits
+  useEffect(() => {
+    if (scheduleWarning) scheduleWarningRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [scheduleWarning])
 
   useEffect(() => {
     const tasks = [
@@ -314,6 +321,13 @@ export default function JobForm() {
 
   const handleSubmit = async (e, override) => {
     e.preventDefault()
+    if (!override) {
+      const workers = parseInt(form.personalCount, 10)
+      if (!form.personalCount || !Number.isInteger(workers) || workers < 1) {
+        setError(t('jobs.personalCountRequired'))
+        return
+      }
+    }
     setSaving(true); setError(null)
     if (!override) setScheduleWarning(null)
     try {
@@ -437,8 +451,8 @@ export default function JobForm() {
             <div className="form-section-title">{t('jobs.schedulingSection')}</div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">{t('jobs.personalCount')}</label>
-                <input type="number" min="1" className="form-control" value={form.personalCount}
+                <label className="form-label">{t('jobs.personalCount')}<Req /></label>
+                <input type="number" min="1" required className="form-control" value={form.personalCount}
                   onChange={e => set('personalCount', e.target.value)} placeholder={t('jobs.personalCountPlaceholder')} />
               </div>
               <div className="form-group">
@@ -448,7 +462,7 @@ export default function JobForm() {
               </div>
             </div>
             {scheduleWarning && (
-              <div className="alert alert-error" style={{ marginTop: 8, fontSize: 13 }}>
+              <div ref={scheduleWarningRef} className="alert alert-error" style={{ marginTop: 8, fontSize: 13 }}>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>
                   {scheduleWarning.code === 'MISSING_WORKERS_REQUIRED' ? t('schedule.workersRequiredMissing')
                     : scheduleWarning.code === 'OVERRIDE_REASON_REQUIRED' ? t('schedule.overrideReasonRequired')
