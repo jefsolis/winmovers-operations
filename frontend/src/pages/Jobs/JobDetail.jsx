@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../api'
 import { useLanguage } from '../../i18n'
-import { typeMeta, formatDate, stripFilePrefix } from '../../constants'
+import { typeMeta, formatDate, stripFilePrefix, getJobStatuses } from '../../constants'
 import JobDocument from './JobDocument'
 import DamageReport, { EMPTY_DR } from '../Files/DamageReport'
 import ServiceEvaluation, { EMPTY_SE } from '../Files/ServiceEvaluation'
@@ -17,6 +17,7 @@ export default function JobDetail() {
   const [searchParams] = useSearchParams()
   const docRef    = useRef(null)
   const headerRef = useRef(null)
+  const reopenMenuRef = useRef(null)
 
   const [job, setJob]     = useState(null)
   const [loading, setLoading] = useState(true)
@@ -24,6 +25,8 @@ export default function JobDetail() {
   const [tab, setTab]          = useState(searchParams.get('tab') || 'workorder') // 'workorder' | 'overview' | 'damage' | 'evaluation' | 'history'
   const [closing, setClosing]           = useState(false)
   const [exporting, setExporting]       = useState(false)
+  const [showReopenMenu, setShowReopenMenu] = useState(false)
+  const [reopening, setReopening]           = useState(false)
   const [importFiles, setImportFiles]   = useState(null)  // null = not loaded
   const [selectedFileId, setSelectedFileId] = useState('')
   const [linkingSaving, setLinkingSaving]   = useState(false)
@@ -48,6 +51,27 @@ export default function JobDetail() {
   }, [id])
 
   const TERMINAL = ['DELIVERED', 'CLOSED', 'CANCELLED']
+
+  useEffect(() => {
+    if (!showReopenMenu) return
+    const close = (e) => { if (reopenMenuRef.current && !reopenMenuRef.current.contains(e.target)) setShowReopenMenu(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [showReopenMenu])
+
+  const reopenJob = async (status) => {
+    if (!window.confirm(t('jobs.reopenJobConfirm', { status: t(`statuses.${status}`) }))) return
+    setReopening(true)
+    try {
+      const updated = await api.patch(`/jobs/${id}/status`, { status })
+      setJob(updated)
+      setShowReopenMenu(false)
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setReopening(false)
+    }
+  }
 
   const loadImportFiles = () => {
     if (importFiles !== null) return
@@ -203,6 +227,31 @@ export default function JobDetail() {
             <button className="btn btn-success" onClick={closeJob} disabled={closing}>
               {closing ? t('common.saving') : t('jobs.closeJob')}
             </button>
+          )}
+          {canWriteJobs && TERMINAL.includes(job.status) && (
+            <div ref={reopenMenuRef} style={{ position: 'relative' }}>
+              <button className="btn btn-secondary" onClick={() => setShowReopenMenu(v => !v)} disabled={reopening}>
+                {reopening ? t('common.saving') : t('jobs.reopenJob')}
+              </button>
+              {showReopenMenu && (
+                <div style={{
+                  position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50,
+                  background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 200, padding: '8px 0',
+                }}>
+                  <div style={{ padding: '0 12px 6px', fontSize: 12, color: 'var(--text-muted)' }}>{t('jobs.reopenJobPrompt')}</div>
+                  {getJobStatuses(t).filter(s => !TERMINAL.includes(s.value)).map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => reopenJob(s.value)}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', color: '#1e293b', background: 'none', border: 'none', fontSize: 14, cursor: 'pointer' }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -412,7 +412,10 @@ router.patch("/:id/status", forbidBodegaWrite, async (req, res, next) => {
   try {
     const { status } = req.body
     if (!status) return res.status(400).json({ error: "status is required" })
+    const before = await getPrisma().job.findUnique({ where: { id: req.params.id } })
+    if (!before) return res.status(404).json({ error: "Not found" })
     const job = await getPrisma().job.update({ where: { id: req.params.id }, data: { status } })
+    logAudit(req, 'Job', job.id, 'UPDATE', before, job)
     res.json(job)
   } catch (err) { next(err) }
 })
