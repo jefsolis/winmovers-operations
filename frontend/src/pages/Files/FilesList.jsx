@@ -75,8 +75,14 @@ export default function FilesList({ category }) {
   const progressionKeys = getFileProgressionStatuses(category, t).map(s => s.value)
   const chipStatuses = allStatuses.filter(s => progressionKeys.includes(s.value) || TERMINAL.includes(s.value))
 
+  // Show-closed filtering must apply regardless of whether a status chip is selected,
+  // otherwise a file matching search/status can be hidden from the default view yet appear once filtered.
+  const visibleFiles = (visibilityFilter === 'deleted' || visibilityFilter === 'all')
+    ? files
+    : (showClosed ? files : files.filter(f => !TERMINAL.includes(f.status)))
+
   const countByStatus = {}
-  files.forEach(f => { countByStatus[f.status] = (countByStatus[f.status] || 0) + 1 })
+  visibleFiles.forEach(f => { countByStatus[f.status] = (countByStatus[f.status] || 0) + 1 })
 
   const toggleStatus = (status) => {
     setSelectedStatuses(prev => {
@@ -88,10 +94,8 @@ export default function FilesList({ category }) {
   }
 
   const displayed = selectedStatuses.size > 0
-    ? files.filter(f => selectedStatuses.has(f.status))
-    : (visibilityFilter === 'deleted' || visibilityFilter === 'all'
-      ? files
-      : (!showClosed ? files.filter(f => !TERMINAL.includes(f.status)) : files))
+    ? visibleFiles.filter(f => selectedStatuses.has(f.status))
+    : visibleFiles
 
   const prefix = { EXPORT: '/files/export', IMPORT: '/files/import', LOCAL: '/files/local', WAREHOUSE: '/files/warehouse' }
 

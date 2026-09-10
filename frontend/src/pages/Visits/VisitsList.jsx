@@ -33,8 +33,12 @@ export default function VisitsList() {
     setVisits(prev => prev.filter(x => x.id !== v.id))
   }
 
+  // Show-closed filtering must apply regardless of whether a status chip is selected,
+  // otherwise a visit matching search/status can be hidden from the default view yet appear once filtered.
+  const visibleVisits = showClosed ? visits : visits.filter(v => !TERMINAL.includes(v.status))
+
   const countByStatus = {}
-  visits.forEach(v => { countByStatus[v.status] = (countByStatus[v.status] || 0) + 1 })
+  visibleVisits.forEach(v => { countByStatus[v.status] = (countByStatus[v.status] || 0) + 1 })
 
   const toggleStatus = (status) => {
     setSelectedStatuses(prev => {
@@ -46,8 +50,8 @@ export default function VisitsList() {
   }
 
   const displayed = selectedStatuses.size > 0
-    ? visits.filter(v => selectedStatuses.has(v.status))
-    : (!showClosed ? visits.filter(v => !TERMINAL.includes(v.status)) : visits)
+    ? visibleVisits.filter(v => selectedStatuses.has(v.status))
+    : visibleVisits
 
   const displayName = (v) => {
     if (v.client) return v.client.name

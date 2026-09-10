@@ -42,8 +42,12 @@ export default function JobsList() {
 
   useEffect(() => { load() }, [search]) // eslint-disable-line
 
+  // Status filtering (showClosed) must apply regardless of whether a type filter is active,
+  // otherwise a job matching search/type can be hidden from the default view yet appear once filtered.
+  const visibleJobs = showClosed ? jobs : jobs.filter(j => !TERMINAL.includes(j.status))
+
   const countByType = {}
-  jobs.forEach(job => { countByType[job.type] = (countByType[job.type] || 0) + 1 })
+  visibleJobs.forEach(job => { countByType[job.type] = (countByType[job.type] || 0) + 1 })
 
   const toggleType = (value) => {
     setSelectedTypes(prev => {
@@ -55,8 +59,8 @@ export default function JobsList() {
   }
 
   const displayed = selectedTypes.size > 0
-    ? jobs.filter(job => selectedTypes.has(job.type))
-    : (!showClosed ? jobs.filter(j => !TERMINAL.includes(j.status)) : jobs)
+    ? visibleJobs.filter(job => selectedTypes.has(job.type))
+    : visibleJobs
 
   const handleDelete = async (id, jobNumber) => {
     if (!window.confirm(t('jobs.deleteConfirm', { num: jobNumber }))) return

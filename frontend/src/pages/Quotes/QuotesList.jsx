@@ -37,8 +37,12 @@ export default function QuotesList() {
 
   useEffect(() => { load() }, [search]) // eslint-disable-line
 
+  // Show-closed filtering must apply regardless of whether a status chip is selected,
+  // otherwise a quote matching search/status can be hidden from the default view yet appear once filtered.
+  const visibleQuotes = showClosed ? quotes : quotes.filter(q => !TERMINAL.includes(q.status))
+
   const countByStatus = {}
-  quotes.forEach(q => { countByStatus[q.status] = (countByStatus[q.status] || 0) + 1 })
+  visibleQuotes.forEach(q => { countByStatus[q.status] = (countByStatus[q.status] || 0) + 1 })
 
   const toggleStatus = (status) => {
     setSelectedStatuses(prev => {
@@ -50,8 +54,8 @@ export default function QuotesList() {
   }
 
   const displayed = selectedStatuses.size > 0
-    ? quotes.filter(q => selectedStatuses.has(q.status))
-    : (!showClosed ? quotes.filter(q => !TERMINAL.includes(q.status)) : quotes)
+    ? visibleQuotes.filter(q => selectedStatuses.has(q.status))
+    : visibleQuotes
 
   const handleDelete = async (q) => {
     if (!window.confirm(t('quotes.deleteConfirm', { num: q.quoteNumber }))) return
