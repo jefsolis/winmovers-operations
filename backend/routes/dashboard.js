@@ -1,7 +1,7 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
 const { scheduleStatus } = require('../services/scheduleStatus')
-const { buildCoordinatorWorkload } = require('../services/coordinators')
+const { buildCoordinatorWorkload, CLOSED_FILE_STATUSES } = require('../services/coordinators')
 
 function toMonthKey(date) {
   const d = new Date(date)
@@ -343,7 +343,7 @@ router.get('/', async (req, res, next) => {
       myAppointmentsQuery,
       myCoordinationsQuery,
       p.movingFile.findMany({
-        where: { status: 'OPEN', deletedAt: null },
+        where: { status: { notIn: CLOSED_FILE_STATUSES }, deletedAt: null },
         select: {
           category: true,
           coordinator: { select: { id: true, name: true, isActive: true } },

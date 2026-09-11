@@ -1,5 +1,8 @@
 const CATEGORIES = ['EXPORT', 'IMPORT', 'LOCAL', 'WAREHOUSE']
 
+// Terminal file statuses — everything else counts as still open.
+const CLOSED_FILE_STATUSES = ['CLOSED', 'VOID']
+
 // Effective coordinator of a file: its own coordinator, else the linked job's, else unassigned.
 // Frontend counterpart: frontend/src/constants.js — keep both in sync.
 function effectiveCoordinator(file) {
@@ -12,7 +15,7 @@ function emptyCounts() {
 
 /**
  * Groups files by effective coordinator into per-category counts.
- * Callers must pass only in-scope files (open, not deleted).
+ * Callers must pass only in-scope files (not closed/void, not deleted).
  */
 function buildCoordinatorWorkload(files) {
   const byCoordinator = new Map()
@@ -39,4 +42,4 @@ function buildCoordinatorWorkload(files) {
   return [...rows, unassigned]
 }
 
-module.exports = { CATEGORIES, effectiveCoordinator, buildCoordinatorWorkload }
+module.exports = { CATEGORIES, CLOSED_FILE_STATUSES, effectiveCoordinator, buildCoordinatorWorkload }

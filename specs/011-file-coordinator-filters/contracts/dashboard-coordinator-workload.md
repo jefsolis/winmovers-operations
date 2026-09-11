@@ -56,8 +56,9 @@ card reports current open workload, not activity over a period.
 
 ## Aggregation rules
 
-1. **Scope**: only `MovingFile` rows with `status === 'OPEN'` and `deletedAt === null` (FR-012). This
-   matches the existing `myCoordinations` scope in the same handler.
+1. **Scope**: only `MovingFile` rows whose `status` is **not** in `['CLOSED', 'VOID']` and whose
+   `deletedAt` is `null` (FR-012). Files in any intermediate working status (e.g. `PACKING`, `TRANSIT`,
+   `CUSTOMS`) are in scope — the scope is "not closed", not "status === 'OPEN'".
 2. **Grouping key**: the effective coordinator — `file.coordinator`, else `file.job.coordinator`, else
    the Unassigned group. See [data-model.md](../data-model.md#2-derived-concept-effective-coordinator).
    Implemented in `backend/services/coordinators.js`.

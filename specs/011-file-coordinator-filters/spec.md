@@ -108,7 +108,7 @@ number of files of that type counted by the feature.
 - **FR-009**: A dashboard card MUST present, per coordinator, the count of files they coordinate broken down by file type (Export, Import, Local, Warehouse) with a per-coordinator total.
 - **FR-010**: The dashboard card MUST include an "Unassigned" row with the same per-type breakdown and total.
 - **FR-011**: The dashboard card MUST include per-type column totals and a grand total so the numbers can be reconciled.
-- **FR-012**: The dashboard card MUST count only open, non-deleted files, and MUST state this scope in the card so the numbers are not misread.
+- **FR-012**: The dashboard card MUST count every file that is not closed or void and not deleted — including files in any intermediate working status, not only those in the initial "open" status — and MUST state this scope in the card so the numbers are not misread.
 - **FR-013**: Selecting a coordinator/type cell in the dashboard card MUST navigate to the corresponding file screen with that coordinator filter applied, showing a list consistent with the count.
 - **FR-014**: The dashboard card MUST be registered in the existing dashboard card library so users can show or hide it, with the preference persisted per user, and MUST default to hidden.
 - **FR-015**: Coordinator counts and filtered results MUST respect existing access rules; the feature MUST NOT expose files or staff information to users who cannot already see them.
@@ -141,7 +141,7 @@ number of files of that type counted by the feature.
 ## Assumptions
 
 - Coordinator assignment already exists on files and work orders; this feature only reads it. No new assignment workflow, bulk reassignment, or coordinator management is in scope.
-- The dashboard card counts open, non-deleted files only, because the purpose is current workload; closed and deleted files are excluded. File screens keep their existing status/visibility filters, which continue to govern what the lists show.
+- The dashboard card counts files that are not closed/void and not deleted, because the purpose is current workload. "Not closed" covers every intermediate working status, not just the initial one. File screens keep their existing status/visibility filters, which continue to govern what the lists show.
 - The coordinator filter is a per-session view preference expressed in the screen address; it is not stored as a persisted per-user default.
 - The dashboard card defaults to hidden, consistent with other non-core cards, so existing users' dashboards are not changed without their action.
 - Files of a type the user cannot access are excluded from both the filtered lists and the card counts.

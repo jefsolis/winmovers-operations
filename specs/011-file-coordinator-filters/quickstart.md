@@ -82,15 +82,17 @@ Restart the backend after any change under `backend/` — Express does not hot-r
 
 ## Scenario 5 — Card scope and edge cases (FR-010, FR-012, V6, V8)
 
-1. Confirm the card displays a note stating it counts open, non-deleted files only.
-2. Close a file that appears in the card, reload the dashboard. **Expect**: the count drops by one.
-3. Soft-delete a file with a coordinator, reload. **Expect**: the card count drops; the file is still
+1. Confirm the card displays a note stating it counts files that are not yet closed and not deleted.
+2. Confirm a file in an intermediate status (e.g. Packing, Transit, Customs) **is** counted — the scope is
+   "not closed", not only the initial Open status.
+3. Close a file that appears in the card, reload the dashboard. **Expect**: the count drops by one.
+4. Soft-delete a file with a coordinator, reload. **Expect**: the card count drops; the file is still
    reachable on its screen with visibility = "Deleted" **and** still filterable by that coordinator (V8).
-4. Confirm the inactive coordinator from the prerequisites still appears in the card and in the chip row,
+5. Confirm the inactive coordinator from the prerequisites still appears in the card and in the chip row,
    marked inactive (V6).
-5. Remove a file's coordinator through the file detail screen, reload both surfaces. **Expect**: it moves
+6. Remove a file's coordinator through the file detail screen, reload both surfaces. **Expect**: it moves
    into the Unassigned group in the card and in the filter (V5).
-6. Confirm the Unassigned row is rendered even for categories where its count is 0.
+7. Confirm the Unassigned row is rendered even for categories where its count is 0.
 
 ## Scenario 6 — URL behavior (FR-008, FR-013, V7)
 

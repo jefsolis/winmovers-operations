@@ -108,7 +108,7 @@ Returned as `coordinatorWorkload` on `GET /api/dashboard`. See
 | `counts` | `{ EXPORT: number, IMPORT: number, LOCAL: number, WAREHOUSE: number }` | All four keys always present, zero-filled |
 | `total` | `number` | Sum of `counts` |
 
-**Scope**: `status === 'OPEN'` AND `deletedAt === null` (FR-012). **Ordering**: coordinators by `name`;
+**Scope**: `status NOT IN ('CLOSED', 'VOID')` AND `deletedAt === null` (FR-012). **Ordering**: coordinators by `name`;
 the Unassigned row is returned last and pinned in the UI. **Inclusion**: a coordinator row appears only
 if `total > 0` (FR/edge case); the Unassigned row is always present, even with `total === 0`.
 
@@ -128,7 +128,7 @@ there is exactly one source of truth for every number on the card.
 | V5 | Removing a file's coordinator moves it into the Unassigned group on both surfaces with no other action | Edge case |
 | V6 | A deactivated staff member holding ≥ 1 in-scope file remains selectable in the dropdown and visible in the card, marked inactive | FR-003, edge case |
 | V7 | An unrecognized `?coordinator=` value yields the standard empty state, not an error | Edge case |
-| V8 | Soft-deleted files are filterable by coordinator in the list (visibility = deleted/all) but never counted in the card | Edge case, FR-012 |
+| V8 | Soft-deleted files are filterable by coordinator in the list (visibility = deleted/all) but never counted in the card; closed/void files are likewise excluded from the card | Edge case, FR-012 |
 
 ---
 
