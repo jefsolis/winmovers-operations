@@ -28,6 +28,13 @@ function fmtMonth(key) {
 const ACTIVITY_COLORS = { visits: '#0d9488', quotes: '#8b5cf6', jobs: '#2563eb' }
 const POUND_COLORS = { packed: '#0ea5e9', unpacked: '#f97316', local: '#16a34a' }
 
+const FILE_CATEGORY_COLUMNS = [
+  { key: 'EXPORT',    short: 'exportShort',    route: '/files/export' },
+  { key: 'IMPORT',    short: 'importShort',    route: '/files/import' },
+  { key: 'LOCAL',     short: 'localShort',     route: '/files/local' },
+  { key: 'WAREHOUSE', short: 'warehouseShort', route: '/files/warehouse' },
+]
+
 function toInputMonth(value) {
   const d = new Date(value)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -129,6 +136,7 @@ export default function Dashboard() {
     deliveryDocAlerts,
     myAppointments,
     myCoordinations,
+    coordinatorWorkload = [],
   } = data
 
   const monthData  = (jobsByMonth || []).map(d => ({ ...d, month: fmtMonth(d.month) }))
@@ -892,6 +900,62 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Files by coordinator */}
+      {isVisible('coordinator_workload') && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-body" style={{ paddingBottom: 0 }}>
+            <div className="section-label">{t('dashboard.coordinatorWorkloadTitle')}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{t('dashboard.coordinatorWorkloadScope')}</div>
+          </div>
+          {!coordinatorWorkload.length
+            ? <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('dashboard.coordinatorWorkloadNone')}</div>
+            : <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('dashboard.coordinatorWorkloadCoordinator')}</th>
+                      {FILE_CATEGORY_COLUMNS.map(c => <th key={c.key} style={{ textAlign: 'right' }}>{t(`movingFiles.${c.short}`)}</th>)}
+                      <th style={{ textAlign: 'right' }}>{t('dashboard.coordinatorWorkloadTotal')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coordinatorWorkload.map(row => (
+                      <tr key={row.coordinatorId || 'unassigned'}>
+                        <td style={{ fontSize: 13 }}>
+                          {row.coordinatorId
+                            ? <>{row.name}{row.isActive === false && <span style={{ color: 'var(--text-muted)', fontSize: 11 }}> {t('dashboard.coordinatorWorkloadInactive')}</span>}</>
+                            : <span style={{ fontStyle: 'italic' }}>{t('dashboard.coordinatorWorkloadUnassigned')}</span>}
+                        </td>
+                        {FILE_CATEGORY_COLUMNS.map(c => (
+                          <td key={c.key} style={{ textAlign: 'right' }}>
+                            {row.counts[c.key] > 0
+                              ? <Link to={`${c.route}?coordinator=${row.coordinatorId || 'unassigned'}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{row.counts[c.key]}</Link>
+                              : <span style={{ color: 'var(--text-muted)' }}>0</span>}
+                          </td>
+                        ))}
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{row.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td style={{ fontSize: 13, fontWeight: 700 }}>{t('dashboard.coordinatorWorkloadAllTotal')}</td>
+                      {FILE_CATEGORY_COLUMNS.map(c => (
+                        <td key={c.key} style={{ textAlign: 'right', fontWeight: 700 }}>
+                          {coordinatorWorkload.reduce((sum, row) => sum + row.counts[c.key], 0)}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                        {coordinatorWorkload.reduce((sum, row) => sum + row.total, 0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+          }
         </div>
       )}
 

@@ -256,6 +256,12 @@ export function getFileCategoryLabel(category, t) {
   return t ? t(`fileCategories.${category}`) : category
 }
 
+// Effective coordinator of a file: its own coordinator, else the linked job's, else unassigned.
+// Backend counterpart: backend/services/coordinators.js — keep both in sync.
+export function effectiveCoordinator(file) {
+  return file?.coordinator || file?.job?.coordinator || null
+}
+
 // ── Scheduled status calendar icon (Jobs list, Files lists, Files summary) ───
 export function scheduleMeta(scheduled, t) {
   return scheduled

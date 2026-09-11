@@ -1,6 +1,7 @@
 const router = require('express').Router()
 const { getPrisma } = require('../db')
 const { scheduleStatus } = require('../services/scheduleStatus')
+const { buildCoordinatorWorkload } = require('../services/coordinators')
 
 function toMonthKey(date) {
   const d = new Date(date)
@@ -223,6 +224,7 @@ router.get('/', async (req, res, next) => {
       deliveryDocFiles,
       myAppointments,
       myCoordinations,
+      openFilesForWorkload,
     ] = await Promise.all([
       p.job.count(),
       p.client.count(),
@@ -340,6 +342,14 @@ router.get('/', async (req, res, next) => {
       }),
       myAppointmentsQuery,
       myCoordinationsQuery,
+      p.movingFile.findMany({
+        where: { status: 'OPEN', deletedAt: null },
+        select: {
+          category: true,
+          coordinator: { select: { id: true, name: true, isActive: true } },
+          job: { select: { coordinator: { select: { id: true, name: true, isActive: true } } } },
+        },
+      }),
     ])
 
     const activeStatuses = ['SURVEY', 'QUOTATION', 'BOOKING', 'PRE_MOVE', 'IN_TRANSIT']
@@ -501,6 +511,7 @@ router.get('/', async (req, res, next) => {
       deliveryDocAlerts,
       myAppointments,
       myCoordinations,
+      coordinatorWorkload: buildCoordinatorWorkload(openFilesForWorkload),
     })
   } catch (err) { next(err) }
 })

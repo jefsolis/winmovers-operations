@@ -78,6 +78,12 @@ export const DASHBOARD_CARDS = [
     descKey:  'dashboard.store.cards.recentJobs.desc',
     defaultVisible: true,
   },
+  {
+    id: 'coordinator_workload',
+    titleKey: 'dashboard.store.cards.coordinatorWorkload.title',
+    descKey:  'dashboard.store.cards.coordinatorWorkload.desc',
+    defaultVisible: false,
+  },
   // Personal cards — require a linked StaffMember to show relevant data
   {
     id: 'my_coordinations',
